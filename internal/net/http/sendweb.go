@@ -24,6 +24,7 @@ type SendWeb struct {
 	replaceHd map[string]string
 	appendHd  map[string][]string
 	cacheData []byte
+	sent      bool
 
 	// Writer 是由 StartHttp 在请求生命周期内注入的写出函数
 	Writer func(status int, headers map[string][]string, body []byte) error
@@ -93,12 +94,13 @@ func (s *SendWeb) SetDataString(str string) {
 
 // Send 对应 send(); 写出响应
 func (s *SendWeb) Send() error {
-	if s.Writer == nil {
+	s.mu.Lock()
+	if s.sent {
+		s.mu.Unlock()
 		return nil
 	}
-	if s.cacheData == nil {
-		return nil // 不主动 panic, 与原版语义接近 (这里改返回错误)
-	}
+	s.sent = true
+	status := s.status
 	headers := make(map[string][]string, len(s.replaceHd)+len(s.appendHd)+1)
 	for k, v := range s.replaceHd {
 		headers[k] = []string{v}
@@ -107,7 +109,28 @@ func (s *SendWeb) Send() error {
 		headers[k] = append(headers[k], vs...)
 	}
 	headers["Content-Length"] = []string{strconv.Itoa(len(s.cacheData))}
-	return s.Writer(s.status, headers, s.cacheData)
+	body := s.cacheData
+	writer := s.Writer
+	s.mu.Unlock()
+
+	if writer == nil {
+		return nil
+	}
+	if body == nil {
+		return nil // 不主动 panic, 与原版语义接近 (这里改返回错误)
+	}
+	return writer(status, headers, body)
+}
+
+// Flush 在 handler 未显式调用 Send 时补发响应 (Go 侧约定: 设置数据即响应)
+func (s *SendWeb) Flush() error {
+	s.mu.Lock()
+	hasData := s.cacheData != nil
+	s.mu.Unlock()
+	if !hasData {
+		return nil
+	}
+	return s.Send()
 }
 
 // writeHeaders 内部合并 headers (供 404/BadRequest 等调用)

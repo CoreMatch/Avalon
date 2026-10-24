@@ -157,20 +157,48 @@ func NewServerHandler(ch *core.Channel, abstractNet *AbstractNet) func(*packet.P
 		}
 		tc := ch.GetTypeConnect()
 		if tc == nil {
-			ca := core.NewTCPConnectionAgreement(ch, abstractNet.rwHps)
-			tc = abstractNet.rwHps.TypeConnect().GetTypeConnect(ca)
+			ca, created := newTypeConnect(ch, abstractNet)
+			if created == nil {
+				// 连接工厂链不完整, 无法处理任何协议包, 直接断开该连接
+				log.Warn("[GamePacketDecoder] TypeConnect 初始化失败, 断开连接")
+				_ = ch.Close()
+				return nil
+			}
+			tc = created
 			ch.SetTypeConnect(tc)
 
 			if core.NetConnectNewEventHook != nil {
 				if core.NetConnectNewEventHook(ca) {
-					tc.AbstractNetConnect().Disconnect()
+					if anc := tc.AbstractNetConnect(); anc != nil {
+						anc.Disconnect()
+					}
 					return nil
 				}
 			}
+		}
+		if anc := tc.AbstractNetConnect(); anc != nil {
+			anc.RefreshLastReceivedTime()
 		}
 		if err := tc.ProcessConnect(msg); err != nil {
 			log.Debugf("processConnect err: %v", err)
 		}
 		return nil
 	}
+}
+
+// newTypeConnect 安全地构造连接处理器, 任一环节缺失时返回 nil 而非 panic
+func newTypeConnect(ch *core.Channel, abstractNet *AbstractNet) (*core.ConnectionAgreement, core.TypeConnect) {
+	if abstractNet == nil || abstractNet.rwHps == nil {
+		return nil, nil
+	}
+	factory := abstractNet.rwHps.TypeConnect()
+	if factory == nil {
+		return nil, nil
+	}
+	ca := core.NewTCPConnectionAgreement(ch, abstractNet.rwHps)
+	tc := factory.GetTypeConnect(ca)
+	if tc == nil {
+		return ca, nil
+	}
+	return ca, tc
 }

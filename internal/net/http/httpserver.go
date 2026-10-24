@@ -123,6 +123,9 @@ func (s *StartHttp) dispatch(conn io.WriteCloser, req *HttpRequestLite) {
 	default:
 		send.Send404()
 	}
+
+	// handler 只设置数据而未显式 Send 时补发响应
+	_ = send.Flush()
 }
 
 // keepAlive 对应 HttpUtil.isKeepAlive: 没显式 Connection: close 则视为 true (HTTP/1.1 默认持久连接)
@@ -235,13 +238,17 @@ func readFull(r *bufio.Reader, buf []byte) (int, error) {
 }
 
 // writeResponse 直接在 conn 上写出 HTTP/1.1 响应
+// 头部与响应体合并为一次写出, 避免 TCP 拆包导致客户端需要多次读取
 func writeResponse(conn io.Writer, req *HttpRequestLite, status int, headers map[string][]string, body []byte) error {
 	if status == 0 {
 		status = StatusOK
 	}
-	statusLine := req.Proto + " " + strconv.Itoa(status) + " " + statusText(status) + "\r\n"
+	proto := req.Proto
+	if proto == "" {
+		proto = "HTTP/1.1"
+	}
 	var b strings.Builder
-	b.WriteString(statusLine)
+	b.WriteString(proto + " " + strconv.Itoa(status) + " " + statusText(status) + "\r\n")
 	for k, vs := range headers {
 		for _, v := range vs {
 			b.WriteString(k)
@@ -251,15 +258,11 @@ func writeResponse(conn io.Writer, req *HttpRequestLite, status int, headers map
 		}
 	}
 	b.WriteString("\r\n")
-	if _, err := conn.Write([]byte(b.String())); err != nil {
-		return err
-	}
 	if len(body) > 0 {
-		if _, err := conn.Write(body); err != nil {
-			return err
-		}
+		b.Write(body)
 	}
-	return nil
+	_, err := conn.Write([]byte(b.String()))
+	return err
 }
 
 // writeNotFound 简化的内部 404 (用于 StartHttp 占位)

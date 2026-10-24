@@ -1,7 +1,6 @@
 package http
 
 import (
-	"bufio"
 	"bytes"
 	"io"
 	"net"
@@ -15,19 +14,6 @@ func pipeConn(t *testing.T) (net.Conn, net.Conn) {
 	t.Helper()
 	a, b := net.Pipe()
 	return a, b
-}
-
-// runStartHttp 服务端 接受一条 HTTP 连接, 同步分发处理
-func runStartHttp(t *testing.T, srv *StartHttp, server net.Conn) {
-	t.Helper()
-	// 包装为 core.Channel
-	ch := newTestChannel(server)
-	done := make(chan struct{})
-	go func() {
-		srv.HandleChannel(ch)
-		close(done)
-	}()
-	<-done
 }
 
 // 编译期校验实现 Connection 接口
@@ -58,7 +44,7 @@ func TestStartHttpGetExactMatch(t *testing.T) {
 
 	done := make(chan struct{})
 	go func() {
-		runStartHttpWith(srv, serverConn)
+		srv.HandleConn(serverConn)
 		close(done)
 	}()
 
@@ -105,7 +91,7 @@ func TestStartHttpPostExactMatch(t *testing.T) {
 
 	done := make(chan struct{})
 	go func() {
-		runStartHttpWith(srv, serverConn)
+		srv.HandleConn(serverConn)
 		close(done)
 	}()
 
@@ -151,7 +137,7 @@ func TestStartHttpKeepAlive(t *testing.T) {
 
 	done := make(chan struct{})
 	go func() {
-		runStartHttpWith(srv, serverConn)
+		srv.HandleConn(serverConn)
 		close(done)
 	}()
 
@@ -199,29 +185,6 @@ func TestStartHttpWebHOSTMismatch(t *testing.T) {
 
 // --- helpers ---
 
-// newTestChannel 把 net.Conn 包成 *core.Channel (避免循环 import)
-func newTestChannel(conn net.Conn) interface {
-	GetTypeConnect() interface{}
-	Close() error
-} {
-	// 直接用临时结构体:
-	return &testChannel{conn: conn}
-}
-
-type testChannel struct{ conn net.Conn }
-
-func (t *testChannel) GetTypeConnect() interface{} { return nil }
-func (t *testChannel) Close() error                 { t.conn.Close(); return nil }
-
-// runStartHttpWith 直接把 serverConn 桥接到 StartHttp.HandleChannel
-func runStartHttpWith(srv *StartHttp, conn net.Conn) {
-	// 因为 HandleChannel 需要 *core.Channel, 这里是测试桩;
-	// 真正实现时通过 StartMixProtocol 把嗅探出的 HTTP 连接包装进 ChannelHandle 再调 HandleChannel.
-	// 此处使用简化路径: StartHttp 仍需要 core.Channel — 让 StartHttp 接收 io.ReadWriteCloser 即可.
-	// 见 alternativeHandle.
-	srv.alternativeHandle(conn)
-}
-
 // itoa 测试内避免再引 strconv
 func itoa(n int) string {
 	if n == 0 {
@@ -249,6 +212,3 @@ func (f WebPostFunc) Post(a *AcceptWeb, s *SendWeb) { f(a, s) }
 func (f WebPostFunc) StringPostDataResolveToJson(a *AcceptWeb) (map[string]string, error) {
 	return map[string]string{}, nil
 }
-
-// 引入 bufio 仅用于编译占位, 未来扩展使用
-var _ = bufio.NewReader
