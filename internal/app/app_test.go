@@ -9,6 +9,7 @@ import (
 
 	"rwhps/internal/data/global"
 	"rwhps/internal/data/totalizer"
+	"rwhps/internal/game"
 	"rwhps/internal/net/core"
 	"rwhps/internal/util/file"
 	"rwhps/internal/util/file/load"
@@ -28,6 +29,7 @@ func setupBase(t *testing.T) string {
 	oldCountry := global.ServerCountry
 	oldCore := global.Core
 	oldHook := global.CloseServerHook
+	oldBackend := game.Backend
 	oldOut := log.Output()
 	oldIn := log.Input()
 	oldTranslator := log.Bundle
@@ -39,6 +41,7 @@ func setupBase(t *testing.T) string {
 		global.ServerCountry = oldCountry
 		global.Core = oldCore
 		global.CloseServerHook = oldHook
+		game.Backend = oldBackend
 		log.SetOutput(oldOut)
 		log.SetInput(oldIn)
 		log.Bundle = oldTranslator

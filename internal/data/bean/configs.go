@@ -61,6 +61,22 @@ type CoreConfig struct {
 	SslPasswd string `json:"sslPasswd"`
 
 	RunPid int64 `json:"runPid"`
+
+	// ---- 以下三项是 Go 版新增, 原版没有对应字段 ----
+	//
+	// 原版不需要它们: 它自己就跑在 JVM 里, 直接用 ASM 改写 rusted-warfare.jar
+	// 的字节码拿到游戏内核. Go 版做不到这一点, 只能把内核放到一个外部 Java
+	// 进程里, 于是需要有人告诉 Go "java 在哪、helper 在哪、带什么参数".
+	//
+	// 全部留空 = 不启用外部依赖, 服务器行为与不配置时完全一致 (开局返回
+	// game.ErrNotImplemented), 见 app.loadSimulation.
+
+	// JavaPath java 可执行文件; 空表示按 PATH 里的 "java" 处理
+	JavaPath string `json:"javaPath"`
+	// GameHelperPath 外部游戏内核的入口 (jar 路径或主类名), 必填才启用
+	GameHelperPath string `json:"gameHelperPath"`
+	// GameHelperArgs 追加给 java 的参数, 例如 -Xmx512m
+	GameHelperArgs []string `json:"gameHelperArgs"`
 }
 
 // NewCoreConfig 创建带默认值的核心配置
@@ -98,6 +114,10 @@ func NewCoreConfig() CoreConfig {
 		SslPasswd:    "RW-HPS",
 
 		RunPid: 0,
+
+		JavaPath:       "",
+		GameHelperPath: "",
+		GameHelperArgs: nil,
 	}
 }
 

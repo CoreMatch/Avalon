@@ -15,12 +15,16 @@ func TestI18NBundleLoad(t *testing.T) {
 	}
 	bundle := NewI18NBundleFromBytes(b)
 
-	// HPS_en_US.properties 去掉注释与续行后正好 203 个 key; 数量变化说明解析器漂移了
-	if bundle.Size() != 203 {
-		t.Fatalf("bundle size = %d, want 203", bundle.Size())
+	// HPS_en_US.properties 去掉注释与续行后正好 204 个 key; 数量变化说明解析器漂移了
+	if bundle.Size() != 204 {
+		t.Fatalf("bundle size = %d, want 204", bundle.Size())
 	}
 	if !bundle.Contains("server.login") {
 		t.Fatal("missing server.login")
+	}
+	// Go 版新增: 外部游戏内核的接入提示 (原版没有这个 key, 它不需要外部进程)
+	if !bundle.Contains("server.load.gameCore") {
+		t.Fatal("missing server.load.gameCore")
 	}
 	login := bundle.GetInput("server.login")
 	if !strings.Contains(login, "RW-HPS") {

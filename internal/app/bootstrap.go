@@ -60,6 +60,10 @@ func (r *Runtime) Start() error {
 	// 原版房间由游戏模块加载时创建 (HeadlessModuleManage.hps.room);
 	// Go 版没有游戏模块, 这里建一个绑定 game.Backend 的空房间,
 	// 让 start / hi / version 有确定的对象可读. 没有后端时 start 会返回 ErrNotImplemented.
+	//
+	// 后端必须在建房间之前装好: 房间在构造时就把 game.Backend 取走了.
+	// 对应原版的哪一行: 没有 —— 原版的内核在进程内, 见 loadSimulation 的说明.
+	game.SetBackend(loadSimulation())
 	r.Session = game.NewGameSession(global.ConfigServer.ServerID, game.Backend)
 
 	// startInit() + loadLib()
