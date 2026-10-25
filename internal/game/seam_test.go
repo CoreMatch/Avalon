@@ -90,8 +90,11 @@ func TestNewGameSessionDefaults(t *testing.T) {
 	if s.RoomID != "room-1" {
 		t.Fatalf("RoomID = %q", s.RoomID)
 	}
-	if s.MapName != DefaultMapName || s.MapPlayer != DefaultMapPlayer {
-		t.Fatalf("地图默认值 = %q / %q", s.MapName, s.MapPlayer)
+	if s.Maps == nil {
+		t.Fatal("Maps 不应为 nil")
+	}
+	if s.Maps.MapName != DefaultMapName || s.Maps.MapPlayer != DefaultMapPlayer {
+		t.Fatalf("地图默认值 = %q / %q", s.Maps.MapName, s.Maps.MapPlayer)
 	}
 	if s.MaxPlayer != 12 {
 		t.Fatalf("MaxPlayer = %d, want 12", s.MaxPlayer)
@@ -137,8 +140,8 @@ func TestStartGameWithBackend(t *testing.T) {
 
 	fs := &fakeSim{}
 	s := NewGameSession("room-2", fs)
-	s.MapName = "Dust"
-	s.MapPlayer = "[p4]"
+	s.Maps.MapName = "Dust"
+	s.Maps.MapPlayer = "[p4]"
 	s.MaxPlayer = 4
 
 	if err := s.StartGame(); err != nil {

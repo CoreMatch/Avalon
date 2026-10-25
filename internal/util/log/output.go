@@ -6,6 +6,7 @@
 package log
 
 import (
+	"bufio"
 	"io"
 	"os"
 	"sync"
@@ -15,8 +16,9 @@ var (
 	outMu sync.RWMutex
 	outW  io.Writer = os.Stdout
 
-	inMu sync.RWMutex
-	inR  io.Reader = os.Stdin
+	inMu     sync.RWMutex
+	inR      io.Reader = os.Stdin
+	inReader *bufio.Reader
 )
 
 // SetOutput 重定向全部输出 (对应原版替换 System.out 与 Data.privateOut 的作用)
@@ -43,6 +45,7 @@ func Output() io.Writer {
 func SetInput(r io.Reader) {
 	inMu.Lock()
 	defer inMu.Unlock()
+	inReader = nil
 	if r == nil {
 		inR = os.Stdin
 		return
@@ -55,4 +58,19 @@ func Input() io.Reader {
 	inMu.RLock()
 	defer inMu.RUnlock()
 	return inR
+}
+
+// InputReader 返回与当前输入绑定的缓冲读取器 (进程内单例)
+//
+// 原版每次 waitLicense 都新建一个 Scanner, 而 Scanner 会预读一整块输入:
+// 交互式终端下看不出来 (用户会再敲一行), 但管道输入时 "Yes\nNo\n" 的第二行
+// 会被第一个 Scanner 吃掉, 第二个提示只能读到 EOF.
+// Go 版让所有读输入的地方共用同一个 bufio.Reader, 管道输入的行为与人工输入一致.
+func InputReader() *bufio.Reader {
+	inMu.Lock()
+	defer inMu.Unlock()
+	if inReader == nil {
+		inReader = bufio.NewReader(inR)
+	}
+	return inReader
 }

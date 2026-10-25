@@ -101,10 +101,8 @@ type GameSession struct {
 
 	mu sync.RWMutex
 
-	// MapName 对应 room.maps.mapName
-	MapName string
-	// MapPlayer 对应 room.maps.mapPlayer
-	MapPlayer string
+	// Maps 对应 room.maps: 当前房间使用的地图
+	Maps *GameMaps
 	// MaxPlayer 对应 Data.configServer.maxPlayer
 	MaxPlayer int
 
@@ -141,8 +139,7 @@ func NewGameSession(roomID string, sim Simulation) *GameSession {
 	return &GameSession{
 		RoomID:     roomID,
 		Simulation: sim,
-		MapName:    DefaultMapName,
-		MapPlayer:  DefaultMapPlayer,
+		Maps:       NewGameMaps(),
 		MaxPlayer:  global.ConfigServer.MaxPlayer,
 		Sync:       true,
 		MuteAll:    global.ConfigServer.MuteAll,
@@ -165,13 +162,23 @@ func (s *GameSession) StartGame() error {
 	sim := s.simulation()
 
 	s.mu.RLock()
+	maps := s.Maps
 	cfg := MatchConfig{
 		RoomID:    s.RoomID,
-		MapName:   s.MapName,
-		MapPlayer: s.MapPlayer,
 		MaxPlayer: s.MaxPlayer,
 	}
+	if maps != nil {
+		cfg.MapName = maps.MapName
+		cfg.MapPlayer = maps.MapPlayer
+	}
 	s.mu.RUnlock()
+
+	// 原版 roomStartGame 之前会由地图管理器把地图落到磁盘; 这里先把地图准备好
+	if maps != nil && maps.MapData != nil {
+		if err := maps.MapData.ReadMap(); err != nil {
+			return err
+		}
+	}
 
 	if err := sim.Start(cfg); err != nil {
 		return err
@@ -188,8 +195,8 @@ func (s *GameSession) StartGame() error {
 
 // GameOver 对应 ServerRoom.gr 里的 cleanData 部分
 //
-// 原版还会 fire(ServerGameOverEvent)、清理 banUnit、关闭计时任务、
-// 清理地图临时文件 —— 这些都属于事件层与地图管理, 留到后续批次.
+// 原版还会 fire(ServerGameOverEvent)、清理 banUnit、关闭计时任务 —— 这些属于事件层,
+// 留到后续批次; 地图临时文件的清理在这里做, 对应 cleanData 末尾的 maps.mapData?.clean().
 func (s *GameSession) GameOver() error {
 	sim := s.simulation()
 	if err := sim.Stop(); err != nil {
@@ -200,7 +207,12 @@ func (s *GameSession) GameOver() error {
 	s.IsStartGame = false
 	s.StartTime = 0
 	s.EndTime = 0
+	maps := s.Maps
 	s.mu.Unlock()
+
+	if maps != nil && maps.MapData != nil {
+		maps.MapData.Clean()
+	}
 	return nil
 }
 
@@ -214,10 +226,9 @@ func (s *GameSession) Running() bool { return s.simulation().Running() }
 func (s *GameSession) Snapshot() RoomState {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return RoomState{
+
+	st := RoomState{
 		RoomID:         s.RoomID,
-		MapName:        s.MapName,
-		MapPlayer:      s.MapPlayer,
 		MaxPlayer:      s.MaxPlayer,
 		IsStartGame:    s.IsStartGame,
 		Sync:           s.Sync,
@@ -226,6 +237,11 @@ func (s *GameSession) Snapshot() RoomState {
 		EndTime:        s.EndTime,
 		ReplayFileName: s.ReplayFileName,
 	}
+	if s.Maps != nil {
+		st.MapName = s.Maps.MapName
+		st.MapPlayer = s.Maps.MapPlayer
+	}
+	return st
 }
 
 // RoomState 是 GameSession 的无锁快照
