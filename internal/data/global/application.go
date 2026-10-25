@@ -53,7 +53,7 @@ func NewApplication() *Application {
 	settings, err := plugindata.Open(file.GetFolder(ServerDataPath).ToFile("Settings.bin"))
 	if err != nil {
 		// 原版解码失败会抛异常; 这里降级为只读, 保证不覆盖既有身份文件
-		log.Errorf("[Settings] %v (store is now read-only)", err)
+		log.Errorf("[Settings]", "{0} (store is now read-only)", err)
 	}
 
 	a := &Application{
@@ -91,7 +91,7 @@ func (a *Application) Save() {
 	}
 	if a.Settings != nil {
 		if err := a.Settings.Save(); err != nil {
-			log.Errorf("[Settings] save failed: %v", err)
+			log.Errorf("[Settings]", "save failed: {0}", err)
 		}
 	}
 }

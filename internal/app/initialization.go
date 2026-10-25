@@ -2,7 +2,6 @@
 package app
 
 import (
-	"fmt"
 	"strings"
 
 	"rwhps/internal/core/service"
@@ -89,7 +88,7 @@ func initServerLanguage(settings *plugindata.Settings, country string) {
 	if bundle, ok := global.I18NBundleMap[global.ServerCountry]; ok && bundle != nil {
 		global.I18NBundle = bundle
 	} else {
-		log.Warn(fmt.Sprintf("[Language] bundle %q not found, falling back to EN", global.ServerCountry))
+		log.Warnf("[Language]", "bundle {0} not found, falling back to EN", global.ServerCountry)
 		global.ServerCountry = "EN"
 		global.I18NBundle = global.I18NBundleMap["EN"]
 	}
@@ -127,7 +126,7 @@ func eula(settings *plugindata.Settings) {
 		log.WaitLicense(func() {
 			text, err := resource.EULA(global.ServerCountry)
 			if err != nil {
-				log.Error(fmt.Sprintf("[EULA] %v", err))
+				log.Errorf("[EULA]", "{0}", err)
 				return
 			}
 			log.Clog(string(text))
@@ -154,7 +153,7 @@ func eula(settings *plugindata.Settings) {
 	}
 
 	if err := settings.Save(); err != nil {
-		log.Error(fmt.Sprintf("[Settings] save failed: %v", err))
+		log.Errorf("[Settings]", "save failed: {0}", err)
 	}
 }
 
@@ -192,10 +191,10 @@ func checkEnvironment() {}
 // Go 版对应 game/manage 的 Provider 接缝, 其默认实现已经等价于 FakeRwHps.
 func loadService() {
 	if err := service.Default.RegisterDefault(service.KindProtocolPacket, core.GlobalProtocol.String(), realize.NewGameVersionPacket()); err != nil {
-		log.Error(fmt.Sprintf("[ServiceLoader] %v", err))
+		log.Errorf("[ServiceLoader]", "{0}", err)
 	}
 	if err := service.Default.RegisterDefault(service.KindPacketType, core.GlobalProtocol.String(), packettype.INSTANCE); err != nil {
-		log.Error(fmt.Sprintf("[ServiceLoader] %v", err))
+		log.Errorf("[ServiceLoader]", "{0}", err)
 	}
 }
 

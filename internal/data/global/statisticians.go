@@ -21,7 +21,7 @@ func AddTime(name string) {
 	statMu.Lock()
 	defer statMu.Unlock()
 	if _, ok := statTimes[name]; ok {
-		log.Errorf("[Statisticians.Time] Add %s", name)
+		log.Errorf("[Statisticians.Time]", "Add {0}", name)
 		return
 	}
 	statTimes[name] = timeutil.Millis()

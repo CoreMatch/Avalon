@@ -93,7 +93,7 @@ func (d *PacketStream) Feed(data []byte) ([]*packet.Packet, bool) {
 
 		pt := packettype.Resolver.From(d.readPacketType)
 		if pt.TypeInt() == int(packettype.NOT_RESOLVED) {
-			log.Warnf("[GamePacketDecoder] Unknown Protocol Type: %d", d.readPacketType)
+			log.Warnf("[GamePacketDecoder]", "Unknown Protocol Type: {0}", d.readPacketType)
 			d.stopped = true
 			return nil, true
 		}
@@ -131,7 +131,7 @@ func (d *PacketStream) ReadPacket(r io.Reader) (*packet.Packet, error) {
 	}
 	pt := packettype.Resolver.From(t)
 	if pt.TypeInt() == int(packettype.NOT_RESOLVED) {
-		log.Warnf("[GamePacketDecoder] Unknown Protocol Type: %d", t)
+		log.Warnf("[GamePacketDecoder]", "Unknown Protocol Type: {0}", t)
 		return nil, ErrUnknownProtocol
 	}
 	return packet.NewPacket(pt, data), nil
@@ -180,7 +180,7 @@ func NewServerHandler(ch *core.Channel, abstractNet *AbstractNet) func(*packet.P
 			anc.RefreshLastReceivedTime()
 		}
 		if err := tc.ProcessConnect(msg); err != nil {
-			log.Debugf("processConnect err: %v", err)
+			log.Debugf("GamePacketDecoder", "processConnect err: {0}", err)
 		}
 		return nil
 	}

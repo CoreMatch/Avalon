@@ -5,7 +5,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 
 	"rwhps/internal/app"
@@ -15,7 +14,7 @@ import (
 func main() {
 	if err := app.Run(os.Args[1:]); err != nil {
 		// 注意: log.Error 不是 printf 风格 (对应 Kotlin 的 vararg 拼接), 先自己格式化
-		log.Error(fmt.Sprintf("start failed: %v", err))
+		log.Errorf("Start", "{0}", err)
 		os.Exit(1)
 	}
 }

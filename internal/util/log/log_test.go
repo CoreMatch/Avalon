@@ -265,3 +265,52 @@ func TestWaitLicenseEOF(t *testing.T) {
 		t.Fatalf("缺少 EOF 提示: %q", buf.String())
 	}
 }
+
+// TestErrorfTagAndTemplate *f 系列对应 Kotlin 的 error(tag, e, vararg params):
+// 首参是 tag, 次参是消息模板, 占位符是 {0}/{1} 而不是 Go 的 %v.
+func TestErrorfTagAndTemplate(t *testing.T) {
+	buf := capture(t)
+	Set(LevelAll.Name)
+
+	Errorf("[HttpRequest]", errBoom)
+	Warnf("[net]", "bind {0} fail: {1}", 5123, errBoom)
+	Debugf("Config", "Set OK {0} = {1}", "port", 5123)
+	Trackf("Config Property", "{0} no Property", "x")
+
+	out := buf.String()
+	for _, want := range []string{
+		"[HttpRequest]",
+		"[net]: bind 5123 fail: boom",
+		"Config: Set OK port = 5123",
+		"Config Property: x no Property",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("日志缺少 %q\n实际输出:\n%s", want, out)
+		}
+	}
+	// 回归: 以前用 fmt.Sprint 会把格式串原样打进日志
+	for _, bad := range []string{"%v", "%d", "%s"} {
+		if strings.Contains(out, bad) {
+			t.Fatalf("日志里出现了未展开的 %q\n实际输出:\n%s", bad, out)
+		}
+	}
+}
+
+// TestErrorfWithError 消息位直接放 error 时应打印堆栈 (与 Kotlin 的 tag/e 双参一致)
+func TestErrorfWithError(t *testing.T) {
+	buf := capture(t)
+	Set(LevelError.Name)
+
+	Errorf("[Settings]", errBoom)
+
+	out := buf.String()
+	if !strings.Contains(out, "[Settings]") {
+		t.Fatalf("缺少 tag: %q", out)
+	}
+	if !strings.Contains(out, "boom") {
+		t.Fatalf("缺少错误正文: %q", out)
+	}
+}
+
+// errBoom 是测试用的固定错误
+var errBoom = fmt.Errorf("boom")

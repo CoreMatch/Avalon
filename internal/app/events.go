@@ -11,7 +11,6 @@
 package app
 
 import (
-	"fmt"
 	"sync"
 
 	"rwhps/internal/net/core"
@@ -94,7 +93,7 @@ func (e *Events) Fire(ev GlobalEvent) {
 		func() {
 			defer func() {
 				if r := recover(); r != nil {
-					log.Error(fmt.Sprintf("[Event] %s handler panic: %v", name, r))
+					log.Errorf("[Event]", "{0} handler panic: {1}", name, r)
 				}
 			}()
 			fn(ev)

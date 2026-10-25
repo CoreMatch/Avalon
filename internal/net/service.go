@@ -181,9 +181,9 @@ func (s *NetService) OpenPortRange(port, startPort, endPort int) {
 	if err != nil {
 		var opErr *net.OpError
 		if errors.As(err, &opErr) {
-			log.Errorf("[Port Bind Error] %v", err)
+			log.Errorf("[Port Bind Error]", err)
 		} else {
-			log.Errorf("[NET Error] %v", err)
+			log.Errorf("[NET Error]", err)
 		}
 		return
 	}
@@ -196,7 +196,7 @@ func (s *NetService) OpenPortRange(port, startPort, endPort int) {
 	for i := startPort; i <= endPort; i++ {
 		l, e := net.Listen("tcp", "0.0.0.0:"+strconv.Itoa(i))
 		if e != nil {
-			log.Warnf("[net] bind %d fail: %v", i, e)
+			log.Warnf("[net]", "bind {0} fail: {1}", i, e)
 			continue
 		}
 		s.mu.Lock()
@@ -224,7 +224,7 @@ func (s *NetService) acceptLoop(l net.Listener) {
 				return
 			}
 			if !s.errorIgnore {
-				log.Errorf("[NET Error] accept: %v", err)
+				log.Errorf("[NET Error]", "accept: {0}", err)
 			}
 			return
 		}

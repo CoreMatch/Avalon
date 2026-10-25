@@ -3,7 +3,6 @@ package app
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"os/signal"
 	"sync"
@@ -153,7 +152,7 @@ func (r *Runtime) reportIdling(idling *totalizer.TimeAndNumber, rec any) bool {
 	if idling.CheckStatus() {
 		idling.Add(1)
 		log.Clog("InputMonitor Error")
-		log.Error(fmt.Sprintf("InputMonitor: %v", rec))
+		log.Errorf("InputMonitor", "{0}", rec)
 		return false
 	}
 	log.Clog("InputMonitor Idling")

@@ -177,7 +177,7 @@ func (c *ConnectionAgreement) Close(groupNet IGroupNet) error {
 	case KindUDP:
 		if c.UDPOUT != nil {
 			if err := c.UDPOUT.Close(); err != nil {
-				log.Errorf("[Reliable UDP Close] Passive: %v", err)
+				log.Errorf("[Reliable UDP Close]", "Passive: {0}", err)
 			}
 		}
 	}

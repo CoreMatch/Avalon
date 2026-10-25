@@ -29,7 +29,7 @@ func NewHttpRequestManage(userAgent string) *HttpRequestManage {
 func (h *HttpRequestManage) DoGet(rawURL string) string {
 	req, err := http.NewRequest(http.MethodGet, rawURL, nil)
 	if err != nil {
-		log.Errorf("[HttpRequest] %v", err)
+		log.Errorf("[HttpRequest]", err)
 		return ""
 	}
 	return h.do(req)
@@ -50,7 +50,7 @@ func (h *HttpRequestManage) DoPost(rawURL, param string) string {
 	}
 	req, err := http.NewRequest(http.MethodPost, rawURL, strings.NewReader(form.Encode()))
 	if err != nil {
-		log.Errorf("[HttpRequest] %v", err)
+		log.Errorf("[HttpRequest]", err)
 		return ""
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -66,7 +66,7 @@ func (h *HttpRequestManage) DoPostJson(rawURL, param string) string {
 func (h *HttpRequestManage) DoPostJsonWithHead(rawURL string, head map[string]string, param string) string {
 	req, err := http.NewRequest(http.MethodPost, rawURL, strings.NewReader(param))
 	if err != nil {
-		log.Errorf("[HttpRequest] %v", err)
+		log.Errorf("[HttpRequest]", err)
 		return ""
 	}
 	req.Header.Set("Content-Type", "application/json; charset=utf-8")
@@ -81,17 +81,17 @@ func (h *HttpRequestManage) do(req *http.Request) string {
 	req.Header.Set("User-Agent", h.userAgent)
 	resp, err := h.client.Do(req)
 	if err != nil {
-		log.Errorf("[HttpRequest] %v", err)
+		log.Errorf("[HttpRequest]", err)
 		return ""
 	}
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		log.Errorf("[HttpRequest] Unexpected code %d", resp.StatusCode)
+		log.Errorf("[HttpRequest]", "Unexpected code {0}", resp.StatusCode)
 		return ""
 	}
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Errorf("[HttpRequest] %v", err)
+		log.Errorf("[HttpRequest]", err)
 		return ""
 	}
 	return string(body)

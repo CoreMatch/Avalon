@@ -171,7 +171,7 @@ func (n *AbstractNet) dispatchAll(handler func(*packet.Packet) error, pkts []*pa
 			continue
 		}
 		if err := handler(p); err != nil {
-			log.Errorf("handle packet err: %v", err)
+			log.Errorf("GamePacket", "handle packet err: {0}", err)
 		}
 	}
 }

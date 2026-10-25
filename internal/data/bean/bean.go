@@ -77,7 +77,7 @@ func toString(v any) string {
 // ReadProperty 对应 AbstractBeanConfig.readProperty
 func ReadProperty(bean any, prefix string, f *file.FileUtils) {
 	if prefix == "" {
-		log.Trackf("Config Property %s no Property", f.Name())
+		log.Trackf("Config Property", "{0} no Property", f.Name())
 		return
 	}
 	v := reflect.ValueOf(bean).Elem()
@@ -95,9 +95,9 @@ func ReadProperty(bean any, prefix string, f *file.FileUtils) {
 			}
 		}
 		if CoverField(bean, name, data) {
-			log.Debugf("Set OK %s = %s", name, data)
+			log.Debugf("Config", "Set OK {0} = {1}", name, data)
 		} else {
-			log.Debugf("Set ERROR %s = %s", name, data)
+			log.Debugf("Config", "Set ERROR {0} = {1}", name, data)
 		}
 	}
 }
@@ -116,7 +116,7 @@ func LoadOrInit[T any](f *file.FileUtils, defaults T) T {
 	}
 	out := defaults
 	if err := jsonutil.FromJSON(data, &out); err != nil {
-		log.Errorf("Config parse error %s: %v", f.Name(), err)
+		log.Errorf("Config", "parse error {0}: {1}", f.Name(), err)
 		Save(defaults, f)
 		return defaults
 	}

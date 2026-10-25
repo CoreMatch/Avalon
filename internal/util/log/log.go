@@ -244,21 +244,31 @@ func threadName() string {
 	return "Go-" + strconv.Itoa(goroutineID())
 }
 
-func Skipping(v any)               { logs(LevelOff, v, nil) }
-func Skippingf(v any, args ...any) { logs(LevelOff, v, fmt.Sprint(args...)) }
-func Fatal(v any)                  { logs(LevelFatal, v, nil) }
-func Fatalf(v any, args ...any)    { logs(LevelFatal, v, fmt.Sprint(args...)) }
-func Error(v any)                  { logs(LevelError, v, nil) }
-func Errorf(v any, args ...any)    { logs(LevelError, v, fmt.Sprint(args...)) }
-func Warn(v any)                   { logs(LevelWarn, v, nil) }
-func Warnf(v any, args ...any)     { logs(LevelWarn, v, fmt.Sprint(args...)) }
-func Info(v any)                   { logs(LevelInfo, v, nil) }
-func Infof(v any, args ...any)     { logs(LevelInfo, v, fmt.Sprint(args...)) }
-func Debug(v any)                  { logs(LevelDebug, v, nil) }
-func Debugf(v any, args ...any)    { logs(LevelDebug, v, fmt.Sprint(args...)) }
-func Track(v any)                  { logs(LevelTrack, v, nil) }
-func Trackf(v any, args ...any)    { logs(LevelTrack, v, fmt.Sprint(args...)) }
-func All(v any)                    { logs(LevelAll, v, nil) }
+// *f 系列对应 Kotlin 的 Log.error(tag, e, vararg params) 等
+//
+//	fun error(tag: Any, e: Any, vararg params: Any) = logs(Logg.ERROR, tag, e.parse(*params))
+//
+// 即: 第一个参数是 tag (打印在级别后面), 第二个是消息模板, 其余是模板参数,
+// 占位符用 {} / {0} 的 MessageFormat 语法 —— 与 Clog 完全一致, 不是 Go 的 %v.
+//
+// 本项目此前的 *f 实现把可变参数直接 fmt.Sprint 拼接, 而调用点却按 printf 习惯
+// 写成 %v/%d/%s, 结果日志里出现字面量占位符. 这里按原版语义修正实现,
+// 并把全部调用点改成 (tag, "模板", 参数...) 形式.
+func Skipping(v any)                 { logs(LevelOff, v, nil) }
+func Skippingf(tag, e any, p ...any) { logs(LevelOff, tag, parseArgs(e, p...)) }
+func Fatal(v any)                    { logs(LevelFatal, v, nil) }
+func Fatalf(tag, e any, p ...any)    { logs(LevelFatal, tag, parseArgs(e, p...)) }
+func Error(v any)                    { logs(LevelError, v, nil) }
+func Errorf(tag, e any, p ...any)    { logs(LevelError, tag, parseArgs(e, p...)) }
+func Warn(v any)                     { logs(LevelWarn, v, nil) }
+func Warnf(tag, e any, p ...any)     { logs(LevelWarn, tag, parseArgs(e, p...)) }
+func Info(v any)                     { logs(LevelInfo, v, nil) }
+func Infof(tag, e any, p ...any)     { logs(LevelInfo, tag, parseArgs(e, p...)) }
+func Debug(v any)                    { logs(LevelDebug, v, nil) }
+func Debugf(tag, e any, p ...any)    { logs(LevelDebug, tag, parseArgs(e, p...)) }
+func Track(v any)                    { logs(LevelTrack, v, nil) }
+func Trackf(tag, e any, p ...any)    { logs(LevelTrack, tag, parseArgs(e, p...)) }
+func All(v any)                      { logs(LevelAll, v, nil) }
 
 // Clog 对应 Log.clog (CONSOLE 级别)
 //

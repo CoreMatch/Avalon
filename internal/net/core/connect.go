@@ -121,7 +121,7 @@ func (a *AbstractNetConnect) SendPacket(p *packet.Packet) {
 	if err := ca.Send(p); err != nil {
 		a.Disconnect()
 		if ca.UseAgreementStr == "UDP" {
-			log.Errorf("[%s] SendError - 本消息单独出现无妨 连续多次出现请debug", ca.UseAgreementStr)
+			log.Errorf("["+ca.UseAgreementStr+"]", "SendError - 本消息单独出现无妨 连续多次出现请debug")
 		}
 	}
 }
@@ -169,11 +169,11 @@ func (a *AbstractNetConnect) ExCommand(p *packet.Packet) bool {
 func (a *AbstractNetConnect) Close(groupNet IGroupNet) {
 	if groupNet != nil {
 		if err := a.ConnectionAgreement.Close(groupNet); err != nil {
-			log.Errorf("Close Connect: %v", err)
+			log.Errorf("Connect", "Close Connect: {0}", err)
 		}
 		return
 	}
 	if err := a.ConnectionAgreement.Close(nil); err != nil {
-		log.Errorf("Close Connect: %v", err)
+		log.Errorf("Connect", "Close Connect: {0}", err)
 	}
 }

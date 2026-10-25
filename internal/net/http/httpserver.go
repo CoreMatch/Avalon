@@ -114,7 +114,7 @@ func (s *StartHttp) HandleConn(conn ConnIO) {
 		req, err := readRequest(reader, conn)
 		if err != nil {
 			if !errors.Is(err, errEOF) {
-				log.Errorf("[HTTP] read req err: %v", err)
+				log.Errorf("[HTTP]", "read req err: {0}", err)
 			}
 			return
 		}
