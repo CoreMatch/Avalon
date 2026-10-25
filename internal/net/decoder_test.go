@@ -82,19 +82,4 @@ func TestReadPacket(t *testing.T) {
 	}
 }
 
-// TestSniffGame 验证 Game 嗅探
-func TestSniffGame(t *testing.T) {
-	frame := GamePacketEncoder(packet.NewPacket(packettype.PREREGISTER_INFO_RECEIVE, []byte{0x01}))
-	if kind := Sniff(frame); kind != MixGame {
-		t.Errorf("Sniff = %v, want MixGame", kind)
-	}
-}
-
-// TestSniffHTTP 验证 HTTP 嗅探
-func TestSniffHTTP(t *testing.T) {
-	head := []byte("GET / HTTP/1.1\r\nHost: example.com\r\n\r\n")
-	if kind := Sniff(head); kind != MixUnknown {
-		// HTTP 默认未启用, 这里只确认不会 panic
-		t.Logf("Sniff HTTP without enable: %v", kind)
-	}
-}
+// 混合协议嗅探的用例已移到 mixprotocol_test.go (Sniff 属于 StartMixProtocol, 不属于解码器)

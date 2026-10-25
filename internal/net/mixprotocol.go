@@ -1,27 +1,31 @@
 // Package net (Go-Server) 对应 net.rwhps.server.net.handler.tcp.StartMixProtocol
 //
-// 嗅探 TCP 首 8 字节, 将连接分派到 Game / RCON / HTTP 三个启动器之一.
-// 与原 Kotlin 版一致: 首 8 字节大端 (Game) -> PREREGISTER_INFO_RECEIVE(160) 或 typeInt>1000
-// 首 12 字节小端 (RCON) -> lengthLE 4..4096 && typeLE 0..3 且 !=1
-// 余下视为 HTTP 请求
+// 嗅探 TCP 首包, 将连接分派到 Game / RCON / HTTP 三个启动器之一.
+//
+// 判定顺序与原版一致 (StartMixProtocol.initChannel):
+//  1. Game  首 8 字节大端: [length][type], length>0 && type>0 且 type>1000 或 == PREREGISTER_INFO_RECEIVE(160)
+//  2. RCON  首 12 字节小端: [length][id][type], length 4..4096 && type 0..3 且 !=1 (需 rconMixEnable)
+//  3. HTTP  webMixEnable 打开时无条件命中 (原版此处直接 initChannel 后 return true)
+//  4. 其余   原版移除嗅探器后 super.channelRead, 即落到父类 StartHttp, 同样走 HTTP
+//
+// 因此 Game/RCON 都未命中时, 结果一定是 HTTP —— 这与原版"我该往哪去呢"的兜底一致.
 package net
 
 import (
 	"encoding/binary"
-	"errors"
-	"net"
 
 	"rwhps/internal/data/global"
-	"rwhps/internal/io/packet"
+	"rwhps/internal/game/manage"
 	"rwhps/internal/io/packettype"
 	"rwhps/internal/net/core"
+	nethttp "rwhps/internal/net/http"
 )
 
 // MixKind 嗅探结果
 type MixKind int
 
 const (
-	// MixUnknown 无法识别
+	// MixUnknown 无法识别 (最终仍按 HTTP 处理, 见包注释第 4 条)
 	MixUnknown MixKind = iota
 	// MixGame Game 协议
 	MixGame
@@ -31,99 +35,136 @@ const (
 	MixHttp
 )
 
-// StartMixProtocol 对应 StartMixProtocol(map)
-// Go 版: 不实际分派 pipeline, 只在首包解析前提供 8/12 字节嗅探
-//   - 调用 Sniff(conn) 获得 MixKind 后, 取出对应 IRwHps, 创建 Channel + AbstractNet
-//   - 真正的协议分发由调用方在首包到达时路由
-type StartMixProtocol struct {
-	game      *AbstractNet
-	remote    *AbstractNet
-	http      *AbstractNet
-	httpProto core.IRwHps
-}
-
-// NewStartMixProtocol 对应 StartMixProtocol(map)
-func NewStartMixProtocol(rwHps core.IRwHps) *StartMixProtocol {
-	httpProto := GlobalCache.GetOrCreate("MixHttp", func() core.IRwHps {
-		return core.NewNullRwHps(core.HttpProtocol)
-	})
-	remoteProto := GlobalCache.GetOrCreate("MixRemoteControl", func() core.IRwHps {
-		return core.NewNullRwHps(core.RemoteControlProtocol)
-	})
-
-	return &StartMixProtocol{
-		game:      NewAbstractNet(rwHps),
-		remote:    NewAbstractNet(remoteProto),
-		http:      NewAbstractNet(httpProto),
-		httpProto: httpProto,
+// String 返回可读名称
+func (k MixKind) String() string {
+	switch k {
+	case MixGame:
+		return "Game"
+	case MixRcon:
+		return "RCON"
+	case MixHttp:
+		return "HTTP"
+	default:
+		return "Unknown"
 	}
 }
 
-// SetWebData 对应 StartHttp.setWebData
-func (m *StartMixProtocol) SetWebData(_ any) { /* 占位, 由 HTTP 协议实现 */ }
+// mixHeadLen 一次嗅探最多需要的字节数
+// Game 要 8 字节, RCON 要 12 字节 (length+id+type 三个 int32LE)
+const mixHeadLen = 12
 
-// AbstractNet 对应 AbstractNet 启动器 (StartGameNetTcp/StartHttp/StartRemoteControl 通用父类)
+// StartMixProtocol 对应 StartMixProtocol(mixData)
 //
-// 每个协议类型持有一个 AbstractNet, 与原版一一对应:
-//   StartGameNetTcp(rwHps)   -> 第一个 AbstractNet
-//   StartRemoteControl(rwHps)-> 第二个
-//   StartHttp(rwHps)         -> 第三个
+// 原版继承 StartHttp 并额外持有 StartGameNetTcp / StartRemoteControl 两个子启动器;
+// Go 版没有继承, 用组合持有三个子启动器, 由 HandleChannel 按嗅探结果转发.
+type StartMixProtocol struct {
+	game   *AbstractNet
+	remote *StartRemoteControl
+	http   *nethttp.StartHttp
+}
+
+// NewStartMixProtocol 对应 StartMixProtocol(mixData)
 //
-// Go 版不需要 Netty pipeline, 直接复用单个 *AbstractNet 即可.
-func (m *StartMixProtocol) pick(kind MixKind) *AbstractNet {
+// mixData 在 Go 版由 GlobalCache + manage.AddIRwHps 现场构造:
+//
+//	GameProtocol          -> 调用方传入的 rwHps
+//	RemoteControlProtocol -> Cache["MixRemoteControl"] -> addIRwHps(..., "MixRemoteControlDef")
+//	HttpProtocol          -> Cache["MixHttp"]          -> addIRwHps(..., "MixHttpDef")
+func NewStartMixProtocol(rwHps core.IRwHps) *StartMixProtocol {
+	remoteProto := GlobalCache.GetOrCreate("MixRemoteControl", func() core.IRwHps {
+		return manage.AddIRwHps(core.RemoteControlProtocol, "MixRemoteControlDef")
+	})
+	httpProto := GlobalCache.GetOrCreate("MixHttp", func() core.IRwHps {
+		return manage.AddIRwHps(core.HttpProtocol, "MixHttpDef")
+	})
+
+	return &StartMixProtocol{
+		game:   NewAbstractNet(rwHps),
+		remote: NewStartRemoteControl(remoteProto),
+		http:   nethttp.NewStartHttp(httpProto),
+	}
+}
+
+// SetWebData 对应 StartHttp.setWebData (StartMixProtocol 继承自 StartHttp)
+func (m *StartMixProtocol) SetWebData(d *nethttp.WebData) { m.http.SetWebData(d) }
+
+// pick 按嗅探结果选出目标启动器
+// MixUnknown 返回 http: 原版三个分支都不命中时会移除嗅探器并 super.channelRead,
+// 而父类正是 StartHttp.
+func (m *StartMixProtocol) pick(kind MixKind) ChannelStarter {
 	switch kind {
 	case MixGame:
 		return m.game
 	case MixRcon:
 		return m.remote
-	case MixHttp:
-		return m.http
 	default:
-		return nil
+		return m.http
 	}
 }
 
-// HandleMixConn 对应 NetService 启动的 Accept 循环, 此处按嗅探结果分派
+// HandleChannel 读一次首包, 嗅探协议后把连接连同已读字节转交给目标启动器
 //
-//   1. 读 12 字节 (前 4 字节足够 Game/RCON, 12 字节足够 RCON 的 3 个 int32LE)
-//   2. 嗅探后创建 Channel 喂入对应 AbstractNet.HandleChannel
-func (m *StartMixProtocol) HandleMixConn(conn net.Conn) error {
-	peek := make([]byte, 12)
-	n, err := conn.Read(peek)
-	if err != nil {
-		return err
-	}
-	peek = peek[:n]
+// 只 Read 一次而非 io.ReadFull: 原版是在第一次 channelRead 回调里就做判定,
+// 拿到多少字节就判多少, 不会等满 12 字节. 慢速客户端因此可能被判为 HTTP,
+// 这是原版既有行为, 保持一致.
+func (m *StartMixProtocol) HandleChannel(ch *core.Channel) {
+	buf := make([]byte, mixHeadLen)
 
-	kind := Sniff(peek)
-	target := m.pick(kind)
-	if target == nil {
-		// 失败: 当作 Game 处理, 原版注释 "写坨大的" 同思路
-		target = m.game
-		_, _ = conn.Write([]byte{})
-		// 把 peek 数据写回 conn 是不可能 (net.Conn 没法 reset), 因此先把内容送入解码器
+	// Read 返回 0 且无错误属于"虚假唤醒", 重试即可; 真出错就回收连接
+	var n int
+	for n == 0 {
+		var err error
+		n, err = ch.Conn.Read(buf)
+		if err != nil {
+			_ = ch.Close()
+			return
+		}
 	}
 
-	ch := core.NewChannel(conn)
-	target.HandleChannelPeeked(ch, peek)
-	return nil
+	head := buf[:n]
+	kind := Sniff(head)
+
+	// 把已读字节回放到连接头部, 让目标处理器从头解析
+	ch.Conn = newPeekedConn(ch.Conn, head)
+	m.pick(kind).HandleChannel(ch)
 }
 
-// Sniff 嗅探首 8 字节, 决定是 Game / RCON / HTTP / Unknown
+// GetConnectSize 返回三个子启动器的活跃连接总数
+//
+// 与原版差异: 原版 StartMixProtocol 继承自 StartHttp, 而 StartHttp.initChannel 不挂
+// IdleStateHandler, 所以 getConnectSize() 恒为 0 (AcceptorIdleStateTrigger 从未被加入
+// pipeline). Go 版三个子启动器各自登记连接, 这里求和, 给 stop/version 提供真实数字.
+func (m *StartMixProtocol) GetConnectSize() int {
+	return m.game.GetConnectSize() + m.remote.GetConnectSize() + m.http.GetConnectSize()
+}
+
+// Close 断开三个子启动器上的全部连接
+func (m *StartMixProtocol) Close() {
+	m.game.Close()
+	m.remote.Close()
+	m.http.Close()
+}
+
+// Sniff 嗅探首包, 决定是 Game / RCON / HTTP / Unknown
 func Sniff(head []byte) MixKind {
-	// 1. Game: [len BE][type BE] -> type > 1000 或 == PREREGISTER_INFO_RECEIVE(160)
+	// 1. Game: [length BE][type BE]
+	//
+	// 关键: 原版是 IRwHps.packetType.from(type).typeInt > 1000, 而不是裸的 type > 1000.
+	// from() 对未知协议号返回 NOT_RESOLVED(-1), 所以只有"已知且 >1000"的协议号才算 Game.
+	// 若用裸值比较, RCON 包 (length LE=10 -> BE 0x0A000000, id LE=1 -> BE 0x01000000)
+	// 会因 id 被当作 16777216 而误判成 Game, RCON 分支永远走不到.
 	if len(head) >= 8 {
 		length := int32(binary.BigEndian.Uint32(head[0:4]))
 		typ := int32(binary.BigEndian.Uint32(head[4:8]))
 		if length > 0 && typ > 0 {
-			t := packettype.PacketType(typ)
-			if int(t) > 1000 || t == packettype.PREREGISTER_INFO_RECEIVE {
+			resolved := packettype.Resolver.From(int(typ))
+			if resolved.TypeInt() > 1000 || resolved.TypeInt() == int(packettype.PREREGISTER_INFO_RECEIVE) {
 				return MixGame
 			}
 		}
 	}
 
-	// 2. Rcon: [len LE][id LE][type LE] -> length 4..4096 && type 0..3 且 !=1
+	// 2. RCON: [length LE][id LE][type LE] -> length 4..4096 && type 0..3 且 !=1
 	if global.Config.RconMixEnable && len(head) >= 12 {
 		length := int32(binary.LittleEndian.Uint32(head[0:4]))
 		typ := int32(binary.LittleEndian.Uint32(head[8:12]))
@@ -132,34 +173,19 @@ func Sniff(head []byte) MixKind {
 		}
 	}
 
-	// 3. HTTP: 首字节为字母, 含 "HTTP/" 或为 GET/POST/PUT/DELETE/HEAD
-	if global.Config.WebMixEnable && len(head) >= 4 && IsHTTPReq(head) {
+	// 3. HTTP: 原版在 webMixEnable 打开时对该分支无条件 return true,
+	//    不做请求行校验 (isHttpReq 只用来决定 ssl 参数), 这里保持一致.
+	if global.Config.WebMixEnable {
 		return MixHttp
 	}
 
 	return MixUnknown
 }
 
-// IsHTTPReq 对应 StartMixProtocol.isHttpReq()
-// 原 Kotlin 实现: msg.toString(UTF_8).let { isHttpReq(it) }
-func IsHTTPReq(b []byte) bool {
-	s := string(b)
-	// 找首个空格或 '\r' '\n', 取 method 前缀
-	for i, c := range s {
-		if c == ' ' || c == '\r' || c == '\n' {
-			method := s[:i]
-			switch method {
-			case "GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS", "PATCH", "TRACE", "CONNECT":
-				return true
-			}
-			return false
-		}
-	}
-	return false
-}
-
-// ErrProtocolNotMatch 协议嗅探失败
-var ErrProtocolNotMatch = errors.New("mix protocol not match")
-
-// CompileGuard 防止未使用导入
-var _ = packet.NewEmptyPacket
+// 编译期确认三个启动器都满足 ChannelStarter
+var (
+	_ ChannelStarter = (*StartMixProtocol)(nil)
+	_ ChannelStarter = (*AbstractNet)(nil)
+	_ ChannelStarter = (*StartRemoteControl)(nil)
+	_ ChannelStarter = (*nethttp.StartHttp)(nil)
+)

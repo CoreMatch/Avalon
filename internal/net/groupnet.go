@@ -120,16 +120,7 @@ func (g *GroupNet) AgreementSize() int {
 	return len(g.agreements)
 }
 
-// NetStaticData 对应 NetStaticData
-type NetStaticData struct {
-	GroupNet    *GroupNet
-	NetServices []*netServiceEntry
-	BlackList   *BlackList
-}
-
-type netServiceEntry struct {
-	ID string
-}
+// NetStaticData 与 checkProtocolIsServer 见 staticdata.go / core/nettype.go
 
 // BlackList 对应 BlackList (暂留占位)
 type BlackList struct {
@@ -164,17 +155,7 @@ func (b *BlackList) Contains(s string) bool {
 	return ok
 }
 
-// CheckProtocolIsServer 对应 NetStaticData.checkProtocolIsServer
-func CheckProtocolIsServer(t core.NetType) bool {
-	switch t {
-	case core.ServerProtocol, core.ServerProtocolOld, core.ServerTestProtocol:
-		return true
-	case core.RelayProtocol, core.RelayMulticastProtocol:
-		return true
-	default:
-		return false
-	}
-}
+// CheckProtocolIsServer 已移到 core.CheckProtocolIsServer, 原因见该函数注释.
 
 // _ 占位避免未使用导入
 var _ = gameio.ErrEOF

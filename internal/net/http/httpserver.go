@@ -8,6 +8,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"sync"
 
 	"rwhps/internal/data/global"
 	"rwhps/internal/net/core"
@@ -30,17 +31,61 @@ type addrConn interface {
 // 嗅探首字节: "GET "/POST "/"DELETE "/"HEAD "/"PUT " 即视为 HTTP, 接管该连接.
 // WebSocket (以 "GET /WebSocket" 开头) 升级为 ws:// 协议, 本实现维持最小占位 (走 gorilla websocket 与本项目之外的依赖, 当前 TODO).
 type StartHttp struct {
-	rwHps    core.IRwHps
-	webData  *WebData
+	rwHps   core.IRwHps
+	webData *WebData
+
+	mu     sync.Mutex
+	conns  map[ConnIO]struct{}
+	closed bool
 }
 
 // NewStartHttp 对应 StartHttp(rwHps).init()
 func NewStartHttp(rwHps core.IRwHps) *StartHttp {
-	return &StartHttp{rwHps: rwHps}
+	return &StartHttp{rwHps: rwHps, conns: make(map[ConnIO]struct{})}
 }
 
 // SetWebData 对应 setWebData
 func (s *StartHttp) SetWebData(d *WebData) { s.webData = d }
+
+// track 登记活跃连接
+func (s *StartHttp) track(conn ConnIO) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
+		return
+	}
+	s.conns[conn] = struct{}{}
+}
+
+// untrack 注销活跃连接
+func (s *StartHttp) untrack(conn ConnIO) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.conns, conn)
+}
+
+// GetConnectSize 对应 getConnectSize
+func (s *StartHttp) GetConnectSize() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return len(s.conns)
+}
+
+// Close 对应 AbstractNetWeb.close(): 断开全部活跃连接
+func (s *StartHttp) Close() {
+	s.mu.Lock()
+	s.closed = true
+	conns := make([]ConnIO, 0, len(s.conns))
+	for c := range s.conns {
+		conns = append(conns, c)
+	}
+	s.conns = make(map[ConnIO]struct{})
+	s.mu.Unlock()
+
+	for _, c := range conns {
+		_ = c.Close()
+	}
+}
 
 // IsHttpReq 对应 isHttpReq(head)
 func (s *StartHttp) IsHttpReq(head string) bool {
@@ -59,7 +104,9 @@ func (s *StartHttp) HandleChannel(ch *core.Channel) {
 
 // HandleConn 与 HandleChannel 等价, 但直接接受底层 conn-like 接口, 便于测试驱动.
 func (s *StartHttp) HandleConn(conn ConnIO) {
+	s.track(conn)
 	defer func() {
+		s.untrack(conn)
 		_ = conn.Close()
 	}()
 	reader := bufio.NewReader(conn)

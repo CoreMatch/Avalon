@@ -32,6 +32,10 @@ type StartRemoteControl struct {
 	rconPasswd   func() string
 	cmdHandler   func(cmd string)
 	connectionWg sync.WaitGroup
+
+	mu     sync.Mutex
+	conns  map[*core.Channel]struct{}
+	closed bool
 }
 
 // NewStartRemoteControl 对应 StartRemoteControl(rwHps)
@@ -40,6 +44,30 @@ func NewStartRemoteControl(rwHps core.IRwHps) *StartRemoteControl {
 		rwHps:      rwHps,
 		rconPasswd: func() string { return "" },
 		cmdHandler: func(cmd string) {},
+		conns:      make(map[*core.Channel]struct{}),
+	}
+}
+
+// GetConnectSize 对应 getConnectSize
+func (s *StartRemoteControl) GetConnectSize() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return len(s.conns)
+}
+
+// Close 断开全部活跃连接
+func (s *StartRemoteControl) Close() {
+	s.mu.Lock()
+	s.closed = true
+	chans := make([]*core.Channel, 0, len(s.conns))
+	for c := range s.conns {
+		chans = append(chans, c)
+	}
+	s.conns = make(map[*core.Channel]struct{})
+	s.mu.Unlock()
+
+	for _, c := range chans {
+		_ = c.Close()
 	}
 }
 
@@ -62,9 +90,21 @@ func (s *StartRemoteControl) IsRconPacket(firstBytes []byte) bool {
 
 // HandleChannel 在嗅探为 RCON 时调用, 在独立 goroutine 中处理请求循环
 func (s *StartRemoteControl) HandleChannel(ch *core.Channel) {
+	s.mu.Lock()
+	if s.closed {
+		s.mu.Unlock()
+		_ = ch.Close()
+		return
+	}
+	s.conns[ch] = struct{}{}
+	s.mu.Unlock()
+
 	s.connectionWg.Add(1)
 	defer s.connectionWg.Done()
 	defer func() {
+		s.mu.Lock()
+		delete(s.conns, ch)
+		s.mu.Unlock()
 		_ = ch.Close()
 	}()
 

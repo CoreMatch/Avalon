@@ -12,34 +12,57 @@ package net
 import (
 	"errors"
 	"net"
+	"strconv"
 	"sync"
 
+	"rwhps/internal/data/global"
 	"rwhps/internal/net/core"
+	nethttp "rwhps/internal/net/http"
 	"rwhps/internal/util/log"
 	"rwhps/internal/util/mathutil"
 )
 
+// ChannelStarter 对应 NetService.start 的静态类型 AbstractNet
+//
+// 四个实现与原版一一对应:
+//
+//	*AbstractNet        -> StartGameNetTcp
+//	*StartRemoteControl -> StartRemoteControl
+//	*nethttp.StartHttp  -> StartHttp
+//	*StartMixProtocol   -> StartMixProtocol (继承 StartHttp)
+type ChannelStarter interface {
+	// HandleChannel 接管一条新连接 (可能阻塞, 调用方应在独立 goroutine 中调用)
+	HandleChannel(ch *core.Channel)
+	// GetConnectSize 当前活跃连接数
+	GetConnectSize() int
+	// Close 断开该启动器上的全部连接
+	Close()
+}
+
+// webDataSetter 对应 Kotlin 的 `if (start is AbstractNetWeb) start.setWebData(data)`
+type webDataSetter interface {
+	SetWebData(d *nethttp.WebData)
+}
+
 // NetService 对应 NetService
-//   OpenPort: 启动 TCP Game 协议监听 (端口/端口段)
-//   OpenPortRUDP: 启动 RUDP 协议监听 (Q3=A 精确复刻)
-//   Stop: 关闭所有监听并清理
-//   GetConnectSize: 当前连接数
+//
+//	OpenPort:     启动 TCP 协议监听 (端口/端口段)
+//	OpenPortRUDP: 启动 RUDP 协议监听 (待 Relay 批次)
+//	Stop:         关闭所有监听并清理
+//	GetConnectSize: 当前连接数
 type NetService struct {
+	// ID 对应 NetService.id
 	ID string
 
-	start AbstractNetStarter
+	// NetType 对应 NetService.netType (NetTypeEnum)
+	NetType NetServiceKind
+
+	start ChannelStarter
 
 	mu          sync.Mutex
 	closed      bool
 	closeSeq    []func()
 	errorIgnore bool
-}
-
-// AbstractNetStarter 对应 NetService.start 的抽象父类
-// Go 版用 interface{} 解耦具体协议类型 (StartGameNetTcp / StartMixProtocol / StartHttp / StartRemoteControl)
-type AbstractNetStarter interface {
-	GetConnectSize() int
-	Close()
 }
 
 // NetServiceKind 对应 NetTypeEnum
@@ -58,9 +81,32 @@ const (
 	NetServiceOther
 )
 
-// 常量 (HeaderSize/MaxPacketSize 见 decoder.go)
+// String 对应 NetTypeEnum.name
+func (k NetServiceKind) String() string {
+	switch k {
+	case NetServiceHeadless:
+		return "HeadlessNet"
+	case NetServiceRemoteControl:
+		return "RemoteControl"
+	case NetServiceHTTP:
+		return "HTTPNet"
+	case NetServiceMix:
+		return "MixTlsAndGame"
+	default:
+		return "Other"
+	}
+}
 
 // NewNetService 对应 NetService(id, rwHps)
+//
+// 启动器选择顺序完全照搬原版构造函数:
+//
+//	mixProtocolEnable            -> StartMixProtocol
+//	checkProtocolIsServer        -> StartGameNetTcp
+//	DedicatedToTheBackend        -> StartGameNetTcp
+//	HttpProtocol                 -> StartHttp
+//	RemoteControlProtocol        -> StartRemoteControl
+//	其余 (含 GlobalProtocol)      -> 原版 TODO(), 这里 panic 以尽早暴露配置错误
 func NewNetService(id string, rwHps core.IRwHps) *NetService {
 	if rwHps == nil || rwHps.NetType() == core.NullProtocol {
 		panic("No find Protocol")
@@ -68,19 +114,54 @@ func NewNetService(id string, rwHps core.IRwHps) *NetService {
 
 	ns := &NetService{ID: id}
 
-	switch rwHps.NetType() {
-	case core.HttpProtocol, core.RemoteControlProtocol, core.DedicatedToTheBackend:
-		// 占位: HTTP / RCON / 专用后端实现见 StartHttp / StartRemoteControl
+	switch {
+	case global.Config.MixProtocolEnable:
+		ns.start = NewStartMixProtocol(rwHps)
+	case core.CheckProtocolIsServer(rwHps.NetType()):
 		ns.start = NewAbstractNet(rwHps)
 	default:
-		if CheckProtocolIsServer(rwHps.NetType()) {
+		switch rwHps.NetType() {
+		case core.DedicatedToTheBackend:
 			ns.start = NewAbstractNet(rwHps)
-		} else {
-			ns.start = NewAbstractNet(rwHps)
+		case core.HttpProtocol:
+			ns.start = nethttp.NewStartHttp(rwHps)
+		case core.RemoteControlProtocol:
+			ns.start = NewStartRemoteControl(rwHps)
+		default:
+			panic("NetService: unsupported protocol " + rwHps.NetType().String())
 		}
 	}
 
+	ns.NetType = kindOf(ns.start)
+
+	// 对应 Kotlin init { NetStaticData.netService.add(this) }
+	NetStaticData.AddService(ns)
+
 	return ns
+}
+
+// kindOf 对应原版构造函数末尾的 when (abstractNet) { is ... -> NetTypeEnum... }
+func kindOf(s ChannelStarter) NetServiceKind {
+	switch s.(type) {
+	case *StartMixProtocol:
+		return NetServiceMix
+	case *StartRemoteControl:
+		return NetServiceRemoteControl
+	case *nethttp.StartHttp:
+		return NetServiceHTTP
+	case *AbstractNet:
+		return NetServiceHeadless
+	default:
+		return NetServiceOther
+	}
+}
+
+// SetWebData 对应 setWebData(data = Data.webData)
+func (s *NetService) SetWebData(d *nethttp.WebData) *NetService {
+	if w, ok := s.start.(webDataSetter); ok {
+		w.SetWebData(d)
+	}
+	return s
 }
 
 // OpenPort 对应 openPort(port)
@@ -90,12 +171,13 @@ func (s *NetService) OpenPort(port int) {
 
 // OpenPortRange 对应 openPort(port, startPort, endPort)
 //
-// TCP SO_BACKLOG=1024, TCP_NODELAY=true, SO_KEEPALIVE=true, 不引入 Epoll (Go runtime 自带 epoll).
-// 主端口同步 Accept 阻塞, 端口段 (startPort..endPort) 启动额外监听.
+// 原版在此处先 Data.config.save(); Go 版配置落盘由启动链 (app 包) 负责, 这里不再重复.
+// TCP SO_BACKLOG=1024, TCP_NODELAY=true, SO_KEEPALIVE=true 由 net.Listen 默认值覆盖,
+// 不引入 Epoll (Go runtime 自带 epoll).
 func (s *NetService) OpenPortRange(port, startPort, endPort int) {
 	log.Clog("Opening TCP port ...")
 
-	listener, err := net.Listen("tcp", "0.0.0.0:"+itoa(port))
+	listener, err := net.Listen("tcp", "0.0.0.0:"+strconv.Itoa(port))
 	if err != nil {
 		var opErr *net.OpError
 		if errors.As(err, &opErr) {
@@ -112,7 +194,7 @@ func (s *NetService) OpenPortRange(port, startPort, endPort int) {
 
 	// 端口段: 从 startPort 到 endPort 各开一个额外 listener
 	for i := startPort; i <= endPort; i++ {
-		l, e := net.Listen("tcp", "0.0.0.0:"+itoa(i))
+		l, e := net.Listen("tcp", "0.0.0.0:"+strconv.Itoa(i))
 		if e != nil {
 			log.Warnf("[net] bind %d fail: %v", i, e)
 			continue
@@ -127,7 +209,10 @@ func (s *NetService) OpenPortRange(port, startPort, endPort int) {
 	s.acceptLoop(listener)
 }
 
-// acceptLoop 接受新连接并交给 AbstractNet.HandleChannel
+// acceptLoop 接受新连接并交给启动器
+//
+// HandleChannel 在 StartHttp / StartRemoteControl 里是阻塞的 (占满一个连接的处理循环),
+// 因此必须在独立 goroutine 中调用; AbstractNet 内部还会再起协程, 多一层不影响语义.
 func (s *NetService) acceptLoop(l net.Listener) {
 	for {
 		conn, err := l.Accept()
@@ -145,17 +230,16 @@ func (s *NetService) acceptLoop(l net.Listener) {
 		}
 
 		ch := core.NewChannel(conn)
-		if an, ok := s.start.(*AbstractNet); ok {
-			an.HandleChannel(ch)
-		}
+		go s.start.HandleChannel(ch)
 	}
 }
 
 // OpenPortRUDP 对应 openPortRUDP(port)
-//   RUDP 协议待 #7 实现, 此处先留接口.
+//
+// RUDP (ReliableServerSocket) 属于 Relay 批次, 此处先留接口.
 func (s *NetService) OpenPortRUDP(port int) {
 	log.Clog("Opening RUDP port ...")
-	// TODO: 接入 ReliableServerSocket (Go 版待 #7 实现)
+	// TODO: 接入 ReliableServerSocket (Relay 批次)
 }
 
 // GetConnectSize 对应 getConnectSize()
@@ -172,6 +256,7 @@ func (s *NetService) Stop() {
 	}
 	s.errorIgnore = true
 	seq := s.closeSeq
+	s.closeSeq = nil
 	s.closed = true
 	s.mu.Unlock()
 
@@ -179,12 +264,9 @@ func (s *NetService) Stop() {
 		fn()
 	}
 	s.start.Close()
-}
 
-// SetWebData 对应 setWebData
-func (s *NetService) SetWebData(_ any) *NetService {
-	// 占位, 等待 AbstractNetWeb 实现
-	return s
+	// 对应 NetStaticData.netService.remove(this)
+	NetStaticData.RemoveService(s)
 }
 
 // Equals 对应 NetService.equals
@@ -195,7 +277,7 @@ func (s *NetService) Equals(other *NetService) bool {
 	return s.ID == other.ID
 }
 
-// HashCode 对应 NetService.hashCode
+// HashCode 对应 NetService.hashCode (String.hashCode 的 31 进制算法)
 func (s *NetService) HashCode() int {
 	h := 0
 	for _, c := range s.ID {
@@ -207,28 +289,4 @@ func (s *NetService) HashCode() int {
 // CoreID 对应 NetService.Companion.coreID()
 func CoreID() string {
 	return mathutil.GetRandomString(10)
-}
-
-// itoa 自带的 strconv.Itoa 引入过多, 用局部包装
-func itoa(n int) string {
-	if n == 0 {
-		return "0"
-	}
-	neg := false
-	if n < 0 {
-		neg = true
-		n = -n
-	}
-	var buf [20]byte
-	i := len(buf)
-	for n > 0 {
-		i--
-		buf[i] = byte('0' + n%10)
-		n /= 10
-	}
-	if neg {
-		i--
-		buf[i] = '-'
-	}
-	return string(buf[i:])
 }

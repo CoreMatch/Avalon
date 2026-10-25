@@ -60,3 +60,18 @@ func NetTypeFrom(typeName string) NetType {
 	}
 	return NullProtocol
 }
+
+// CheckProtocolIsServer 对应 NetStaticData.checkProtocolIsServer
+//
+// 实现放在 core 而非 net: 该判定只依赖 NetType, 而 game.manage (IRwHpsManage.firstServer)
+// 也要用它. 若留在 net 包里, net -> game/manage -> net 会构成循环依赖.
+func CheckProtocolIsServer(t NetType) bool {
+	switch t {
+	case ServerProtocol, ServerProtocolOld, ServerTestProtocol:
+		return true
+	case RelayProtocol, RelayMulticastProtocol:
+		return true
+	default:
+		return false
+	}
+}
