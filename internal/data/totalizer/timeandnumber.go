@@ -53,7 +53,9 @@ func (t *TimeAndNumber) CheckStatus() bool {
 		return true
 	}
 	if (timeutil.ConcurrentSecond() - t.startTime) > t.timeOut {
-		t.startTime = 0
+		// 原版这里调用 reset(), 而 reset 会把 startTime 打成当前秒 (见 Reset 的注释),
+		// 不是置 0. 照抄成 startTime = 0 会让窗口判定永远失效.
+		t.startTime = timeutil.ConcurrentSecond()
 		t.count = 0
 		return true
 	}
@@ -61,9 +63,16 @@ func (t *TimeAndNumber) CheckStatus() bool {
 }
 
 // Reset 对应 reset
+//
+// 原版的赋值顺序是 `startTime = 0` 然后 `count = 0`, 而 count = 0 会经由属性委托的
+// set 回调 (ReadWriteConcurrentSynchronize 的 set lambda) 把 startTime 重新打成
+// 当前秒. 净效果是 startTime = now, 不是 0.
+//
+// 这里必须显式打戳: 直接写字段会让 startTime 停在 0 (Unix 纪元), 之后任何一次
+// CheckStatus 都会认为"窗口早过期了"而走 reset 分支返回 true —— 限流器形同虚设.
 func (t *TimeAndNumber) Reset() {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	t.startTime = 0
+	t.startTime = timeutil.ConcurrentSecond()
 	t.count = 0
 }
