@@ -14,6 +14,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	messageformat "rwhps/internal/util/str"
 )
 
 // Level 对应 LogCore.Logg
@@ -103,9 +105,26 @@ func SaveLog() {
 // ConsoleHook 由事件系统注入, 用于触发 ServerConsolePrintEvent
 var ConsoleHook func(string)
 
-func getMilliFormat() string {
-	now := time.Now()
-	return now.Format("2006-01-02 15:04:05.") + fmt.Sprintf("%03d", now.Nanosecond()/1e6)
+// timestamp 对应 Time.getMilliFormat(1), 即 ft[1] = "yyyy-MM-dd HH:mm:ss"
+//
+// 注意: 原版名为 MilliFormat, 但下标 1 对应的格式串并不含毫秒.
+// 之前的 Go 实现补了 ".SSS", 与原版输出不一致, 这里去掉.
+func timestamp() string {
+	return time.Now().Format("2006-01-02 15:04:05")
+}
+
+// parseArgs 对应 Log 里的 Any.parse(vararg params)
+//
+//	MessageFormat(parseLog(this, *params)).format(params)
+//
+// 先做 {} 顺序替换, 再交给 MessageFormat 处理 {0} 风格占位符 —— 两步都要做.
+// 非字符串原样返回 (原版同样跳过).
+func parseArgs(v any, params ...any) any {
+	s, ok := v.(string)
+	if !ok {
+		return v
+	}
+	return messageformat.Format(messageformat.ParseLog(s, params...), params)
 }
 
 func logs(l Level, tag any, eIn any) {
@@ -137,7 +156,7 @@ func logs(l Level, tag any, eIn any) {
 
 	var b strings.Builder
 	b.WriteString("[")
-	b.WriteString(getMilliFormat())
+	b.WriteString(timestamp())
 	b.WriteString("]")
 	b.WriteString(l.Tag)
 	b.WriteString("&b[$ThreadName]&fr")
@@ -170,8 +189,8 @@ func logs(l Level, tag any, eIn any) {
 
 	text := FormatColors(parseStr(b.String()), false)
 
-	// 输出到 stdout (Go 中 stdout/stderr 无需替换)
-	fmt.Fprintln(os.Stdout, text)
+	// 输出到当前重定向目标 (默认 os.Stdout)
+	fmt.Fprintln(Output(), text)
 
 	if ConsoleHook != nil {
 		ConsoleHook(text)
@@ -220,24 +239,28 @@ func threadName() string {
 	return "Go-" + strconv.Itoa(goroutineID())
 }
 
-func Skipping(v any)              { logs(LevelOff, v, nil) }
+func Skipping(v any)               { logs(LevelOff, v, nil) }
 func Skippingf(v any, args ...any) { logs(LevelOff, v, fmt.Sprint(args...)) }
-func Fatal(v any)                 { logs(LevelFatal, v, nil) }
-func Fatalf(v any, args ...any)   { logs(LevelFatal, v, fmt.Sprint(args...)) }
-func Error(v any)                 { logs(LevelError, v, nil) }
-func Errorf(v any, args ...any)   { logs(LevelError, v, fmt.Sprint(args...)) }
-func Warn(v any)                  { logs(LevelWarn, v, nil) }
-func Warnf(v any, args ...any)    { logs(LevelWarn, v, fmt.Sprint(args...)) }
-func Info(v any)                  { logs(LevelInfo, v, nil) }
-func Infof(v any, args ...any)    { logs(LevelInfo, v, fmt.Sprint(args...)) }
-func Debug(v any)                 { logs(LevelDebug, v, nil) }
-func Debugf(v any, args ...any)   { logs(LevelDebug, v, fmt.Sprint(args...)) }
-func Track(v any)                 { logs(LevelTrack, v, nil) }
-func Trackf(v any, args ...any)   { logs(LevelTrack, v, fmt.Sprint(args...)) }
-func All(v any)                   { logs(LevelAll, v, nil) }
+func Fatal(v any)                  { logs(LevelFatal, v, nil) }
+func Fatalf(v any, args ...any)    { logs(LevelFatal, v, fmt.Sprint(args...)) }
+func Error(v any)                  { logs(LevelError, v, nil) }
+func Errorf(v any, args ...any)    { logs(LevelError, v, fmt.Sprint(args...)) }
+func Warn(v any)                   { logs(LevelWarn, v, nil) }
+func Warnf(v any, args ...any)     { logs(LevelWarn, v, fmt.Sprint(args...)) }
+func Info(v any)                   { logs(LevelInfo, v, nil) }
+func Infof(v any, args ...any)     { logs(LevelInfo, v, fmt.Sprint(args...)) }
+func Debug(v any)                  { logs(LevelDebug, v, nil) }
+func Debugf(v any, args ...any)    { logs(LevelDebug, v, fmt.Sprint(args...)) }
+func Track(v any)                  { logs(LevelTrack, v, nil) }
+func Trackf(v any, args ...any)    { logs(LevelTrack, v, fmt.Sprint(args...)) }
+func All(v any)                    { logs(LevelAll, v, nil) }
 
 // Clog 对应 Log.clog (CONSOLE 级别)
-func Clog(v any, args ...any) { logs(LevelConsole, "", fmt.Sprint(v)) }
+//
+//	clog(e, vararg params) = logs(CONSOLE, "", e.parse(*params))
+//
+// 参数按原版语义替换: {} 顺序占位 + {0} 风格 MessageFormat, 而不是 Go 的 %v.
+func Clog(v any, args ...any) { logs(LevelConsole, "", parseArgs(v, args...)) }
 
 // LogError 记录一个 error (带堆栈)
 func LogError(tag any, e error) { logs(LevelError, tag, e) }
