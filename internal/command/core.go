@@ -119,11 +119,13 @@ func registerCorex(h *cmd.Handler, d *Deps) {
 
 // heapMB 对应原版传给 status.versionS 的 SystemUtils.javaHeap / 1024 / 1024
 //
-// Go 版没有 JVM 堆, 用 runtime 向操作系统申请到的总字节数 (MemStats.Sys) 作为等价指标.
+// 原版 javaHeap = totalMemory - freeMemory, 即"JVM 已划定的堆里正在使用的部分".
+// Go 侧语义最接近的是 runtime.MemStats.HeapAlloc (堆上已分配且仍在引用的字节数);
+// 之前用的 Sys 是运行时向操作系统申请到的全部内存 (含栈/GC 元数据), 数值明显偏大.
 func heapMB() uint64 {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
-	return m.Sys / 1024 / 1024
+	return m.HeapAlloc / 1024 / 1024
 }
 
 // classLoaderName 对应原版打印的 useClassLoader
