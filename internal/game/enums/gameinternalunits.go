@@ -1,267 +1,196 @@
 // Package enums 对应 net.rwhps.server.game.enums
 package enums
 
-// GameInternalUnits 对应 GameInternalUnits 枚举
-// 编号 0..53; UNKNOWN = -1
+// GameInternalUnits 对应 GameInternalUnits 枚举 (内部单位表, 用于 gameSummonPacket 等单位名解析)
 type GameInternalUnits int
 
-// 枚举值 (与 Kotlin GameInternalUnits.values() 顺序一致)
 const (
+	// UnitExtractor 对应 extractor
 	UnitExtractor GameInternalUnits = iota
+	// UnitLandFactory 对应 landFactory
 	UnitLandFactory
+	// UnitAirFactory 对应 airFactory
 	UnitAirFactory
-	UnitNavalFactory
-	UnitExperimental
+	// UnitSeaFactory 对应 seaFactory
+	UnitSeaFactory
+	// UnitCommandCenter 对应 commandCenter
+	UnitCommandCenter
+	// UnitTurret 对应 turret
+	UnitTurret
+	// UnitAntiAirTurret 对应 antiAirTurret
+	UnitAntiAirTurret
+	// UnitBuilder 对应 builder
 	UnitBuilder
-	UnitSmallFlak
-	UnitFlak
-	UnitArcher
-	UnitArtdl
-	UnitHeavyArtillery
-	UnitLaserDefenseTower
-	UnitRadar
-	UnitAirpad
-	UnitMissileSil
-	UnitAntiAir
+	// UnitTank 对应 tank
+	UnitTank
+	// UnitHoverTank 对应 hoverTank
+	UnitHoverTank
+	// UnitArtillery 对应 artillery
 	UnitArtillery
-	UnitHeavyTank
-	UnitMediumTank
-	UnitLightArtillery
-	UnitLightTank
-	UnitScout
-	UnitMotorcycle
-	UnitRecon
-	UnitMaxTank
-	UnitHarvester
-	UnitHovercraft
-	UnitAmphibious
-	UnitMissileTank
-	UnitMarine
-	UnitGunShip
-	UnitHeavyGunship
-	UnitChinook
+	// UnitHelicopter 对应 helicopter
+	UnitHelicopter
+	// UnitAirShip 对应 airShip
 	UnitAirShip
-	UnitFighter
-	UnitBomber
-	UnitStealthBomber
-	UnitStealthFighter
-	UnitDreadnought
-	UnitBattleship
-	UnitCruiser
-	UnitDestroyer
-	UnitFrigate
-	UnitSubmarine
-	UnitCarrier
-	UnitTroopCarrier
-	UnitHeavyTroopCarrier
-	UnitMegaNuke
-	UnitNuke
-	UnitAntiNuke
-	UnitDummyBuilding
-	UnitBullets
+	// UnitGunShip 对应 gunShip
+	UnitGunShip
+	// UnitMissileShip 对应 missileShip
+	UnitMissileShip
+	// UnitGunBoat 对应 gunBoat
+	UnitGunBoat
+	// UnitMegaTank 对应 megaTank
+	UnitMegaTank
+	// UnitLaserTank 对应 laserTank
+	UnitLaserTank
+	// UnitHovercraft 对应 hovercraft
+	UnitHovercraft
+	// UnitLadybug 对应 ladybug
+	UnitLadybug
+	// UnitBattleShip 对应 battleShip
+	UnitBattleShip
+	// UnitTankDestroyer 对应 tankDestroyer
+	UnitTankDestroyer
+	// UnitHeavyTank 对应 heavyTank
+	UnitHeavyTank
+	// UnitHeavyHoverTank 对应 heavyHoverTank
+	UnitHeavyHoverTank
+	// UnitLaserDefence 对应 laserDefence
+	UnitLaserDefence
+	// UnitDropship 对应 dropship
+	UnitDropship
+	// UnitTree 对应 tree
 	UnitTree
-	UnitWall
-	UnitBridge
-	UnitAirField
-	UnitMarineTk
+	// UnitRepairbay 对应 repairbay
+	UnitRepairbay
+	// UnitNukeLaucher 对应 NukeLaucher
+	UnitNukeLaucher
+	// UnitAntiNukeLaucher 对应 AntiNukeLaucher
+	UnitAntiNukeLaucher
+	// UnitMammothTank 对应 mammothTank
+	UnitMammothTank
+	// UnitExperimentalTank 对应 experimentalTank
+	UnitExperimentalTank
+	// UnitExperimentalLandFactory 对应 experimentalLandFactory
+	UnitExperimentalLandFactory
+	// UnitCrystalResource 对应 crystalResource
+	UnitCrystalResource
+	// UnitWallV 对应 wall_v
+	UnitWallV
+	// UnitFabricator 对应 fabricator
+	UnitFabricator
+	// UnitAttackSubmarine 对应 attackSubmarine
+	UnitAttackSubmarine
+	// UnitBuilderShip 对应 builderShip
+	UnitBuilderShip
+	// UnitAmphibiousJet 对应 amphibiousJet
+	UnitAmphibiousJet
+	// UnitSupplyDepot 对应 supplyDepot
+	UnitSupplyDepot
+	// UnitExperimentalHoverTank 对应 experimentalHoverTank
+	UnitExperimentalHoverTank
+	// UnitTurretArtillery 对应 turret_artillery
+	UnitTurretArtillery
+	// UnitTurretFlamethrower 对应 turret_flamethrower
+	UnitTurretFlamethrower
+	// UnitFogRevealer 对应 fogRevealer
+	UnitFogRevealer
+	// UnitSpreadingFire 对应 spreadingFire
+	UnitSpreadingFire
+	// UnitAntiAirTurretT2 对应 antiAirTurretT2
+	UnitAntiAirTurretT2
+	// UnitTurretT2 对应 turretT2
+	UnitTurretT2
+	// UnitTurretT3 对应 turretT3
+	UnitTurretT3
+	// UnitDamagingBorder 对应 damagingBorder
+	UnitDamagingBorder
+	// UnitZoneMarker 对应 zoneMarker
+	UnitZoneMarker
+	// UnitEditorOrBuilder 对应 editorOrBuilder
+	UnitEditorOrBuilder
+	// UnitUNKNOWN 对应 UNKNOWN
 	UnitUNKNOWN
 )
 
-// Name 对应 Kotlin enum.name (返回常量名)
-func (g GameInternalUnits) Name() string {
-	switch g {
-	case UnitExtractor:
-		return "extractor"
-	case UnitLandFactory:
-		return "landFactory"
-	case UnitAirFactory:
-		return "airFactory"
-	case UnitNavalFactory:
-		return "navalFactory"
-	case UnitExperimental:
-		return "experimental"
-	case UnitBuilder:
-		return "builder"
-	case UnitSmallFlak:
-		return "smallFlak"
-	case UnitFlak:
-		return "flak"
-	case UnitArcher:
-		return "archer"
-	case UnitArtdl:
-		return "artdl"
-	case UnitHeavyArtillery:
-		return "heavyArtillery"
-	case UnitLaserDefenseTower:
-		return "laserDefenseTower"
-	case UnitRadar:
-		return "radar"
-	case UnitAirpad:
-		return "airpad"
-	case UnitMissileSil:
-		return "missileSil"
-	case UnitAntiAir:
-		return "antiAir"
-	case UnitArtillery:
-		return "artillery"
-	case UnitHeavyTank:
-		return "heavyTank"
-	case UnitMediumTank:
-		return "mediumTank"
-	case UnitLightArtillery:
-		return "lightArtillery"
-	case UnitLightTank:
-		return "lightTank"
-	case UnitScout:
-		return "scout"
-	case UnitMotorcycle:
-		return "motorcycle"
-	case UnitRecon:
-		return "recon"
-	case UnitMaxTank:
-		return "maxTank"
-	case UnitHarvester:
-		return "harvester"
-	case UnitHovercraft:
-		return "hovercraft"
-	case UnitAmphibious:
-		return "amphibious"
-	case UnitMissileTank:
-		return "missileTank"
-	case UnitMarine:
-		return "marine"
-	case UnitGunShip:
-		return "gunShip"
-	case UnitHeavyGunship:
-		return "heavyGunship"
-	case UnitChinook:
-		return "chinook"
-	case UnitAirShip:
-		return "airShip"
-	case UnitFighter:
-		return "fighter"
-	case UnitBomber:
-		return "bomber"
-	case UnitStealthBomber:
-		return "stealthBomber"
-	case UnitStealthFighter:
-		return "stealthFighter"
-	case UnitDreadnought:
-		return "dreadnought"
-	case UnitBattleship:
-		return "battleship"
-	case UnitCruiser:
-		return "cruiser"
-	case UnitDestroyer:
-		return "destroyer"
-	case UnitFrigate:
-		return "frigate"
-	case UnitSubmarine:
-		return "submarine"
-	case UnitCarrier:
-		return "carrier"
-	case UnitTroopCarrier:
-		return "troopCarrier"
-	case UnitHeavyTroopCarrier:
-		return "heavyTroopCarrier"
-	case UnitMegaNuke:
-		return "megaNuke"
-	case UnitNuke:
-		return "nuke"
-	case UnitAntiNuke:
-		return "antiNuke"
-	case UnitDummyBuilding:
-		return "dummyBuilding"
-	case UnitBullets:
-		return "bullets"
-	case UnitTree:
-		return "tree"
-	case UnitWall:
-		return "wall"
-	case UnitBridge:
-		return "bridge"
-	case UnitAirField:
-		return "airField"
-	case UnitMarineTk:
-		return "marineTk"
-	case UnitUNKNOWN:
-		return "UNKNOWN"
-	}
-	return ""
+// unitNames 对应 Kotlin enum.name, 下标即 Ordinal
+var unitNames = [...]string{
+	"extractor",
+	"landFactory",
+	"airFactory",
+	"seaFactory",
+	"commandCenter",
+	"turret",
+	"antiAirTurret",
+	"builder",
+	"tank",
+	"hoverTank",
+	"artillery",
+	"helicopter",
+	"airShip",
+	"gunShip",
+	"missileShip",
+	"gunBoat",
+	"megaTank",
+	"laserTank",
+	"hovercraft",
+	"ladybug",
+	"battleShip",
+	"tankDestroyer",
+	"heavyTank",
+	"heavyHoverTank",
+	"laserDefence",
+	"dropship",
+	"tree",
+	"repairbay",
+	"NukeLaucher",
+	"AntiNukeLaucher",
+	"mammothTank",
+	"experimentalTank",
+	"experimentalLandFactory",
+	"crystalResource",
+	"wall_v",
+	"fabricator",
+	"attackSubmarine",
+	"builderShip",
+	"amphibiousJet",
+	"supplyDepot",
+	"experimentalHoverTank",
+	"turret_artillery",
+	"turret_flamethrower",
+	"fogRevealer",
+	"spreadingFire",
+	"antiAirTurretT2",
+	"turretT2",
+	"turretT3",
+	"damagingBorder",
+	"zoneMarker",
+	"editorOrBuilder",
+	"UNKNOWN",
 }
+
+// Name 对应 Kotlin enum.name
+func (v GameInternalUnits) Name() string { return enumName(unitNames[:], int(v)) }
 
 // Ordinal 对应 Kotlin enum.ordinal
-func (g GameInternalUnits) Ordinal() int { return int(g) }
+func (v GameInternalUnits) Ordinal() int { return int(v) }
 
-// FromName 对应 GameInternalUnits.from(name) — 大小写不敏感, 未找到返回 UNKNOWN
-func (u FromName) From(name string) GameInternalUnits {
-	for _, v := range UnitAll() {
-		if asciiEq(v.Name(), name) {
-			return v
-		}
-	}
-	return UnitUNKNOWN
-}
+// String 实现 fmt.Stringer
+func (v GameInternalUnits) String() string { return v.Name() }
 
-// FromIndex 对应 GameInternalUnits.from(index)
-func (u FromName) FromIndex(idx int) GameInternalUnits {
-	if idx < 0 || idx >= len(UnitAll()) {
-		return UnitUNKNOWN
-	}
-	return UnitAll()[idx]
-}
-
-// asciiEq 不区分大小写比较
-func asciiEq(a, b string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := 0; i < len(a); i++ {
-		ca, cb := a[i], b[i]
-		if ca >= 'A' && ca <= 'Z' {
-			ca += 'a' - 'A'
-		}
-		if cb >= 'A' && cb <= 'Z' {
-			cb += 'a' - 'A'
-		}
-		if ca != cb {
-			return false
-		}
-	}
-	return true
-}
-
-// FromName 是 from 函数的可调用包装, 对应 Kotlin 伴生对象 GameInternalUnits.from
-type FromName struct{}
-
-// UnitFrom 对应伴生对象 GameInternalUnits.from
-var UnitFrom FromName
-
-// UnitAll 一次性快照全枚举 (按 Ordinal 顺序)
+// UnitAll 按 Ordinal 顺序返回全部枚举值
 func UnitAll() []GameInternalUnits {
-	out := make([]GameInternalUnits, 0, 52)
-	out = append(out,
-		UnitExtractor, UnitLandFactory, UnitAirFactory, UnitNavalFactory,
-		UnitExperimental, UnitBuilder, UnitSmallFlak, UnitFlak,
-		UnitArcher, UnitArtdl, UnitLaserDefenseTower, UnitRadar,
-		UnitAirpad, UnitMissileSil, UnitAntiAir, UnitArtillery,
-		UnitHeavyTank, UnitMediumTank, UnitLightArtillery, UnitLightTank,
-		UnitScout, UnitMotorcycle, UnitRecon, UnitMaxTank,
-		UnitHarvester, UnitHovercraft, UnitAmphibious, UnitMissileTank,
-		UnitMarine, UnitGunShip, UnitHeavyGunship, UnitChinook,
-		UnitAirShip, UnitFighter, UnitBomber, UnitStealthBomber,
-		UnitStealthFighter, UnitDreadnought, UnitBattleship, UnitCruiser,
-		UnitDestroyer, UnitFrigate, UnitSubmarine, UnitCarrier,
-		UnitTroopCarrier, UnitHeavyTroopCarrier, UnitMegaNuke, UnitNuke,
-		UnitAntiNuke, UnitDummyBuilding, UnitBullets, UnitTree,
-		UnitWall, UnitBridge, UnitAirField, UnitMarineTk,
-	)
+	out := make([]GameInternalUnits, 0, len(unitNames))
+	for i := range unitNames {
+		out = append(out, GameInternalUnits(i))
+	}
 	return out
 }
 
-// HeavyArtillery 引用: 因枚举表中包含 UnitHeavyArtillery 但前向引用在同 const 块,
-// 这里手动添加 alias 函数以供 from(name) 匹配 "heavyArtillery" 字面量.
-func initHeavyArtilleryAlias() {
-	// 已经包含在 UnitAll 中, 此函数仅为语义占位.
-	_ = UnitHeavyArtillery
+// UnitFromName 对应 GameInternalUnits.from(name), 大小写不敏感, 未找到返回 UNKNOWN
+func UnitFromName(name string) GameInternalUnits {
+	return GameInternalUnits(lookupEnumIndex(unitNames[:], name, int(UnitUNKNOWN)))
+}
+
+// UnitFromIndex 对应 GameInternalUnits.from(index), 越界返回 UNKNOWN
+func UnitFromIndex(index int) GameInternalUnits {
+	return GameInternalUnits(lookupEnumIndexByIndex(len(unitNames), index, int(UnitUNKNOWN)))
 }
