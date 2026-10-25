@@ -85,14 +85,14 @@ func NewCoreConfig() CoreConfig {
 		NoteEnglish: "Different protocols use different configuration files, please go to the corresponding file ConfigServer/ConfigRelay",
 		NoteChina:   "不同协议使用的配置文件不同, 请自行前往对应文件 ConfigServer/ConfigRelay",
 
-		DefStartCommand: "start",
-		Log:             "WARN",
-		CmdTitle:        "",
+		DefStartCommand:   "start",
+		Log:               "WARN",
+		CmdTitle:          "",
 		FollowBetaVersion: false,
-		Port:            5123,
-		ServerName:      "RW-HPS",
-		Subtitle:        "",
-		AutoUpList:      false,
+		Port:              5123,
+		ServerName:        "RW-HPS",
+		Subtitle:          "",
+		AutoUpList:        false,
 
 		IpCheckMultiLanguageSupport: true,
 
@@ -106,9 +106,9 @@ func NewCoreConfig() CoreConfig {
 		RconPort:   0,
 		RconPasswd: mathutil.GetRandomLetterString(10),
 
-		WebPort:  0,
-		WebToken: mathutil.GetRandomLetterString(10),
-		WebHOST:  "",
+		WebPort:      0,
+		WebToken:     mathutil.GetRandomLetterString(10),
+		WebHOST:      "",
 		SslEnable:    false,
 		SslMixEnable: false,
 		SslPasswd:    "RW-HPS",
@@ -144,9 +144,9 @@ type ServerConfig struct {
 	// ServerID 服务器ID
 	ServerID string `json:"serverID"`
 
-	EnterAd          string `json:"enterAd"`
-	StartAd          string `json:"startAd"`
-	MaxPlayerJoinAd  string `json:"maxPlayerJoinAd"`
+	EnterAd           string `json:"enterAd"`
+	StartAd           string `json:"startAd"`
+	MaxPlayerJoinAd   string `json:"maxPlayerJoinAd"`
 	StartPlayerJoinAd string `json:"startPlayerJoinAd"`
 
 	// Passwd 密码
@@ -247,11 +247,11 @@ func (c *ServerConfig) checkValue() {
 
 // RelayConfig 对应 BeanRelayConfig
 type RelayConfig struct {
-	MainID        string `json:"mainID"`
-	MainServer    bool   `json:"mainServer"`
-	UpList        bool   `json:"upList"`
-	MainServerIP  string `json:"mainServerIP"`
-	MainServerPort int   `json:"mainServerPort"`
+	MainID         string `json:"mainID"`
+	MainServer     bool   `json:"mainServer"`
+	UpList         bool   `json:"upList"`
+	MainServerIP   string `json:"mainServerIP"`
+	MainServerPort int    `json:"mainServerPort"`
 }
 
 // NewRelayConfig 创建带默认值的 Relay 配置
