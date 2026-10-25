@@ -91,5 +91,11 @@ func (b *I18NBundle) GetInputt(input string, params []any) string {
 // Contains 是否包含 key
 func (b *I18NBundle) Contains(k string) bool { return b.languageData.ContainsKey(k) }
 
+// Keys 按插入顺序返回全部 key (对应 OrderedMap.keys)
+func (b *I18NBundle) Keys() []string { return b.languageData.Keys() }
+
+// Size key 数量
+func (b *I18NBundle) Size() int { return b.languageData.Size() }
+
 // Data 返回底层数据 (只读用途)
 func (b *I18NBundle) Data() *orderedmap.Map[string] { return b.languageData }

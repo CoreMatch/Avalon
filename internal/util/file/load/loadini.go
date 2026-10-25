@@ -24,6 +24,9 @@ func NewIniFromBytes(b []byte) *Ini {
 // Data 返回底层数据
 func (i *Ini) Data() *orderedmap.Map[string] { return i.data }
 
+// Keys 按插入顺序返回全部 key
+func (i *Ini) Keys() []string { return i.data.Keys() }
+
 // ReadString 读取字符串
 func (i *Ini) ReadString(input, def string) string {
 	if v, ok := i.data.Get(input); ok {
