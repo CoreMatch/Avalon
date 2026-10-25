@@ -11,17 +11,17 @@ import (
 
 // 服务器路径常量 (与原版一致)
 const (
-	ServerDataPath            = "/data"
-	ServerSavePath            = "/data/saves"
-	ServerCachePath           = "/data/cache"
-	ServerLibPath             = "/data/libs"
-	ServerLogPath             = "/data/log"
-	ServerPlayerPath          = "/data/player"
-	ServerMapsPath            = "/data/maps"
-	ServerPluginsPath         = "/data/plugins"
-	PluginGameCoreDataPath    = "/data/gameData"
-	PluginModsPath            = "/data/mods"
-	PluginRePlaysPath         = "/data/replays"
+	ServerDataPath         = "/data"
+	ServerSavePath         = "/data/saves"
+	ServerCachePath        = "/data/cache"
+	ServerLibPath          = "/data/libs"
+	ServerLogPath          = "/data/log"
+	ServerPlayerPath       = "/data/player"
+	ServerMapsPath         = "/data/maps"
+	ServerPluginsPath      = "/data/plugins"
+	PluginGameCoreDataPath = "/data/gameData"
+	PluginModsPath         = "/data/mods"
+	PluginRePlaysPath      = "/data/replays"
 )
 
 // 插件默认变量
@@ -72,12 +72,15 @@ var (
 	I18NBundle    *load.I18NBundle
 	I18NBundleMap = map[string]*load.I18NBundle{}
 
+	// URLData 对应 Data.urlData (URL.ini)
+	URLData *load.Ini
+
 	// DefPrint 对应 Data.defPrint
 	DefPrint = func(obj string) { log.Clog(obj) }
 
-	Vote         any
-	RunPid       int64
-	StartServer  bool
+	Vote          any
+	RunPid        int64
+	StartServer   bool
 	ServerCountry = "EN"
 
 	NeverEnd = false
