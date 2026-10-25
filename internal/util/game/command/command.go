@@ -2,9 +2,9 @@
 package command
 
 import (
+	"errors"
+	"fmt"
 	"strings"
-
-	"rwhps/internal/util/log"
 )
 
 // ResponseType 命令状态
@@ -65,8 +65,12 @@ func (h *Handler) HandleMessage(message string) *CommandResponse {
 }
 
 // HandleMessageWith 处理消息
+//
+// 与原版一致: 只有 "不以 prefix 开头" 才算 noCommand. 空前缀下空消息也算一条命令,
+// 会走到 unknownCommand —— 之前额外判断 message == "" 并返回 noCommand, 与原版不符.
+// (控制台自身在调用前会跳过空行, 所以只有 RCON 等其它入口能观察到这个差异.)
 func (h *Handler) HandleMessageWith(message string, params any) *CommandResponse {
-	if message == "" || !strings.HasPrefix(message, h.prefix) {
+	if !strings.HasPrefix(message, h.prefix) {
 		return &CommandResponse{Type: NoCommand}
 	}
 
@@ -168,8 +172,14 @@ func (h *Handler) RegisterSeq(text, description string, runner func(args []strin
 }
 
 // RegisterWith 注册带参命令
+//
+// 参数声明非法时 panic: 原版 Command 构造函数抛 IllegalArgumentException,
+// 属于调用方的编码错误, 应在启动阶段立刻暴露而不是静默降级.
 func (h *Handler) RegisterWith(text, params, description string, runner Runner) *Command {
-	cmd := newCommand(text, params, description, runner)
+	cmd, err := newCommand(text, params, description, runner)
+	if err != nil {
+		panic(err)
+	}
 	h.commands[strings.ToLower(text)] = cmd
 	h.orderedCommands = append(h.orderedCommands, cmd)
 	return cmd
@@ -186,7 +196,10 @@ func (h *Handler) CommandList() []*Command { return h.orderedCommands }
 // Prefix 返回前缀
 func (h *Handler) Prefix() string { return h.prefix }
 
-func newCommand(text, paramText, description string, runner Runner) *Command {
+// newCommand 对应 Command(text, paramText, description, runner) 构造函数
+//
+// 参数声明非法时返回 error (原版抛 IllegalArgumentException), 由 RegisterWith 转成 panic.
+func newCommand(text, paramText, description string, runner Runner) (*Command, error) {
 	cmd := &Command{Text: text, ParamText: paramText, Description: description, runner: runner}
 
 	var psplit []string
@@ -195,15 +208,14 @@ func newCommand(text, paramText, description string, runner Runner) *Command {
 	}
 	if len(psplit) == 0 {
 		cmd.Params = []CommandParam{}
-		return cmd
+		return cmd, nil
 	}
 
 	cmd.Params = make([]CommandParam, len(psplit))
 	hadOptional := false
 	for i, param := range psplit {
 		if len(param) <= 2 {
-			log.Warnf("Malformed param '%s'", param)
-			return cmd
+			return nil, fmt.Errorf("malformed param '%s'", param)
 		}
 		l := param[0]
 		r := param[len(param)-1]
@@ -211,15 +223,13 @@ func newCommand(text, paramText, description string, runner Runner) *Command {
 
 		if l == '<' && r == '>' {
 			if hadOptional {
-				log.Warnf("Can't have non-optional param after optional param!")
-				return cmd
+				return nil, errors.New("can't have non-optional param after optional param")
 			}
 			optional = false
 		} else if l == '[' && r == ']' {
 			optional = true
 		} else {
-			log.Warnf("Malformed param '%s'", param)
-			return cmd
+			return nil, fmt.Errorf("malformed param '%s'", param)
 		}
 		if optional {
 			hadOptional = true
@@ -228,13 +238,12 @@ func newCommand(text, paramText, description string, runner Runner) *Command {
 		fname := param[1 : len(param)-1]
 		if strings.HasSuffix(fname, "...") {
 			if i != len(psplit)-1 {
-				log.Warnf("A variadic parameter should be the last parameter!")
-				return cmd
+				return nil, errors.New("a variadic parameter should be the last parameter")
 			}
 			fname = fname[:len(fname)-3]
 			variadic = true
 		}
 		cmd.Params[i] = CommandParam{Name: fname, Optional: optional, Variadic: variadic}
 	}
-	return cmd
+	return cmd, nil
 }

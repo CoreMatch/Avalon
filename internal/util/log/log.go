@@ -87,10 +87,15 @@ func initLogFileLocked() {
 }
 
 // Set 设置日志等级
+//
+// 注意: FromLevel 在等级名非法时会打一条 skipping 日志, 而 logs 也要拿 mu.
+// 因此必须先把等级解析出来再取锁, 否则会自锁死.
 func Set(level string) {
+	grade := FromLevel(level)
+
 	mu.Lock()
-	defer mu.Unlock()
-	logGrade = FromLevel(level)
+	logGrade = grade
+	mu.Unlock()
 }
 
 // SaveLog 刷盘
