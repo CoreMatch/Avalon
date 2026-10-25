@@ -87,9 +87,6 @@ type AbstractNet struct {
 
 // NewAbstractNet 对应 AbstractNet(rwHps).init()
 func NewAbstractNet(rwHps core.IRwHps) *AbstractNet {
-	// 设置全局 Log/Ping 命令钩子, 供 AbstractNetConnect 使用
-	core.LogCommand = nil
-	core.PingCommand = nil
 	return &AbstractNet{
 		rwHps:       rwHps,
 		IdleTrigger: &AcceptorIdleStateTrigger{},
