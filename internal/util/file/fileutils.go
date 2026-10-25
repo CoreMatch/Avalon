@@ -1,10 +1,20 @@
 // Package file 对应 net.rwhps.server.util.file.FileUtils
+//
+// 与原版一致: 所有 "绝对" 路径 (以 / 开头) 都相对于程序所在目录 (BasePath),
+// 而不是文件系统根目录. BasePath 的解析顺序:
+//  1. -Drwhps.basePath=...
+//  2. 环境变量 RWHPS_BASE_PATH
+//  3. 可执行文件所在目录
+//  4. 当前工作目录
 package file
 
 import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
+
+	"rwhps/internal/util/systemprops"
 )
 
 // FileUtils 简易文件工具, 对应 FileUtils
@@ -12,9 +22,98 @@ type FileUtils struct {
 	Path string
 }
 
-// GetFolder 获取目录
+var (
+	baseOnce sync.Once
+	baseMu   sync.RWMutex
+	basePath string
+)
+
+// BasePath 返回数据根目录 (总以 / 结尾, 对应 FileUtils.defaultFilePath)
+func BasePath() string {
+	baseOnce.Do(func() {
+		baseMu.Lock()
+		basePath = pathProcess(resolveBasePath())
+		baseMu.Unlock()
+	})
+	baseMu.RLock()
+	defer baseMu.RUnlock()
+	return basePath
+}
+
+// SetBasePath 对应 FileUtils.setFilePath
+func SetBasePath(p string) {
+	baseOnce.Do(func() {})
+	baseMu.Lock()
+	basePath = pathProcess(p)
+	baseMu.Unlock()
+}
+
+// resolveBasePath 按优先级解析根目录
+func resolveBasePath() string {
+	if v, ok := systemprops.GetOrEnv("rwhps.basePath"); ok && v != "" {
+		return v
+	}
+	if exe, err := os.Executable(); err == nil {
+		return filepath.Dir(exe)
+	}
+	if wd, err := os.Getwd(); err == nil {
+		return wd
+	}
+	return "."
+}
+
+// pathProcess 对应 FileUtils.pathProcess: 统一斜杠并保证以 / 结尾
+func pathProcess(path string) string {
+	cache := path
+	// Windows 的绝对路径形如 /A:/a/a.jar, 需要去掉前导 /
+	if len(cache) > 2 && cache[0] == '/' && cache[2] == ':' {
+		cache = cache[1:]
+	}
+	custom := strings.ReplaceAll(cache, "\\", "/")
+	if strings.HasSuffix(custom, "/") {
+		return custom
+	}
+	return custom + "/"
+}
+
+// cehckFolderPath 对应 FileUtils.cehckFolderPath (原版拼写就是 cehck)
+func cehckFolderPath(defPath, path string) string {
+	if path == "" {
+		return defPath
+	}
+	to := path
+	if strings.HasPrefix(to, "/") {
+		to = to[1:]
+	}
+	if strings.HasSuffix(to, "/") {
+		to = to[:len(to)-1]
+	}
+	if strings.HasSuffix(defPath, "/") {
+		return defPath + to
+	}
+	return defPath + "/" + to
+}
+
+// GetFolder 获取目录 (会创建目录), 对应 FileUtils.getFolder
 func GetFolder(path string) *FileUtils {
-	return &FileUtils{Path: path}
+	to := cehckFolderPath(BasePath(), path)
+	_ = os.MkdirAll(to, 0o755)
+	return &FileUtils{Path: to}
+}
+
+// GetFile 获取文件, 对应 FileUtils.getFile
+func GetFile(path string) *FileUtils {
+	return &FileUtils{Path: cehckFolderPath(BasePath(), path)}
+}
+
+// GetPath 只拼接路径不创建, 对应 FileUtils.getPath
+func GetPath(name string) string {
+	return cehckFolderPath(BasePath(), name)
+}
+
+// SplicePath 对应 FileUtils.splicePath
+func SplicePath(splice1, splice2 string) string {
+	return cehckFolderPath(splice1, splice2)
 }
 
 // ToFile 获取子文件/子目录
