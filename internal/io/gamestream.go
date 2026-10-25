@@ -1,4 +1,10 @@
 // Package gameio 对应 net.rwhps.server.io.GameInputStream / GameOutputStream
+//
+// 关于 ReadByte / WriteByte 的命名: 它们刻意沿用 Java DataInputStream/DataOutputStream
+// 的方法名, 以便与 Kotlin 原版逐行对照 (原版每个调用点都写着 readByte()/writeByte()).
+// 签名因此与 io.ByteReader / io.ByteWriter 不同 (前者返回有符号 byte 展开的 int,
+// 后者返回 *GameOutputStream 以支持链式调用), go vet 的 stdmethods 分析器会报两条
+// 误报, 检查时使用 `go vet -stdmethods=false ./...`.
 package gameio
 
 import (
