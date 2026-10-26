@@ -2,9 +2,9 @@
 package realize
 
 import (
-	gameio "rwhps/internal/io"
 	"rwhps/internal/data/global"
 	"rwhps/internal/game/enums"
+	gameio "rwhps/internal/io"
 	"rwhps/internal/io/packet"
 	"rwhps/internal/io/packettype"
 	"rwhps/internal/net/core/server/netpacket"
