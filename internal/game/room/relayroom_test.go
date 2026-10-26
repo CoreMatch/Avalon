@@ -5,6 +5,8 @@ import (
 	"sync"
 	"testing"
 
+	"rwhps/internal/game/player"
+	"rwhps/internal/io/packet"
 	"rwhps/internal/net/core"
 	"rwhps/internal/util/javastr"
 	"rwhps/internal/util/timeutil"
@@ -15,48 +17,62 @@ type fakeRelayConnect struct {
 	name         string
 	ip           string
 	ipCountry    string
-	useAgreement bool
+	useAgreement string
 	clientVer    int
 	site         int32
 	lastRecv     int64
 
 	status core.RelayStatus
 
+	registerID string
+	player     *player.PlayerRelay
+	startFlag  bool
+
 	mu          sync.Mutex
-	systemMsg   []string
-	chatMsg     []string
+	packets     []*packet.Packet
+	sentRelayID []bool
+	reRelay     int
 	disconnects int
 	sendErr     error
 }
 
-func (f *fakeRelayConnect) Name() string                 { return f.name }
-func (f *fakeRelayConnect) IP() string                   { return f.ip }
-func (f *fakeRelayConnect) IPCountry() string            { return f.ipCountry }
-func (f *fakeRelayConnect) UseConnectionAgreement() bool { return f.useAgreement }
-func (f *fakeRelayConnect) ClientVersion() int           { return f.clientVer }
-func (f *fakeRelayConnect) Site() int32                  { return f.site }
-func (f *fakeRelayConnect) LastReceivedTime() int64      { return f.lastRecv }
+func (f *fakeRelayConnect) Name() string                   { return f.name }
+func (f *fakeRelayConnect) IP() string                     { return f.ip }
+func (f *fakeRelayConnect) IPCountry() string              { return f.ipCountry }
+func (f *fakeRelayConnect) UseConnectionAgreement() string { return f.useAgreement }
+func (f *fakeRelayConnect) ClientVersion() int             { return f.clientVer }
+func (f *fakeRelayConnect) Site() int32                    { return f.site }
+func (f *fakeRelayConnect) LastReceivedTime() int64        { return f.lastRecv }
 
 func (f *fakeRelayConnect) PermissionStatus() core.RelayStatus { return f.status }
 func (f *fakeRelayConnect) SetPermissionStatus(s core.RelayStatus) {
 	f.status = s
 }
 
-func (f *fakeRelayConnect) SendSystemMessage(msg string) error {
+func (f *fakeRelayConnect) RegisterPlayerId() string         { return f.registerID }
+func (f *fakeRelayConnect) PlayerRelay() *player.PlayerRelay { return f.player }
+func (f *fakeRelayConnect) StartGameFlag() bool              { return f.startFlag }
+func (f *fakeRelayConnect) SetStartGameFlag(v bool)          { f.startFlag = v }
+
+func (f *fakeRelayConnect) SendPacket(p *packet.Packet) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if f.sendErr != nil {
-		return f.sendErr
+		return
 	}
-	f.systemMsg = append(f.systemMsg, msg)
-	return nil
+	f.packets = append(f.packets, p)
 }
 
-func (f *fakeRelayConnect) SendChatMessage(msg, sendBy string, team int) error {
+func (f *fakeRelayConnect) SendRelayServerId(multicast bool) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.chatMsg = append(f.chatMsg, msg)
-	return nil
+	f.sentRelayID = append(f.sentRelayID, multicast)
+}
+
+func (f *fakeRelayConnect) AddReRelayConnect() {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.reRelay++
 }
 
 func (f *fakeRelayConnect) Disconnect() {
@@ -65,12 +81,57 @@ func (f *fakeRelayConnect) Disconnect() {
 	f.disconnects++
 }
 
-func (f *fakeRelayConnect) systemMessages() []string {
+func (f *fakeRelayConnect) sentPackets() []*packet.Packet {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	out := make([]string, len(f.systemMsg))
-	copy(out, f.systemMsg)
+	out := make([]*packet.Packet, len(f.packets))
+	copy(out, f.packets)
 	return out
+}
+
+// sentMessages 返回已发包里的消息原文 (配合 fakePacketBuilder)
+func (f *fakeRelayConnect) sentMessages() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	out := make([]string, 0, len(f.packets))
+	for _, p := range f.packets {
+		out = append(out, string(p.Bytes))
+	}
+	return out
+}
+
+// fakePacketBuilder 是 relayPacketBuilder 的测试实现
+//
+// 把消息原文放进 packet.Bytes, 这样单测不必依赖真实的包编码器 —— 原版走的是
+// NetStaticData.RwHps.abstractNetPacket, 而那是 sync.Once 缓存的单例, 装不进去.
+type fakePacketBuilder struct {
+	mu        sync.Mutex
+	systemMsg []string
+	chatMsg   []string
+}
+
+func (b *fakePacketBuilder) GetSystemMessagePacket(msg string) (*packet.Packet, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.systemMsg = append(b.systemMsg, msg)
+	return &packet.Packet{Bytes: []byte(msg)}, nil
+}
+
+func (b *fakePacketBuilder) GetChatMessagePacket(msg string, sendBy string, team int) (*packet.Packet, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.chatMsg = append(b.chatMsg, msg)
+	return &packet.Packet{Bytes: []byte(msg)}, nil
+}
+
+// installFakeBuilder 装上假的包构造器, 返回恢复函数
+func installFakeBuilder(t *testing.T) *fakePacketBuilder {
+	t.Helper()
+	b := &fakePacketBuilder{}
+	old := abstractNetPacketProvider
+	abstractNetPacketProvider = func() relayPacketBuilder { return b }
+	t.Cleanup(func() { abstractNetPacketProvider = old })
+	return b
 }
 
 func (f *fakeRelayConnect) disconnectCount() int {
@@ -81,12 +142,14 @@ func (f *fakeRelayConnect) disconnectCount() int {
 
 func newFakeCon(site int32, name string) *fakeRelayConnect {
 	return &fakeRelayConnect{
-		name:      name,
-		ip:        "127.0.0.1",
-		ipCountry: "EN",
-		clientVer: 151,
-		site:      site,
-		lastRecv:  timeutil.ConcurrentMillis(),
+		name:         name,
+		ip:           "127.0.0.1",
+		ipCountry:    "EN",
+		useAgreement: "UDP",
+		clientVer:    151,
+		site:         site,
+		lastRecv:     timeutil.ConcurrentMillis(),
+		startFlag:    true,
 	}
 }
 
@@ -318,26 +381,49 @@ func TestUpdateMinSizeLatencyCollisionKeepsLast(t *testing.T) {
 }
 
 func TestSendMsgUsesAdmin(t *testing.T) {
+	installFakeBuilder(t)
+
 	r := newSingleRoom("t", nil)
 	admin := newFakeCon(0, "host")
 	r.SetAdmin(admin)
 
 	r.SendMsg("hello")
-	msgs := admin.systemMessages()
+	msgs := admin.sentMessages()
 	if len(msgs) != 1 || msgs[0] != "hello" {
 		t.Fatalf("SendMsg delivered %v, want [hello]", msgs)
 	}
 
 	r.SendMsgChat("hi", "bob", 1)
-	admin.mu.Lock()
-	chat := len(admin.chatMsg)
-	admin.mu.Unlock()
-	if chat != 1 {
-		t.Fatalf("SendMsgChat delivered %d messages, want 1", chat)
+	msgs = admin.sentMessages()
+	if len(msgs) != 2 || msgs[1] != "hi" {
+		t.Fatalf("SendMsgChat delivered %v, want [hello hi]", msgs)
+	}
+}
+
+// TestSendMsgWithoutBuilderIsNotFatal 固定"没有可用协议实现"时的行为:
+// 原版 NetStaticData.RwHps 是 FakeRwHps, 它的 abstractNetPacket 会抛
+// ImplementedException, 被 sendMsg 的 catch(Exception) 吞掉. Go 侧对应的是
+// builder 为 nil, 记一条错误日志后返回, 不 panic.
+func TestSendMsgWithoutBuilderIsNotFatal(t *testing.T) {
+	old := abstractNetPacketProvider
+	abstractNetPacketProvider = func() relayPacketBuilder { return nil }
+	t.Cleanup(func() { abstractNetPacketProvider = old })
+
+	r := newSingleRoom("t", nil)
+	admin := newFakeCon(0, "host")
+	r.SetAdmin(admin)
+
+	r.SendMsg("hello")
+	r.SendMsgChat("hi", "bob", 1)
+
+	if len(admin.sentMessages()) != 0 {
+		t.Fatal("没有包构造器时不应发出任何包")
 	}
 }
 
 func TestSendMsgLogsSendFailure(t *testing.T) {
+	installFakeBuilder(t)
+
 	r := newSingleRoom("t", nil)
 	admin := newFakeCon(0, "host")
 	admin.sendErr = errors.New("broken pipe")
@@ -461,19 +547,19 @@ func TestAllIP(t *testing.T) {
 	r := newSingleRoom("t", nil)
 	admin := newFakeCon(0, "host")
 	admin.ip = "10.0.0.1"
-	admin.useAgreement = true
+	admin.useAgreement = "UDP"
 	r.SetAdmin(admin)
 
 	member := newFakeCon(1, "bob")
 	member.ip = "10.0.0.2"
-	member.useAgreement = false
+	member.useAgreement = "TCP"
 	r.SetAbstractNetConnect(member)
 
 	got := r.AllIP()
-	if !contains(got, "host / IP: 10.0.0.1 / Protocol: true / Admin: true") {
+	if !contains(got, "host / IP: 10.0.0.1 / Protocol: UDP / Admin: true") {
 		t.Fatalf("AllIP() missing the admin line: %q", got)
 	}
-	if !contains(got, "bob / IP: 10.0.0.2 / Protocol: false / Admin: false") {
+	if !contains(got, "bob / IP: 10.0.0.2 / Protocol: TCP / Admin: false") {
 		t.Fatalf("AllIP() missing the member line: %q", got)
 	}
 }

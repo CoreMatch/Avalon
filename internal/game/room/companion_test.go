@@ -154,6 +154,7 @@ func TestCleanRoomRemovesStaleAndClosed(t *testing.T) {
 
 func TestSendAllMsgReachesEveryRoom(t *testing.T) {
 	resetForTest()
+	installFakeBuilder(t)
 
 	// sendAllMsg 走 Threads.newThreadOther, 是异步的; 每条消息由各房间自己的 admin 接收
 	admins := map[string]*fakeRelayConnect{}
@@ -170,14 +171,14 @@ func TestSendAllMsgReachesEveryRoom(t *testing.T) {
 	for time.Now().Before(deadline) {
 		all := true
 		for _, a := range admins {
-			if len(a.systemMessages()) == 0 {
+			if len(a.sentMessages()) == 0 {
 				all = false
 			}
 		}
 		if all {
 			// 每个房间恰好收到一条, 且内容一致
 			for id, a := range admins {
-				msgs := a.systemMessages()
+				msgs := a.sentMessages()
 				if len(msgs) != 1 || msgs[0] != "broadcast" {
 					t.Fatalf("room %s received %v, want [broadcast]", id, msgs)
 				}
@@ -347,4 +348,33 @@ func TestConcurrentRoomAccess(t *testing.T) {
 		t.Fatalf("MinSize() = %d, want 5", r.MinSize())
 	}
 	_ = core.RelayHostPermission
+}
+
+// TestSingleRoomIsSingletonAndReopens 固定 NetStaticData.relayRoom 的两个语义:
+// 1. 全局只有一个实例;
+// 2. 每次访问都会把 closeRoom 重置为 false —— 房间被关掉后再取一次等于重新开放.
+func TestSingleRoomIsSingletonAndReopens(t *testing.T) {
+	a := SingleRoom()
+	b := SingleRoom()
+	if a != b {
+		t.Fatal("SingleRoom 必须返回同一个实例")
+	}
+	if a.ID != "RW-HPS Beta Relay" {
+		t.Fatalf("SingleRoom().ID = %q, want %q", a.ID, "RW-HPS Beta Relay")
+	}
+	if a.InternalID != 0 {
+		t.Fatalf("SingleRoom().InternalID = %d, want 0", a.InternalID)
+	}
+	if a.GroupNet == nil {
+		t.Fatal("SingleRoom().GroupNet 不应为 nil")
+	}
+
+	a.SetCloseRoom(true)
+	if !a.CloseRoom() {
+		t.Fatal("closeRoom 未被置为 true")
+	}
+	_ = SingleRoom()
+	if a.CloseRoom() {
+		t.Fatal("再次访问 SingleRoom 应把 closeRoom 重置为 false")
+	}
 }

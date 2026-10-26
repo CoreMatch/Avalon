@@ -4,6 +4,7 @@
 package room
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 
@@ -11,6 +12,7 @@ import (
 	"rwhps/internal/data/global"
 	"rwhps/internal/data/temp"
 	"rwhps/internal/game/player"
+	"rwhps/internal/io/packet"
 	"rwhps/internal/net"
 	"rwhps/internal/net/core"
 	"rwhps/internal/struct/list"
@@ -33,6 +35,19 @@ import (
 // GameVersionRelay 移植时会隐式满足本接口, 无需 import 本包.
 // 与 net/core/server 下的 AbstractNetConnectServer 接缝是两回事: 那个面向
 // Server 风味, 且由实现方定义; 这个只服务 RelayRoom.
+//
+// # 接口形状在 GameVersionRelay 落地时被修正过
+//
+// 第一版这个接口是照着"假想的实现者"写的, 写了两个 GameVersionRelay 根本没有的
+// 方法 (SendSystemMessage / SendChatMessage), 还把 UseConnectionAgreement 写成了
+// bool. 真正的实现者落地时这两处都必须改:
+//
+//   - GameVersionRelay 继承自 AbstractNetConnect, 拿到的是 sendPacket 与
+//     useConnectionAgreement(): String (协议名, 例如 "UDP"/"TCP"). 原版
+//     RelayRoom.sendMsg 就是 `admin!!.sendPacket(...getSystemMessagePacket(msg))` ——
+//     发包是连接的通用能力, 不是"发系统消息"这种 Server 风味的专用能力.
+//   - 因此这里改成 SendPacket(*packet.Packet), 由 RelayRoom 自己拼包, 与原版
+//     完全一致 (原版就是 room 自己调 NetStaticData.RwHps.abstractNetPacket 拼的).
 type RelayConnect interface {
 	// Name 对应 name
 	Name() string
@@ -41,7 +56,10 @@ type RelayConnect interface {
 	// IPCountry 对应 ipCountry
 	IPCountry() string
 	// UseConnectionAgreement 对应 useConnectionAgreement
-	UseConnectionAgreement() bool
+	//
+	// 原版是 AbstractNetConnect.useConnectionAgreement(), 返回连接使用的协议名
+	// (String), 不是布尔值.
+	UseConnectionAgreement() string
 	// ClientVersion 对应 clientVersion
 	ClientVersion() int
 	// Site 对应 site
@@ -54,14 +72,35 @@ type RelayConnect interface {
 	// SetPermissionStatus 对应 permissionStatus 的 setter
 	SetPermissionStatus(core.RelayStatus)
 
-	// SendSystemMessage 对应 sendSystemMessage(msg)
+	// RegisterPlayerId 对应 registerPlayerId
 	//
-	// 原版 RelayRoom.sendMsg 是 admin!!.sendPacket(abstractNetPacket
-	// .getSystemMessagePacket(msg)), 而 AbstractNetConnectServer.sendSystemMessage
-	// 正是这一行, 因此直接复用接缝, 不必把 NetStaticData.RwHps 拖进来.
-	SendSystemMessage(msg string) error
-	// SendChatMessage 对应 sendChatMessage(msg, sendBy, team)
-	SendChatMessage(msg, sendBy string, team int) error
+	// GameVersionRelay.relayRegisterConnection 要拿房间内**其它**连接的
+	// registerPlayerId 做 UUID 重复检测, 因此这个成员必须在接缝上.
+	RegisterPlayerId() string
+
+	// PlayerRelay 对应 playerRelay
+	//
+	// GameVersionRelay.sendPacketExtractInformation 要读对方的 playerRelay
+	// (team / name / site) 来回填队伍信息.
+	PlayerRelay() *player.PlayerRelay
+	// StartGameFlag 对应 startGameFlag
+	StartGameFlag() bool
+	// SetStartGameFlag 对应 startGameFlag 的 setter
+	SetStartGameFlag(v bool)
+
+	// SendPacket 对应 sendPacket(packet)
+	//
+	// 原版 RelayRoom.sendMsg / sendMsgChat 都是
+	// `admin!!.sendPacket(NetStaticData.RwHps.abstractNetPacket.getXxxPacket(msg))`.
+	SendPacket(p *packet.Packet)
+	// SendRelayServerId 对应 sendRelayServerId(multicast)
+	//
+	// GameVersionRelay.adminMoveNew 迁移房主时要给新的房主发这个包.
+	SendRelayServerId(multicast bool)
+	// AddReRelayConnect 对应 addReRelayConnect()
+	//
+	// 同上, 房主迁移时所有连接都要重新注册.
+	AddReRelayConnect()
 
 	// Disconnect 对应 disconnect()
 	Disconnect()
@@ -280,6 +319,41 @@ func NewSingleRoom(id string, groupNet *net.GroupNet) *RelayRoom {
 	return newSingleRoom(id, groupNet)
 }
 
+var (
+	singleRoomOnce sync.Once
+	singleRoom     *RelayRoom
+)
+
+// SingleRoom 对应 NetStaticData.relayRoom (单房间模式)
+//
+// 原版:
+//
+//	val relayRoom = RelayRoom("RW-HPS Beta Relay", groupNet)
+//	    get() {
+//	        field.closeRoom = false
+//	        return field
+//	    }
+//
+// 即: 全局唯一一个房间, 复用 NetStaticData.groupNet 作为群发池, 而且**每次访问
+// 都会把 closeRoom 重置为 false** —— 房间被关掉后再取一次就等于重新开放.
+//
+// # 与原版的位置差异
+//
+// 原版它挂在 NetStaticData (net 包) 上. Go 侧不能这么做: room 包依赖 net 包
+// (Room.groupNet 是 *net.GroupNet), 若 net 再依赖 room 就成环. 因此把单例放到
+// room 包, 由 room 自己去取 net.NetStaticData.GroupNet.
+//
+// 后果: net.NetStaticData 上没有 RelayRoom 字段, 需要单房间的调用方走
+// room.SingleRoom().
+func SingleRoom() *RelayRoom {
+	singleRoomOnce.Do(func() {
+		singleRoom = newSingleRoom("RW-HPS Beta Relay", net.NetStaticData.GroupNet)
+	})
+	// 对应原版 getter 里的 `field.closeRoom = false`
+	singleRoom.SetCloseRoom(false)
+	return singleRoom
+}
+
 // Admin 对应 admin
 func (r *RelayRoom) Admin() RelayConnect { return r.admin.Get() }
 
@@ -355,19 +429,67 @@ func (r *RelayRoom) RemoveAbstractNetConnect(site int32) {
 	r.AbstractNetConnectIntMap.Remove(site)
 }
 
+// relayPacketBuilder 对应 NetStaticData.RwHps.abstractNetPacket 里 room 真正用到的两个方法
+type relayPacketBuilder interface {
+	GetSystemMessagePacket(msg string) (*packet.Packet, error)
+	GetChatMessagePacket(msg string, sendBy string, team int) (*packet.Packet, error)
+}
+
+// abstractNetPacketProvider 取当前服务端协议的包构造器
+//
+// 原版直接写 NetStaticData.RwHps.abstractNetPacket. Go 侧多一层间接, 原因是
+// NetStaticData.RwHps() 是 sync.Once 缓存的单例, 单测里装不进一个假的构造器.
+//
+// 返回值是 netpacket.AbstractNetPacket 的子集接口, 这样单测只需要实现两个方法.
+var abstractNetPacketProvider = func() relayPacketBuilder {
+	return net.NetStaticData.RwHps().AbstractNetPacket()
+}
+
 // SendMsg 对应 sendMsg(msg)
+//
+// 原版: admin!!.sendPacket(NetStaticData.RwHps.abstractNetPacket.getSystemMessagePacket(msg)),
+// 外面包着 try/catch(Exception) 只 printStackTrace.
+//
+// 拼包在 room 侧完成 (与原版一致), 而不是让连接自己去拼 —— 连接只有
+// sendPacket 这一个通用能力.
 func (r *RelayRoom) SendMsg(msg string) {
-	// 原版 catch IOException 后只 printStackTrace; Go 侧记一条错误日志后返回
-	if err := r.admin.Get().SendSystemMessage(msg); err != nil {
-		log.Errorf("[RelayRoom] Send System Chat Error", err)
+	admin := r.admin.Get()
+	if admin == nil {
+		// 原版这里是 admin!!, 会抛 NullPointerException
+		panic("room: admin is null (Kotlin: admin!!)")
 	}
+
+	builder := abstractNetPacketProvider()
+	if builder == nil {
+		log.Errorf("[RelayRoom] Send System Chat Error", errors.New("no abstractNetPacket available"))
+		return
+	}
+	p, err := builder.GetSystemMessagePacket(msg)
+	if err != nil {
+		log.Errorf("[RelayRoom] Send System Chat Error", err)
+		return
+	}
+	admin.SendPacket(p)
 }
 
 // SendMsgChat 对应 sendMsg(msg, msgName, team)
 func (r *RelayRoom) SendMsgChat(msg, msgName string, team int) {
-	if err := r.admin.Get().SendChatMessage(msg, msgName, team); err != nil {
-		log.Errorf("[RelayRoom] Send Chat Error", err)
+	admin := r.admin.Get()
+	if admin == nil {
+		panic("room: admin is null (Kotlin: admin!!)")
 	}
+
+	builder := abstractNetPacketProvider()
+	if builder == nil {
+		log.Errorf("[RelayRoom] Send Chat Error", errors.New("no abstractNetPacket available"))
+		return
+	}
+	p, err := builder.GetChatMessagePacket(msg, msgName, team)
+	if err != nil {
+		log.Errorf("[RelayRoom] Send Chat Error", err)
+		return
+	}
+	admin.SendPacket(p)
 }
 
 // GetActiveConnectionSize 对应 getActiveConnectionSize()
