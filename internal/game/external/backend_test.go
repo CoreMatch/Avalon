@@ -11,8 +11,6 @@ import (
 	"sync"
 	"testing"
 	"time"
-
-	"rwhps/internal/game"
 )
 
 // fakeProcess 是一个用 os.Pipe 搭起来的假 helper
@@ -146,11 +144,13 @@ type step struct {
 	reply *Response
 	// raw 直接写原始行 (用于构造非法响应)
 	raw string
+	// before 写回之前先执行的动作 (用于插入主动消息)
+	before func(req *Request, out *os.File)
 }
 
 // serve 按脚本扮演 helper
 //
-// 应答的 id 一律按收到的请求对齐 —— 测试不该去手算第几个请求对应第几个 id,
+// 应答的 id 与世代号一律按收到的请求对齐 —— 测试不该去手算第几个请求对应第几个 id,
 // 那样一改步骤顺序就全错了. 要专门构造 id 不对齐的情况请用 step.raw.
 func serve(t *testing.T, in *os.File, out *os.File, steps []step) {
 	t.Helper()
@@ -172,6 +172,18 @@ func serve(t *testing.T, in *os.File, out *os.File, steps []step) {
 			t.Errorf("helper: 收到 op %q, 期望 %q", req.Op, s.wantOp)
 			return
 		}
+		if req.ID <= 0 {
+			t.Errorf("helper: 请求 id 非法: %d", req.ID)
+			return
+		}
+		if req.Gen == 0 {
+			t.Errorf("helper: 请求缺少世代号")
+			return
+		}
+
+		if s.before != nil {
+			s.before(&req, out)
+		}
 
 		if s.raw != "" {
 			if _, err := io.WriteString(out, s.raw+"\n"); err != nil {
@@ -182,6 +194,8 @@ func serve(t *testing.T, in *os.File, out *os.File, steps []step) {
 		if s.reply != nil {
 			reply := *s.reply
 			reply.ID = req.ID
+			reply.Gen = req.Gen
+			reply.Type = MsgResponse
 			if _, err := io.WriteString(out, mustEncodeReply(&reply)+"\n"); err != nil {
 				return
 			}
@@ -223,17 +237,22 @@ func newTestBackend(t *testing.T, opTimeout time.Duration) *Backend {
 		HelperPath:   helper,
 		HelloTimeout: 2 * time.Second,
 		OpTimeout:    opTimeout,
-		StopGrace:    500 * time.Millisecond,
+		StopGrace:    50 * time.Millisecond,
+		RestartDelay: 50 * time.Millisecond,
 	})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
+	// 必须关掉: helper 退出后 Backend 会自动重启, 而 newProcess 是包级变量,
+	// 泄漏到下一个测试就会把下一个测试的假进程抢走 (表现为"收到 op hello,
+	// 期望 room.status"这类莫名其妙的错位).
+	t.Cleanup(func() { _ = b.Close() })
 	return b
 }
 
-// ok 构造一个 OK 响应, id 由 serve 按收到的请求对齐
+// ok 构造一个 OK 响应, id 与世代号由 serve 按收到的请求对齐
 func ok() *Response {
-	return &Response{V: ProtocolVersion, OK: true}
+	return &Response{V: ProtocolVersion, Type: MsgResponse, Gen: 1, OK: true}
 }
 
 func TestNewRequiresHelperPath(t *testing.T) {
@@ -271,93 +290,207 @@ func TestNewRejectsMissingJava(t *testing.T) {
 	}
 }
 
-func TestHandshakeThenStart(t *testing.T) {
-	// 握手 + start, id 从 0 开始递增
+// TestHandshakeThenRoomCreate 握手通过后能建房间
+func TestHandshakeThenRoomCreate(t *testing.T) {
 	b, _, _, _ := setup(t,
 		step{wantOp: OpHello, reply: ok()},
-		step{wantOp: OpStart, reply: ok()},
+		step{wantOp: OpRoomCreate, reply: ok()},
 	)
 
-	if err := b.Start(game.MatchConfig{RoomID: "r1", MapName: "m", MaxPlayer: 10}); err != nil {
-		t.Fatalf("Start: %v", err)
+	if err := b.EnsureRunning(); err != nil {
+		t.Fatalf("EnsureRunning: %v", err)
 	}
-	if !b.Running() {
-		t.Fatal("Start 成功后 Running 应为 true")
+	if b.Generation() != 1 {
+		t.Fatalf("Generation = %d, 期望 1", b.Generation())
 	}
-	if b.PlayerCount() != 0 {
-		t.Fatalf("PlayerCount = %d, 期望 0 (helper 未报告人数)", b.PlayerCount())
+
+	resp, err := b.Request(&Request{Op: OpRoomCreate, Room: "r1"})
+	if err != nil {
+		t.Fatalf("room.create: %v", err)
+	}
+	if !resp.OK {
+		t.Fatalf("room.create 应答 = %+v, 期望 OK", resp)
 	}
 }
 
+// TestHandshakeVersionMismatch helper 说的是别的协议版本
 func TestHandshakeVersionMismatch(t *testing.T) {
 	b, _, _, _ := setup(t,
-		step{wantOp: OpHello, raw: `{"v":99,"id":0,"ok":true}`},
+		step{wantOp: OpHello, raw: `{"v":99,"type":"response","id":1,"gen":1,"ok":true}`},
 	)
 
-	err := b.Start(game.MatchConfig{})
+	err := b.EnsureRunning()
 	if err == nil || !strings.Contains(err.Error(), "protocol 99") {
-		t.Fatalf("Start = %v, 期望协议版本不匹配错误", err)
+		t.Fatalf("EnsureRunning = %v, 期望协议版本不匹配错误", err)
 	}
 }
 
+// TestHandshakeFailure helper 明确拒绝握手
 func TestHandshakeFailure(t *testing.T) {
 	b, _, _, _ := setup(t,
-		step{wantOp: OpHello, reply: &Response{V: ProtocolVersion, ID: 0, OK: false, Error: "class not found"}},
+		step{wantOp: OpHello, reply: &Response{V: ProtocolVersion, OK: false, Error: "class not found"}},
 	)
 
-	err := b.Start(game.MatchConfig{})
+	err := b.EnsureRunning()
 	if err == nil || !strings.Contains(err.Error(), "class not found") {
-		t.Fatalf("Start = %v, 期望 helper 的失败原因被透传", err)
+		t.Fatalf("EnsureRunning = %v, 期望 helper 的失败原因被透传", err)
 	}
 }
 
-func TestStartHelperReportsFailure(t *testing.T) {
+// TestRoomStartHelperReportsFailure 开局失败时原因要透传
+func TestRoomStartHelperReportsFailure(t *testing.T) {
 	b, _, _, _ := setup(t,
 		step{wantOp: OpHello, reply: ok()},
-		step{wantOp: OpStart, reply: &Response{V: ProtocolVersion, ID: 1, OK: false, Error: "map file missing"}},
+		step{wantOp: OpRoomStart, reply: &Response{V: ProtocolVersion, OK: false, Error: "map file missing"}},
 	)
 
-	err := b.Start(game.MatchConfig{MapName: "nope"})
+	_, err := b.Request(&Request{Op: OpRoomStart, Room: "r1", Map: "nope"})
 	if err == nil || !strings.Contains(err.Error(), "map file missing") {
-		t.Fatalf("Start = %v, 期望 helper 的失败原因被透传", err)
-	}
-	if b.Running() {
-		t.Fatal("开局失败后 Running 应保持 false")
+		t.Fatalf("room.start = %v, 期望 helper 的失败原因被透传", err)
 	}
 }
 
-func TestStopKeepsProcessAlive(t *testing.T) {
-	b, fp, _, _ := setup(t,
+// TestRoomStatusRoundTrip 状态查询的字段要能回到 Go 侧
+func TestRoomStatusRoundTrip(t *testing.T) {
+	b, _, _, _ := setup(t,
 		step{wantOp: OpHello, reply: ok()},
-		step{wantOp: OpStart, reply: ok()},
-		step{wantOp: OpStop, reply: ok()},
+		step{wantOp: OpRoomStatus, reply: &Response{V: ProtocolVersion, OK: true, Running: true, Players: 4}},
 	)
 
-	if err := b.Start(game.MatchConfig{}); err != nil {
-		t.Fatalf("Start: %v", err)
+	resp, err := b.Request(&Request{Op: OpRoomStatus, Room: "r1"})
+	if err != nil {
+		t.Fatalf("room.status: %v", err)
 	}
-	if err := b.Stop(); err != nil {
-		t.Fatalf("Stop: %v", err)
-	}
-	if b.Running() {
-		t.Fatal("Stop 后 Running 应为 false")
-	}
-	// Stop 只发操作, 不杀进程 (反复起 JVM 的代价太高)
-	select {
-	case <-fp.Done():
-		t.Fatal("Stop 不应该终止 helper 进程")
-	default:
+	if !resp.Running || resp.Players != 4 {
+		t.Fatalf("room.status = %+v, 期望 running 且 players=4", resp)
 	}
 }
 
+// TestUnmatchedResponseIDIsIgnored 未匹配的应答 id 只记日志, 不是致命错误
+func TestUnmatchedResponseIDIsIgnored(t *testing.T) {
+	b, _, _, _ := setup(t,
+		step{wantOp: OpHello, reply: ok()},
+		// 先吐一个对不上的 id, 再吐真正的应答
+		step{wantOp: OpRoomStatus, before: func(req *Request, out *os.File) {
+			writeRaw(t, out, `{"v":2,"type":"response","id":9999,"gen":1,"ok":true}`)
+		}, reply: &Response{V: ProtocolVersion, OK: true, Players: 2}},
+	)
+
+	if err := b.EnsureRunning(); err != nil {
+		t.Fatalf("EnsureRunning: %v", err)
+	}
+
+	resp, err := b.Request(&Request{Op: OpRoomStatus, Room: "r1"})
+	if err != nil {
+		t.Fatalf("room.status: %v", err)
+	}
+	if resp.Players != 2 {
+		t.Fatalf("players = %d, 期望 2", resp.Players)
+	}
+}
+
+// TestUnknownEventIsIgnored 未知事件名只记日志
+func TestUnknownEventIsIgnored(t *testing.T) {
+	b, _, _, _ := setup(t,
+		step{wantOp: OpHello, reply: ok()},
+		step{wantOp: OpRoomStatus, before: func(req *Request, out *os.File) {
+			writeRaw(t, out, `{"v":2,"type":"event","gen":1,"event":"what.is.this","room":"r1"}`)
+		}, reply: &Response{V: ProtocolVersion, OK: true, Players: 1}},
+	)
+
+	var mu sync.Mutex
+	var seen []string
+	b.SetHandlers(Handlers{
+		Event: func(ev *EventMessage) {
+			mu.Lock()
+			seen = append(seen, ev.Event)
+			mu.Unlock()
+		},
+	})
+
+	if err := b.EnsureRunning(); err != nil {
+		t.Fatalf("EnsureRunning: %v", err)
+	}
+	if _, err := b.Request(&Request{Op: OpRoomStatus, Room: "r1"}); err != nil {
+		t.Fatalf("room.status: %v", err)
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	if len(seen) != 0 {
+		t.Fatalf("未知事件不应被分发, 收到 %v", seen)
+	}
+}
+
+// TestPacketDeliveredToHandler helper 主动吐的游戏包要能到 Go 侧
+func TestPacketDeliveredToHandler(t *testing.T) {
+	b, _, _, _ := setup(t,
+		step{wantOp: OpHello, reply: ok()},
+		step{wantOp: OpRoomStatus, before: func(req *Request, out *os.File) {
+			writeRaw(t, out, `{"v":2,"type":"packet","gen":1,"room":"r1","conn":"c1","ptype":115,"data":"AQID"}`)
+		}, reply: &Response{V: ProtocolVersion, OK: true}},
+	)
+
+	packets := make(chan *PacketMessage, 4)
+	b.SetHandlers(Handlers{
+		Packet: func(p *PacketMessage) {
+			packets <- p
+		},
+	})
+
+	if err := b.EnsureRunning(); err != nil {
+		t.Fatalf("EnsureRunning: %v", err)
+	}
+	if _, err := b.Request(&Request{Op: OpRoomStatus, Room: "r1"}); err != nil {
+		t.Fatalf("room.status: %v", err)
+	}
+
+	select {
+	case p := <-packets:
+		if p.Room != "r1" || p.Conn != "c1" || p.PType != 115 {
+			t.Fatalf("包 = %+v, 期望 room=r1 conn=c1 ptype=115", p)
+		}
+		data, err := decodeBase64(p.Data)
+		if err != nil {
+			t.Fatalf("base64 解码: %v", err)
+		}
+		if len(data) != 3 || data[0] != 1 || data[2] != 3 {
+			t.Fatalf("负载 = %v, 期望 [1 2 3]", data)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("没有收到游戏包")
+	}
+}
+
+// TestConnPacketIsFireAndForget conn.packet 不等应答, 但写失败要报出来
+func TestConnPacketIsFireAndForget(t *testing.T) {
+	b, _, _, _ := setup(t,
+		step{wantOp: OpHello, reply: ok()},
+		// conn.packet 之后 helper 不该再回任何东西
+	)
+
+	if err := b.EnsureRunning(); err != nil {
+		t.Fatalf("EnsureRunning: %v", err)
+	}
+	if err := b.Send(&Request{Op: OpConnPacket, Room: "r1", Conn: "c1", PType: 115, Data: "AQID"}); err != nil {
+		t.Fatalf("conn.packet: %v", err)
+	}
+
+	// 写失败必须立刻报错
+	b.Close()
+	if err := b.Send(&Request{Op: OpConnPacket, Room: "r1", Conn: "c1", PType: 115}); err == nil {
+		t.Fatal("backend 已关闭时 conn.packet 应报错")
+	}
+}
+
+// TestCloseTerminatesProcess 关闭 backend 要把 helper 进程带走
 func TestCloseTerminatesProcess(t *testing.T) {
 	b, fp, _, _ := setup(t,
 		step{wantOp: OpHello, reply: ok()},
-		step{wantOp: OpStart, reply: ok()},
 	)
 
-	if err := b.Start(game.MatchConfig{}); err != nil {
-		t.Fatalf("Start: %v", err)
+	if err := b.EnsureRunning(); err != nil {
+		t.Fatalf("EnsureRunning: %v", err)
 	}
 	if err := b.Close(); err != nil {
 		t.Fatalf("Close: %v", err)
@@ -367,55 +500,8 @@ func TestCloseTerminatesProcess(t *testing.T) {
 	}
 }
 
-func TestStatusRoundTrip(t *testing.T) {
-	// Status 自己会完成握手, 不需要先开局
-	b, _, _, _ := setup(t,
-		step{wantOp: OpHello, reply: ok()},
-		step{wantOp: OpStatus, reply: &Response{V: ProtocolVersion, OK: true, Running: true, Players: 4}},
-	)
-
-	running, players, err := b.Status()
-	if err != nil {
-		t.Fatalf("Status: %v", err)
-	}
-	if !running || players != 4 {
-		t.Fatalf("Status = (%v, %d), 期望 (true, 4)", running, players)
-	}
-	// 查询过之后 PlayerCount 应该跟着刷新
-	if b.PlayerCount() != 4 {
-		t.Fatalf("PlayerCount = %d, 期望 4", b.PlayerCount())
-	}
-}
-
-func TestStatusHelperReportsFailure(t *testing.T) {
-	b, _, _, _ := setup(t,
-		step{wantOp: OpHello, reply: ok()},
-		step{wantOp: OpStart, reply: ok()},
-		step{wantOp: OpStatus, reply: &Response{V: ProtocolVersion, OK: false, Error: "room is gone"}},
-	)
-
-	if err := b.Start(game.MatchConfig{}); err != nil {
-		t.Fatalf("Start: %v", err)
-	}
-	if _, _, err := b.Status(); err == nil || !strings.Contains(err.Error(), "room is gone") {
-		t.Fatalf("Status = %v, 期望失败原因被透传", err)
-	}
-}
-
-func TestReplyIDMismatchIsRejected(t *testing.T) {
-	// helper 回了一个对不上的 id (协议错位时最常见的症状)
-	b, _, _, _ := setup(t,
-		step{wantOp: OpHello, raw: `{"v":1,"id":77,"ok":true}`},
-	)
-
-	err := b.Start(game.MatchConfig{})
-	if err == nil || !strings.Contains(err.Error(), "hello reply id 77") {
-		t.Fatalf("Start = %v, 期望 id 不对齐被拒绝", err)
-	}
-}
-
-func TestHelperDiesBeforeStart(t *testing.T) {
-	// helper 什么都不回就直接消失
+// TestHelperDiesBeforeHandshake helper 什么都不回就直接消失
+func TestHelperDiesBeforeHandshake(t *testing.T) {
 	fp, helperRead, helperWrite := newFakeProcess()
 	t.Cleanup(func() {
 		_ = helperRead.Close()
@@ -432,13 +518,13 @@ func TestHelperDiesBeforeStart(t *testing.T) {
 	_ = helperRead.Close()
 	_ = helperWrite.Close()
 
-	if err := b.Start(game.MatchConfig{}); err == nil {
-		t.Fatal("helper 立即退出时 Start 应报错")
+	if err := b.EnsureRunning(); err == nil {
+		t.Fatal("helper 立即退出时 EnsureRunning 应报错")
 	}
 }
 
+// TestHelperRespawnsAfterDeath helper 崩溃后要自动补一个, 并且世代号递增
 func TestHelperRespawnsAfterDeath(t *testing.T) {
-	// 第一任 helper 握手后死掉, 第二任接手: 外部依赖挂掉不该让服务器跟着挂掉
 	first, read1, write1 := newFakeProcess()
 	second, read2, write2 := newFakeProcess()
 	t.Cleanup(func() {
@@ -449,7 +535,7 @@ func TestHelperRespawnsAfterDeath(t *testing.T) {
 	})
 
 	old := newProcess
-	calls := 0
+	var calls int
 	newProcess = func(string, []string, string, int) process {
 		calls++
 		if calls == 1 {
@@ -463,39 +549,72 @@ func TestHelperRespawnsAfterDeath(t *testing.T) {
 
 	go serve(t, read1, write1, []step{
 		{wantOp: OpHello, reply: ok()},
-		{wantOp: OpStart, reply: ok()},
 	})
-	if err := b.Start(game.MatchConfig{}); err != nil {
-		t.Fatalf("Start: %v", err)
+	if err := b.EnsureRunning(); err != nil {
+		t.Fatalf("EnsureRunning: %v", err)
+	}
+	if b.Generation() != 1 {
+		t.Fatalf("第一代 Generation = %d, 期望 1", b.Generation())
 	}
 
 	// 第一任消失
 	first.Kill()
-	deadline := time.Now().Add(2 * time.Second)
-	for b.Running() && time.Now().Before(deadline) {
+
+	// 等到第二代拉起来
+	deadline := time.Now().Add(3 * time.Second)
+	for b.Generation() == 1 && time.Now().Before(deadline) {
 		time.Sleep(5 * time.Millisecond)
 	}
-	if b.Running() {
-		t.Fatal("helper 退出后 Running 应为 false")
-	}
-
-	go serve(t, read2, write2, []step{
-		{wantOp: OpHello, reply: ok()},
-		{wantOp: OpStart, reply: ok()},
-	})
-	if err := b.Start(game.MatchConfig{}); err != nil {
-		t.Fatalf("重新拉起后 Start: %v", err)
+	if b.Generation() != 2 {
+		t.Fatalf("重启后 Generation = %d, 期望 2", b.Generation())
 	}
 	if calls != 2 {
 		t.Fatalf("newProcess 被调用 %d 次, 期望 2 (应当重新拉起)", calls)
 	}
 }
 
+// TestHelperExitCallback 上一代 helper 退出要通知上层
+func TestHelperExitCallback(t *testing.T) {
+	fp, helperRead, helperWrite := newFakeProcess()
+	t.Cleanup(func() {
+		_ = helperRead.Close()
+		_ = helperWrite.Close()
+	})
+
+	old := newProcess
+	newProcess = func(string, []string, string, int) process { return fp }
+	t.Cleanup(func() { newProcess = old })
+
+	b := newTestBackend(t, 2*time.Second)
+
+	exits := make(chan uint64, 4)
+	b.SetHandlers(Handlers{
+		HelperExit: func(gen uint64) {
+			exits <- gen
+		},
+	})
+
+	go serve(t, helperRead, helperWrite, []step{
+		{wantOp: OpHello, reply: ok()},
+	})
+	if err := b.EnsureRunning(); err != nil {
+		t.Fatalf("EnsureRunning: %v", err)
+	}
+
+	fp.Kill()
+	select {
+	case gen := <-exits:
+		if gen != 1 {
+			t.Fatalf("退出的世代号 = %d, 期望 1", gen)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("helper 退出没有通知上层")
+	}
+}
+
+// TestReadTimeoutDoesNotStealNextReply helper 不回答第一次请求时,
+// 超时之后重试要能拿到第二次的应答 —— 单读者模型的价值就在这里
 func TestReadTimeoutDoesNotStealNextReply(t *testing.T) {
-	// helper 故意不回答第一次 start, 但必须把第二次的应答留给第二次
-	//
-	// 这正是"每次 readResponse 起一个 goroutine"会出错的地方: 超时后那个
-	// goroutine 还堵在 ReadLine 上, 会把第二次的响应抢走.
 	fp, helperRead, helperWrite := newFakeProcess()
 	t.Cleanup(func() {
 		_ = helperRead.Close()
@@ -510,21 +629,68 @@ func TestReadTimeoutDoesNotStealNextReply(t *testing.T) {
 
 	go serve(t, helperRead, helperWrite, []step{
 		{wantOp: OpHello, reply: ok()},
-		// 第一次 start: 只读请求, 不回复 -> 触发读超时
-		step{wantOp: OpStart},
+		// 第一次 room.status: 只读请求, 不回复 -> 触发读超时
+		step{wantOp: OpRoomStatus},
 		// 超时之后重试, 这一次要能拿到应答
-		step{wantOp: OpStart, reply: ok()},
+		step{wantOp: OpRoomStatus, reply: ok()},
 	})
 
-	if err := b.Start(game.MatchConfig{}); err == nil {
-		t.Fatal("helper 不应答时 Start 应报超时")
+	if err := b.EnsureRunning(); err != nil {
+		t.Fatalf("EnsureRunning: %v", err)
+	}
+	if _, err := b.Request(&Request{Op: OpRoomStatus, Room: "r1"}); err == nil {
+		t.Fatal("helper 不应答时 room.status 应报超时")
+	}
+	if _, err := b.Request(&Request{Op: OpRoomStatus, Room: "r1"}); err != nil {
+		t.Fatalf("第二次 room.status: %v", err)
+	}
+}
+
+// TestConcurrentRequestsKeepTheirOwnReply 并发请求必须各回各的
+func TestConcurrentRequestsKeepTheirOwnReply(t *testing.T) {
+	fp, helperRead, helperWrite := newFakeProcess()
+	t.Cleanup(func() {
+		_ = helperRead.Close()
+		_ = helperWrite.Close()
+	})
+
+	old := newProcess
+	newProcess = func(string, []string, string, int) process { return fp }
+	t.Cleanup(func() { newProcess = old })
+
+	b := newTestBackend(t, 3*time.Second)
+
+	go serve(t, helperRead, helperWrite, []step{
+		{wantOp: OpHello, reply: ok()},
+		step{wantOp: OpRoomStatus, reply: &Response{V: ProtocolVersion, OK: true, Players: 1}},
+		step{wantOp: OpRoomStatus, reply: &Response{V: ProtocolVersion, OK: true, Players: 2}},
+		step{wantOp: OpRoomStatus, reply: &Response{V: ProtocolVersion, OK: true, Players: 3}},
+	})
+
+	if err := b.EnsureRunning(); err != nil {
+		t.Fatalf("EnsureRunning: %v", err)
 	}
 
-	if err := b.Start(game.MatchConfig{}); err != nil {
-		t.Fatalf("第二次 Start: %v", err)
+	var wg sync.WaitGroup
+	errs := make(chan error, 3)
+	for i := 1; i <= 3; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			resp, err := b.Request(&Request{Op: OpRoomStatus, Room: "r1"})
+			if err != nil {
+				errs <- err
+				return
+			}
+			if resp.Players < 1 || resp.Players > 3 {
+				errs <- errors.New("拿到的 players 不在期望范围")
+			}
+		}()
 	}
-	if !b.Running() {
-		t.Fatal("第二次 Start 成功后 Running 应为 true")
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		t.Fatalf("并发请求失败: %v", err)
 	}
 }
 
@@ -540,4 +706,11 @@ func mustEncodeReply(resp *Response) string {
 		panic(err)
 	}
 	return string(b)
+}
+
+func writeRaw(t *testing.T, out *os.File, line string) {
+	t.Helper()
+	if _, err := io.WriteString(out, line+"\n"); err != nil {
+		t.Logf("写原始行失败: %v", err)
+	}
 }
