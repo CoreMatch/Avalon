@@ -4,6 +4,7 @@ package command
 import (
 	"strings"
 
+	"rwhps/internal/command/relay"
 	"rwhps/internal/data/global"
 	"rwhps/internal/game/manage"
 	"rwhps/internal/net"
@@ -14,14 +15,22 @@ import (
 
 // registerStart 对应 CoreCommands.registerStartServer
 func registerStart(h *cmd.Handler, d *Deps) {
-	// 原版: 注册 Relay 客户端命令 -> 重置日志等级 -> 以 RelayProtocol 启动服务.
-	// Relay 属于后续批次, 这里只报告未实现, 不去启动一个没有协议实现的监听.
+	// 原版: 注册 Relay 协议命令 -> 重置日志等级 -> 以 RelayProtocol 启动服务.
 	h.Register("startrelay", "serverCommands.start", func(_ []string, _ any) {
 		if len(net.NetStaticData.Services()) > 0 {
 			d.print("The server is not closed, please close")
 			return
 		}
-		d.print("Relay is not implemented in the Go port yet")
+
+		/* Register Relay Protocol Command */
+		relay.RegisterRelayCommands(h)
+
+		log.Set(strings.ToUpper(global.Config.Log))
+
+		// 原版: handler.handleMessage("startnetservice ${NetService.coreID()} true 5201 5500",
+		//         IRwHpsManage.addIRwHps(IRwHps.NetType.RelayProtocol)) //5200 6500
+		iRwHps := manage.AddIRwHps(core.RelayProtocol, "")
+		h.HandleMessageWith("startnetservice "+net.CoreID()+" true 5201 5500", iRwHps)
 	})
 
 	h.Register("startrelaytest", "serverCommands.start", func(_ []string, _ any) {
@@ -29,7 +38,15 @@ func registerStart(h *cmd.Handler, d *Deps) {
 			d.print("The server is not closed, please close")
 			return
 		}
-		d.print("Relay is not implemented in the Go port yet")
+
+		/* Register Relay Protocol Command */
+		relay.RegisterRelayCommands(h)
+
+		log.Set(strings.ToUpper(global.Config.Log))
+
+		// 原版: startnetservice ${NetService.coreID()} true 7000 8000, RelayMulticastProtocol
+		iRwHps := manage.AddIRwHps(core.RelayMulticastProtocol, "")
+		h.HandleMessageWith("startnetservice "+net.CoreID()+" true 7000 8000", iRwHps)
 	})
 
 	// HIDE: 由 startrelay / 启动链内部调用, 参数为 IRwHps 实例
