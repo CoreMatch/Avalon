@@ -205,6 +205,11 @@ type task struct {
 	timer  *time.Timer
 	fireAt time.Time
 
+	// stopped 由 stop() 在 mu 内置位; onFire 提交下一次执行前检查它,
+	// 保证 Remove 之后不会再有新的任务被排进池子 (已在池中的那次无法中断,
+	// 见包注释"无法 interrupt 正在执行的任务").
+	stopped bool
+
 	// pausedRemaining 是 doPause 记下的剩余时间.
 	// doPause / doResume 在同一把锁内成对出现, 因此不需要额外的同步.
 	pausedRemaining time.Duration
@@ -262,6 +267,11 @@ func (t *task) onFire() bool {
 	}
 
 	t.mu.Lock()
+	if t.stopped {
+		// stop() 与定时器触发抢跑: 不再排下一次, 也不再提交
+		t.mu.Unlock()
+		return false
+	}
 	t.fireAt = time.Now().Add(time.Duration(interval) * time.Millisecond)
 	t.timer.Reset(time.Duration(interval) * time.Millisecond)
 	t.mu.Unlock()
@@ -318,6 +328,12 @@ func (t *task) unPause() {
 }
 
 func (t *task) stop() {
+	// 先置 stopped 再通知调度协程: 即使协程此刻正在 onFire 里, 也会在提交前
+	// 看到 stopped 而放弃, 保证 stop 之后不会有新的执行被排进池子.
+	t.mu.Lock()
+	t.stopped = true
+	t.mu.Unlock()
+
 	select {
 	case t.stopCh <- struct{}{}:
 	default:
