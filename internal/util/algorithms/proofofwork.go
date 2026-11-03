@@ -192,7 +192,7 @@ func (p *NetConnectProofOfWork) WriteTo(o *gameio.GameOutputStream) {
 //     resultInt 是"当前秒"而不是流里的值. 于是它几乎不可能通过校验
 //     (除非同一秒内生成). 原版如此, 照搬.
 func ReadNetConnectProofOfWork(in *gameio.GameInputStream) *NetConnectProofOfWork {
-	authenticateType := int8(in.ReadByte())
+	authenticateType := int8(in.ReadSignedByte())
 
 	switch int(authenticateType) {
 	case 0:

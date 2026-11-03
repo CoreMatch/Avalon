@@ -21,7 +21,7 @@ func NewServerInfoPacket(bytes []byte) (*packet.ServerInfoPacket, error) {
 	p.Fog = int(s.ReadInt())
 	p.RevealedMap = s.ReadBoolean()
 	p.AIDifficuly = int(s.ReadInt())
-	readByte := s.ReadByte()
+	readByte := s.ReadSignedByte()
 	s.Skip(2) // Boolean*2
 	if readByte >= 1 {
 		s.Skip(8) // Int*2

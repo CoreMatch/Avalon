@@ -59,6 +59,10 @@ const (
 	// OpHello 握手: 校验协议版本, 返回 helper 状态
 	OpHello = "hello"
 	// OpRoomCreate 创建一个房间 (对应一个独立 ClassLoader 与游戏引擎实例)
+	//
+	// 幂等: 对已存在的房间再次创建必须返回 OK 并保持原房间.
+	// Go 侧按世代跟踪房间避免重复创建, 但 helper 崩溃重启等时序下
+	// 仍可能收到重复创建, 拒绝会导致开局链路整体失败.
 	OpRoomCreate = "room.create"
 	// OpRoomDestroy 销毁一个房间
 	OpRoomDestroy = "room.destroy"

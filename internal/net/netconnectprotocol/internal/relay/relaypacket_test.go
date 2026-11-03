@@ -15,7 +15,7 @@ func TestRelayServerInitInfo(t *testing.T) {
 		t.Errorf("type 应为 RELAY_VERSION_INFO")
 	}
 	in := gameio.NewGameInputStreamFromPacket(p, 0)
-	if in.ReadByte() != 0 {
+	if in.ReadSignedByte() != 0 {
 		t.Errorf("byte0")
 	}
 	if in.ReadInt() != 151 {
@@ -36,7 +36,7 @@ func TestRelayServerType(t *testing.T) {
 		t.Errorf("type 应为 RELAY_117")
 	}
 	in := gameio.NewGameInputStreamFromPacket(p, 0)
-	if in.ReadByte() != 1 {
+	if in.ReadSignedByte() != 1 {
 		t.Errorf("byte0 != 1")
 	}
 	if in.ReadInt() != 5 {
@@ -69,7 +69,7 @@ func TestFromRelayJumpsToAnotherServer(t *testing.T) {
 		t.Errorf("type 应为 PACKET_RECONNECT_TO")
 	}
 	in := gameio.NewGameInputStreamFromPacket(p, 0)
-	if in.ReadByte() != 0 {
+	if in.ReadSignedByte() != 0 {
 		t.Errorf("byte0")
 	}
 	if in.ReadInt() != 3 {
