@@ -134,6 +134,12 @@ func NewNetService(id string, rwHps core.IRwHps) *NetService {
 
 	ns.NetType = kindOf(ns.start)
 
+	// 对应上游 NetService 构造函数末尾:
+	// `if (abstractNet is AbstractNetWeb) setWebData()` (默认注入 Data.webData)
+	if _, ok := ns.start.(webDataSetter); ok {
+		ns.SetWebData(nethttp.DefaultWebData)
+	}
+
 	// 对应 Kotlin init { NetStaticData.netService.add(this) }
 	NetStaticData.AddService(ns)
 
