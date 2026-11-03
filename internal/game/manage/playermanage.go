@@ -35,10 +35,13 @@ type PlayerManage struct {
 }
 
 // NewPlayerManage 对应 PlayerManage(gameModule)
+//
+// 上游两个列表都是 Seq(16, threadSafety = true): 定时器任务 (自动开局倒计时 /
+// 自动检查) 会在自己的线程里遍历它们, 与连接线程的增删并发.
 func NewPlayerManage() *PlayerManage {
 	return &PlayerManage{
-		PlayerGroup: list.NewSeq[*player.Player](),
-		PlayerAll:   list.NewSeq[*player.Player](),
+		PlayerGroup: list.NewSeqCap[*player.Player](16, true),
+		PlayerAll:   list.NewSeqCap[*player.Player](16, true),
 	}
 }
 
