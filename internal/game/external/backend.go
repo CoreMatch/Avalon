@@ -31,6 +31,11 @@ type Config struct {
 	HelloTimeout time.Duration
 	// OpTimeout 单次操作超时, 默认 60s (开局要载入地图)
 	OpTimeout time.Duration
+	// StatusTimeout 状态查询 (room.status) 超时, 默认 5s
+	//
+	// 与 OpTimeout 分开: 状态查询挂在控制台命令这类交互路径上,
+	// 不能跟着开局一起等 60s.
+	StatusTimeout time.Duration
 	// StopGrace Stop 之后等 helper 自行退出的时间, 默认 10s
 	StopGrace time.Duration
 	// RestartDelay helper 崩溃后重新拉起前的等待时间, 默认 2s
@@ -39,11 +44,12 @@ type Config struct {
 
 // 默认值
 const (
-	DefaultStderrMax    = 8 * 1024
-	DefaultHelloTimeout = 15 * time.Second
-	DefaultOpTimeout    = 60 * time.Second
-	DefaultStopGrace    = 10 * time.Second
-	DefaultRestartDelay = 2 * time.Second
+	DefaultStderrMax     = 8 * 1024
+	DefaultHelloTimeout  = 15 * time.Second
+	DefaultOpTimeout     = 60 * time.Second
+	DefaultStatusTimeout = 5 * time.Second
+	DefaultStopGrace     = 10 * time.Second
+	DefaultRestartDelay  = 2 * time.Second
 )
 
 // 启动/配置层错误
@@ -98,21 +104,22 @@ type session struct {
 
 // Backend 持有 helper 子进程, 并把线协议封装成"请求-应答"与"主动消息"两类接口.
 //
-// 它不再实现 game.Simulation: 单房间的抽象已经被 game.RoomManager 取代,
-// 而 RoomManager 需要的是"按房间/连接路由"的接口, 塞进 Simulation 里并不合适.
+// 它同时实现 game.Simulation (见 simulation.go): 以"一个 Backend 对应一个房间"
+// 的方式驱动 room.* 操作. 将来若需要一 helper 多房间的路由接口, 会在那一层
+// 另行定义, 不影响 Simulation 这条单房间通路.
 //
 // 并发模型:
 //
 //	读:  只有 pump 一个 goroutine 读 helper 的 stdout, 它把每一行解码后分发
 //	写:  所有写操作经 writeMu 串行化, 保证一行一条消息
-//	状态: mu 保护 session / 世代号 / 待答表 / 回调
+//	状态: mu 保护 session / 世代号 / 待答表 / 回调 / 房间状态
 //
 // 请求与应答按 ID 配对, 不依赖"下一条就是上一个请求的应答"——
 // helper 在两次请求之间完全可能先吐一个游戏包或一条事件.
 type Backend struct {
 	cfg Config
 
-	// mu 保护 session / gen / nextID / pending / handlers
+	// mu 保护 session / gen / nextID / pending / handlers / room / running
 	mu sync.Mutex
 	// session 当前这一代 helper; 没有 helper 时为 nil
 	session *session
@@ -124,6 +131,13 @@ type Backend struct {
 	pending map[int64]chan *Response
 	// handlers 主动消息与生命周期回调
 	handlers Handlers
+	// room 当前这一代 helper 上已创建的房间 ID; 空表示尚未创建
+	//
+	// helper 进程一死就作废 (见 handleExit), 新一代上必须重新 room.create.
+	room string
+	// running room 是否处于对局中 (最近一次 room.start / room.stop 的本地记录),
+	// 仅在无法向存活的 helper 求证时作为回落
+	running bool
 
 	// writeMu 串行化对 helper 的写入
 	writeMu sync.Mutex
@@ -154,6 +168,9 @@ func New(cfg Config) (*Backend, error) {
 	}
 	if cfg.OpTimeout <= 0 {
 		cfg.OpTimeout = DefaultOpTimeout
+	}
+	if cfg.StatusTimeout <= 0 {
+		cfg.StatusTimeout = DefaultStatusTimeout
 	}
 	if cfg.StopGrace <= 0 {
 		cfg.StopGrace = DefaultStopGrace
@@ -600,6 +617,10 @@ func (b *Backend) handleExit(s *session, cause error) {
 	b.session = nil
 	pending := b.pending
 	b.pending = make(map[int64]chan *Response)
+	// 这一代承载的房间随进程一起作废: 新一代 helper 上没有这个房间,
+	// 留着旧房间号只会让 Stop/Status 去查一个不存在的对象.
+	b.room = ""
+	b.running = false
 	b.mu.Unlock()
 
 	for _, ch := range pending {
