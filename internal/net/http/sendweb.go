@@ -13,6 +13,8 @@ import (
 const (
 	StatusOK         = 200
 	StatusBadRequest = 400
+	StatusUnauthorized = 401
+	StatusForbidden  = 403
 	StatusNotFound   = 404
 )
 
@@ -57,6 +59,13 @@ func (s *SendWeb) SetHead(key, value string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.replaceHd[key] = value
+}
+
+// SetStatus 对应上游 send.status = HttpResponseStatus.XXX (Kotlin 可变属性)
+func (s *SendWeb) SetStatus(status int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.status = status
 }
 
 // CustomAppendHead 对应 customAppendHead, 可重复的 header

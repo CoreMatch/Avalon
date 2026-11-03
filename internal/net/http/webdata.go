@@ -66,6 +66,13 @@ func NewWebData() *WebData {
 	}
 }
 
+// DefaultWebData 对应 Data.webData: 服务器默认 WebData 路由表.
+//
+// 上游挂在 Data 对象上; Go 版 global 包不能反向 import 本包 (本包已 import
+// global), 因此单例放在这里. NetService 构造时经 SetWebData 注入 (对应上游
+// NetService 构造函数里的 `if (abstractNet is AbstractNetWeb) setWebData()`).
+var DefaultWebData = NewWebData()
+
 // AddWebGetInstance 对应 addWebGetInstance
 func (w *WebData) AddWebGetInstance(url string, webGet WebGet) error {
 	if _, ok := w.getData[url]; ok {

@@ -362,6 +362,10 @@ func statusText(code int) string {
 		return "OK"
 	case StatusBadRequest:
 		return "Bad Request"
+	case StatusUnauthorized:
+		return "Unauthorized"
+	case StatusForbidden:
+		return "Forbidden"
 	case StatusNotFound:
 		return "Not Found"
 	}

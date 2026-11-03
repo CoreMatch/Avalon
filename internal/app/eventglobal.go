@@ -17,8 +17,9 @@ import (
 //   - registerServerHessLoadEvent  -> Go 版无类加载器维度, 其职责 (注册房间默认事件
 //     监听与客户端命令) 已分别在 room.NewServerRoom 与启动链的
 //     RegisterClientCommands 完成, 见各自注释.
-//   - registerServerStartTypeEvent -> UpList 属插件体系 (里程碑 5); 控制台标题
-//     (CLITools.setConsoleTitle) Go 版无对应物, 均不实现.
+//   - registerServerStartTypeEvent -> Relay 协议且 config.autoUpList 时经
+//     ServerCommand 执行 "uplist add" (UpList 功能已内建, 见 net/uplist);
+//     控制台标题 (CLITools.setConsoleTitle) Go 版无对应物, 不实现.
 func (r *Runtime) registerEventGlobal() {
 	// registerServerLoadEvent: 服务器加载完毕时注册禁言聊天过滤器
 	r.Events.Register("ServerLoadEvent", func(_ GlobalEvent) {
@@ -41,4 +42,19 @@ func (r *Runtime) registerEventGlobal() {
 		}
 		return global.Core.Admin.IsIP24Banned(ca.IPLong24)
 	}
+
+	// registerServerStartTypeEvent: Relay 协议且开启 autoUpList 时自动上架
+	// (上游 EventGlobal.kt:58-66; 控制台标题部分无 Go 对应物)
+	r.Events.Register("ServerStartTypeEvent", func(ev GlobalEvent) {
+		e, ok := ev.(ServerStartTypeEvent)
+		if !ok {
+			return
+		}
+		switch e.ServerNetType {
+		case core.RelayProtocol, core.RelayMulticastProtocol:
+			if global.Config.AutoUpList {
+				global.ServerCommand.HandleMessageWith("uplist add", global.DefPrint)
+			}
+		}
+	})
 }
