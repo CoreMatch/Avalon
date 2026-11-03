@@ -10,6 +10,7 @@ import (
 	"rwhps/internal/io/packettype"
 	"rwhps/internal/net/core"
 	"rwhps/internal/net/gameserver"
+	"rwhps/internal/net/netconnectprotocol"
 	"rwhps/internal/net/netconnectprotocol/realize"
 	"rwhps/internal/resource"
 	"rwhps/internal/util/file/load"
@@ -185,18 +186,18 @@ func checkEnvironment() {}
 
 // loadService 对应 Initialization.loadService
 //
-// 原版注册 5 类服务, 其中 Relay 协议族 (TypeRelay / TypeRelayRebroadcast /
-// GameVersionRelay / GameVersionRelayRebroadcast) 属于 Relay 批次, 尚未移植;
-// 这里只注册已经存在的实现, 不注册空壳.
+// 原版注册 5 类服务; Relay 协议族 (TypeRelay / GameVersionRelay) 在里程碑 4
+// 移植后由 manage.SetProvider 按 NetType 装配. RelayMulticastProtocol 上游对应
+// TypeRelayRebroadcast / GameVersionRelayRebroadcast (多播转发), 尚未移植,
+// 暂以普通 Relay 实现承接 (见 netconnectprotocol.NewRelayRwHps 注释).
 //
 // IRwHps 一族: 原版 addIRwHps 通过 ServiceLoader.newInstance 创建实例,
 // 实例来源按 netType 查表 —— ServerProtocol 的实现体 (HeadlessTypeConnect 一族)
-// 已移植为 net/gameserver, 经 manage.SetProvider 注入; 其余 NetType 保持
-// 默认的 NullRwHps 等价物.
+// 已移植为 net/gameserver, Relay 两型为 netconnectprotocol.RelayRwHps.
 //
 // 上游对应的注册点:
 //   - GameEngine.kt:118 ServiceLoader.addService(ProtocolType, ServerProtocol, HeadlessTypeConnect)
-//   - Initialization.kt:264-266 Relay 两型 (Relay 批次)
+//   - Initialization.kt:264-270 Relay 两型 (ProtocolType: TypeRelay / Protocol: GameVersionRelay)
 func loadService() {
 	if err := service.Default.RegisterDefault(service.KindProtocolPacket, core.GlobalProtocol.String(), realize.NewGameVersionPacket()); err != nil {
 		log.Errorf("[ServiceLoader]", "{0}", err)
@@ -205,9 +206,15 @@ func loadService() {
 		log.Errorf("[ServiceLoader]", "{0}", err)
 	}
 
+	// realize 不导入父包 netconnectprotocol (避免循环), getPacketTeamData 在此接线
+	realize.SetPacketTeamDataParser(netconnectprotocol.GetPacketTeamData)
+
 	manage.SetProvider(func(netType core.NetType) core.IRwHps {
-		if netType == core.ServerProtocol {
+		switch netType {
+		case core.ServerProtocol:
 			return gameserver.NewRwHps(netType)
+		case core.RelayProtocol, core.RelayMulticastProtocol:
+			return netconnectprotocol.NewRelayRwHps(netType)
 		}
 		return core.NewNullRwHps(netType)
 	})
