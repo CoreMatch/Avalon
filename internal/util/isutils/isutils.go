@@ -25,6 +25,29 @@ var (
 	patternNegativeNumber = regexp.MustCompile(`^[-+]?[0-9]*$`)
 )
 
+// IsBlank 对应 isBlank(string?)
+//
+// 原版: str.isNullOrBlank() —— null 或全空白为真. Go 的 string 没有 null,
+// 空串与全空白同样返回 true. 消费者是 GameVersionRelay (relayDirectInspection
+// 的查询串判断与 newRelayId 的自定义 ID 判断).
+func IsBlank(s string) bool {
+	for _, r := range s {
+		if !isWhitespace(r) {
+			return false
+		}
+	}
+	return true
+}
+
+// isWhitespace 对应 Kotlin Char.isWhitespace 的常用子集: 空格与制表/换行类控制字符
+func isWhitespace(r rune) bool {
+	switch r {
+	case ' ', '\t', '\n', '\r', '\v', '\f':
+		return true
+	}
+	return r == 0x85 || r == 0xA0
+}
+
 // IsNumeric 对应 isNumeric(string)
 //
 // 原版用的是 Pattern.matches() —— **全串匹配**, 不是 find(). Go 的

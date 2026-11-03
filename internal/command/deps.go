@@ -4,11 +4,11 @@
 // CommandsEx (hi) 与 HessMain 里的 start, 以及 CoreCommands 的 startrelay 系列.
 //
 // 与原版差异 (逐条在各自命令处说明):
-//   - 插件系统与 Relay 尚未移植, plugin / plugins / startrelay / startrelaytest
-//     只给出明确的"未实现"输出, 不伪造成功
+//   - 插件系统尚未移植, plugin / plugins 只给出明确的"未实现"输出, 不伪造成功
 //   - tryupdate 通过下载 GitHub Release 差分补丁来改写核心 jar, Go 版没有 jar,
 //     因此只报告不支持
 //   - start 走 game.Simulation 接缝, 没有后端时返回 ErrNotImplemented
+//   - startrelay / startrelaytest 经 RelayProtocol 启动真实监听 (里程碑 4)
 package command
 
 import (

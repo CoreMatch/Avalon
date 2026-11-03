@@ -79,19 +79,25 @@ func withBundle(t *testing.T) {
 }
 
 // TestRegisterCommandSet 确认命令集与原版一致, 且没有把 log 命令带过来
+//
+// 用 CommandList 成员检查而不是逐条执行: startrelay 等命令现在会真的启动
+// 网络服务 (里程碑 4), 执行副作用不适合进注册表检查.
 func TestRegisterCommandSet(t *testing.T) {
 	server, ping, _, _ := setup(t)
 
 	want := []string{"help", "stop", "version", "setlanguage", "exit", "plugins", "plugin", "tryupdate",
 		"startrelay", "startrelaytest", "startnetservice", "start"}
+	have := map[string]bool{}
+	for _, c := range server.CommandList() {
+		have[c.Text] = true
+	}
 	for _, name := range want {
-		resp := server.HandleMessage(name + " ")
-		if resp.Type == cmd.UnknownCommand {
+		if !have[name] {
 			t.Fatalf("缺少命令 %q", name)
 		}
 	}
 
-	if resp := server.HandleMessage("log "); resp.Type != cmd.UnknownCommand {
+	if have["log"] {
 		t.Fatal("log 命令 (HotLoadClass 孵化器) 不应被移植")
 	}
 
@@ -299,16 +305,63 @@ func TestTryUpdate(t *testing.T) {
 	}
 }
 
-// TestStartRelayNotImplemented Relay 未移植时明确报告
-func TestStartRelayNotImplemented(t *testing.T) {
+// TestStartRelayStartsService startrelay 注册 RelayProtocol 并经 startnetservice 启动
+//
+// startnetservice 被替换成记录桩, 避免测试真的绑定 5201-5500 端口段;
+// 断言重点是"注册了 RelayProtocol 并把 IRwHps 传给 startnetservice",
+// 且不再打印"未实现".
+func TestStartRelayStartsService(t *testing.T) {
 	resetGlobals(t)
 	server, _, _, rec := setup(t)
 
+	// Relay 客户端命令注册到全局 RelayCommand, 测试内换新实例避免污染
+	oldRelayCommand := global.RelayCommand
+	global.RelayCommand = cmd.NewHandler(".")
+	t.Cleanup(func() { global.RelayCommand = oldRelayCommand })
+
+	var started core.IRwHps
+	server.RegisterWith("startnetservice", "<id> <isPort> [sPort] [ePort]", "HIDE", func(args []string, param any) {
+		started, _ = param.(core.IRwHps)
+	})
+
 	server.HandleMessage("startrelay")
+
+	if strings.Contains(rec.text(), "not implemented") {
+		t.Fatalf("不应再报告未实现: %q", rec.text())
+	}
+	if started == nil || started.NetType() != core.RelayProtocol {
+		t.Fatalf("startnetservice 未以 RelayProtocol 启动: %v", started)
+	}
+	if _, ok := manage.Get(core.RelayProtocol.String()); !ok {
+		t.Fatal("RelayProtocol 未注册进 IRwHpsManage")
+	}
+	// Relay 客户端命令已挂到 RelayCommand (前缀 ".", help 可用即代表注册成功)
+	if resp := global.RelayCommand.HandleMessageWith(".help", nil); resp.Type != cmd.Valid {
+		t.Fatalf("Relay 客户端命令未注册: %v", resp.Type)
+	}
+}
+
+// TestStartRelayTestMulticast startrelaytest 以 RelayMulticastProtocol 启动
+func TestStartRelayTestMulticast(t *testing.T) {
+	resetGlobals(t)
+	server, _, _, rec := setup(t)
+
+	oldRelayCommand := global.RelayCommand
+	global.RelayCommand = cmd.NewHandler(".")
+	t.Cleanup(func() { global.RelayCommand = oldRelayCommand })
+
+	var started core.IRwHps
+	server.RegisterWith("startnetservice", "<id> <isPort> [sPort] [ePort]", "HIDE", func(args []string, param any) {
+		started, _ = param.(core.IRwHps)
+	})
+
 	server.HandleMessage("startrelaytest")
 
-	if got := strings.Count(rec.text(), "not implemented"); got != 2 {
-		t.Fatalf("输出 = %q", rec.text())
+	if strings.Contains(rec.text(), "not implemented") {
+		t.Fatalf("不应再报告未实现: %q", rec.text())
+	}
+	if started == nil || started.NetType() != core.RelayMulticastProtocol {
+		t.Fatalf("startnetservice 未以 RelayMulticastProtocol 启动: %v", started)
 	}
 }
 

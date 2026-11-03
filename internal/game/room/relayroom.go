@@ -183,6 +183,22 @@ type RelayRoom struct {
 	site *syncInt32
 	// size 对应 size (AtomicInteger)
 	size *syncInt32
+
+	// disconnectMu 对应上游 GameVersionRelay.disconnect 里的 synchronized(room!!)
+	//
+	// 上游用房间对象自身的监视器串行化同一房间内的断开清理 (房主迁移 / 玩家退出
+	// 可能并发发生). Go 没有对象监视器, 这里给房间一把专用锁, 由
+	// WithDisconnectLock 暴露给 GameVersionRelay.
+	disconnectMu sync.Mutex
+}
+
+// WithDisconnectLock 对应上游 GameVersionRelay.disconnect 里的 synchronized(room!!)
+//
+// fn 在持有房间断开锁时执行. 锁不可重入, fn 内不得再次调用本方法.
+func (r *RelayRoom) WithDisconnectLock(fn func()) {
+	r.disconnectMu.Lock()
+	defer r.disconnectMu.Unlock()
+	fn()
 }
 
 // syncInt32 对应 java.util.concurrent.atomic.AtomicInteger
@@ -561,9 +577,13 @@ func (r *RelayRoom) RemoveRoom(run func()) {
 		if a := r.admin.Get(); a != nil {
 			a.Disconnect()
 		}
-		r.AbstractNetConnectIntMap.EachAll(func(_ int32, con RelayConnect) {
+		// 上游遍历 abstractNetConnectIntMap.values 逐个断开. 这里必须先取快照:
+		// con.Disconnect() 会回调 RemoveAbstractNetConnect 修改本表, 而 Go 的
+		// 线程安全 map 持锁回调, 边遍历边删会死锁 (上游 ConcurrentHashMap 的
+		// 弱一致迭代器没有这个问题).
+		for _, con := range r.AbstractNetConnectIntMap.Values() {
 			con.Disconnect()
-		})
+		}
 		r.closeRoom.Set(true)
 		r.AbstractNetConnectIntMap.Clear()
 		r.site.set(0)

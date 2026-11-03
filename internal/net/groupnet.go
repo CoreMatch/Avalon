@@ -95,15 +95,28 @@ func (g *GroupNet) RemoveAgreement(a *core.ConnectionAgreement) {
 func (g *GroupNet) Flush() {}
 
 // Disconnect 对应 disconnect()
+//
+// 先快照再释放锁后逐个关闭: ConnectionAgreement.Close 会回调 RemoveAgreement
+// (重入本锁), 持锁关闭会死锁. 上游 Netty 的 channelGroup.disconnect() 不持有
+// 等价锁, 因此这里同样不能在持锁期间执行 close.
 func (g *GroupNet) Disconnect() {
 	g.mu.Lock()
+	chans := make([]*core.Channel, 0, len(g.channels))
 	for ch := range g.channels {
-		_ = ch.Close()
+		chans = append(chans, ch)
 	}
+	ags := make([]*core.ConnectionAgreement, 0, len(g.agreements))
 	for a := range g.agreements {
-		_ = a.Close(g)
+		ags = append(ags, a)
 	}
 	g.mu.Unlock()
+
+	for _, ch := range chans {
+		_ = ch.Close()
+	}
+	for _, a := range ags {
+		_ = a.Close(g)
+	}
 }
 
 // ChannelSize 返回 TCP 连接数
