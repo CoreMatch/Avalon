@@ -28,6 +28,10 @@ func Register(server, ping *cmd.Handler, d *Deps) {
 	registerStart(server, d)
 	registerStartGame(server, d)
 
+	// ServerCommands (Hess 控制台命令) 依赖房间实体; 房间在启动链建房后才可用,
+	// 命令内部对 d.Session 做了 nil 守卫, 故可与核心命令一同注册.
+	registerServerCommands(server, d)
+
 	if ping != nil {
 		registerPingCommands(ping, d)
 	}

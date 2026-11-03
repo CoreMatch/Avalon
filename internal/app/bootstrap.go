@@ -85,6 +85,9 @@ func (r *Runtime) Start() error {
 	// 命令加载
 	log.LoadStatusLog("server.load.command", func() {
 		command.Register(global.ServerCommand, global.PingCommand, r.deps())
+		// 对应上游引擎模块加载时的 ClientCommands(room.clientHandler):
+		// 客户端聊天 "/" 命令挂到房间自己的 Handler 上.
+		command.RegisterClientCommands(r.Session.ClientHandler, r.Session)
 	})
 
 	// 插件系统 (server.load.plugin / runOnEnable / server.load.plugin.command / runInit)
