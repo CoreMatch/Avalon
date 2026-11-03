@@ -3,6 +3,7 @@ package external
 import (
 	"os"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -54,12 +55,15 @@ func TestConnOpenFailurePropagates(t *testing.T) {
 
 // TestConnPacketFireAndForget conn.packet 不等应答, 负载走 Base64
 func TestConnPacketFireAndForget(t *testing.T) {
+	var mu sync.Mutex
 	var got Request
 
 	b, _, _, _ := setup(t,
 		step{wantOp: OpHello, reply: ok()},
 		step{wantOp: OpConnPacket, before: func(req *Request, _ *os.File) {
+			mu.Lock()
 			got = *req
+			mu.Unlock()
 		}},
 	)
 
@@ -70,10 +74,18 @@ func TestConnPacketFireAndForget(t *testing.T) {
 
 	// serve 收到请求即返回, 稍等让 before 记录完成
 	deadline := time.Now().Add(2 * time.Second)
-	for got.Op == "" && time.Now().Before(deadline) {
+	for {
+		mu.Lock()
+		op := got.Op
+		mu.Unlock()
+		if op != "" || time.Now().After(deadline) {
+			break
+		}
 		time.Sleep(5 * time.Millisecond)
 	}
 
+	mu.Lock()
+	defer mu.Unlock()
 	if got.Room != "r1" || got.Conn != "c1" {
 		t.Fatalf("conn.packet 路由 = %+v", got)
 	}

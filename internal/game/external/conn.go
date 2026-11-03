@@ -44,3 +44,13 @@ func DecodePacketData(m *PacketMessage) ([]byte, error) {
 	}
 	return decodeBase64(m.Data)
 }
+
+// DecodePlayerProfile 解码玩家事件 (player.*) 的档案负载
+//
+// 供连接层在 player.join / player.update 事件里还原玩家档案.
+func DecodePlayerProfile(m *EventMessage) (*PlayerProfile, error) {
+	if m == nil {
+		return nil, ErrProtocol
+	}
+	return decodePlayerProfile(m.Data)
+}

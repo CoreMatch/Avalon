@@ -2,6 +2,7 @@ package gameserver
 
 import (
 	"encoding/base64"
+	"strconv"
 	"sync"
 	"testing"
 
@@ -9,6 +10,7 @@ import (
 	"rwhps/internal/data/global"
 	"rwhps/internal/game"
 	"rwhps/internal/game/external"
+	"rwhps/internal/game/room"
 	gameio "rwhps/internal/io"
 	"rwhps/internal/io/packet"
 	"rwhps/internal/io/packettype"
@@ -111,8 +113,8 @@ func newTestServer(t *testing.T, h HelperBackend) (*GameVersionServer, *captureW
 	SetHelper(h)
 	t.Cleanup(func() { SetHelper(nil) })
 
-	game.SetDefaultRoom(game.NewGameSession("room-test", nil))
-	t.Cleanup(func() { game.SetDefaultRoom(nil) })
+	room.SetDefault(room.NewServerRoom(game.NewGameSession("room-test", nil)))
+	t.Cleanup(func() { room.SetDefault(nil) })
 
 	w := &captureWriter{}
 	ca := core.NewUDPConnectionAgreement(w, NewRwHps(core.ServerProtocol), "127.0.0.1:9999", 5123)
@@ -454,6 +456,116 @@ func TestDisconnectAll(t *testing.T) {
 	}
 	if connections.get(g1.ConnID()) != nil || connections.get(g2.ConnID()) != nil {
 		t.Fatal("路由表应清空")
+	}
+}
+
+// --- 玩家生命周期 (里程碑 2: helper 事件驱动实体链) ---
+
+// joinEvent 构造一条 player.join 事件 (负载为 PlayerProfile JSON)
+func joinEvent(conn, hexID, name string, team int) *external.EventMessage {
+	data := `{"id":"` + hexID + `","name":"` + name + `","team":` + strconv.Itoa(team) + `,"ready":true,"host":false,"bot":false,"spectator":false}`
+	return &external.EventMessage{
+		V:     external.ProtocolVersion,
+		Type:  external.MsgEvent,
+		Gen:   1,
+		Event: external.EventPlayerJoin,
+		Room:  "room-test",
+		Conn:  conn,
+		Data:  []byte(data),
+	}
+}
+
+// TestPlayerJoinEventBindsPlayer player.join 事件创建玩家并绑定到连接
+//
+// 对应上游引擎经 PlayerConnectX 回调 addAbstractPlayer 的那条路.
+func TestPlayerJoinEventBindsPlayer(t *testing.T) {
+	h := &mockHelper{}
+	g, _ := newTestServer(t, h)
+
+	if g.Player() != nil {
+		t.Fatal("join 前 Player 应为 nil")
+	}
+	if g.Name() != "" || g.RegisterPlayerId() != "" {
+		t.Fatal("join 前 Name/RegisterPlayerId 应为空")
+	}
+
+	handleHelperEvent(joinEvent(g.ConnID(), "hex-abc", "alice", 2))
+
+	p := g.Player()
+	if p == nil {
+		t.Fatal("player.join 后应绑定玩家")
+	}
+	if p.Name() != "alice" || p.ConnectHexID() != "hex-abc" || p.Team() != 2 {
+		t.Fatalf("玩家档案 = %q/%q/%d", p.Name(), p.ConnectHexID(), p.Team())
+	}
+	if g.Name() != "alice" || g.RegisterPlayerId() != "hex-abc" {
+		t.Fatalf("连接的 Name/RegisterPlayerId = %q/%q", g.Name(), g.RegisterPlayerId())
+	}
+
+	r := room.Default()
+	if r.PlayerManage.PlayerGroup.Size() != 1 || r.PlayerManage.PlayerAll.Size() != 1 {
+		t.Fatalf("房间玩家数 = %d/%d, 期望 1/1", r.PlayerManage.PlayerGroup.Size(), r.PlayerManage.PlayerAll.Size())
+	}
+}
+
+// TestPlayerJoinUnknownConn 未知连接的 join 事件只忽略
+func TestPlayerJoinUnknownConn(t *testing.T) {
+	newTestServer(t, &mockHelper{})
+	handleHelperEvent(joinEvent("no-such-conn", "hex-x", "ghost", 1))
+	// 无 panic, 且未污染房间
+	if r := room.Default(); r.PlayerManage.PlayerGroup.Size() != 0 {
+		t.Fatalf("未知连接的 join 不应进房间, 得到 %d", r.PlayerManage.PlayerGroup.Size())
+	}
+}
+
+// TestDisconnectRemovesPlayer 断开时按上游语义清理玩家
+//
+// 未开局: 从 playerGroup 与 playerAll 都移除, player.clear 解绑.
+func TestDisconnectRemovesPlayer(t *testing.T) {
+	h := &mockHelper{}
+	g, w := newTestServer(t, h)
+	handleHelperEvent(joinEvent(g.ConnID(), "hex-d", "dave", 1))
+
+	r := room.Default()
+	p := g.Player()
+	if p == nil {
+		t.Fatal("前置: 玩家应已绑定")
+	}
+
+	g.Disconnect()
+
+	if !g.IsDis {
+		t.Fatal("IsDis 应置位")
+	}
+	if r.PlayerManage.PlayerGroup.Size() != 0 || r.PlayerManage.PlayerAll.Size() != 0 {
+		t.Fatalf("未开局断开后玩家应全部移除, 剩 %d/%d",
+			r.PlayerManage.PlayerGroup.Size(), r.PlayerManage.PlayerAll.Size())
+	}
+	if p.Con() != nil {
+		t.Fatal("player.clear 应解绑连接")
+	}
+	if !w.IsClosedUDP() {
+		t.Fatal("传输层应关闭")
+	}
+}
+
+// TestDisconnectDuringGameKeepsPlayerAll 对局中断线: 上游保留 playerAll
+func TestDisconnectDuringGameKeepsPlayerAll(t *testing.T) {
+	h := &mockHelper{}
+	g, _ := newTestServer(t, h)
+	handleHelperEvent(joinEvent(g.ConnID(), "hex-g", "gina", 1))
+
+	r := room.Default()
+	// 置开局状态 (直接改状态壳, 不走 Simulation)
+	r.GameSession.IsStartGame = true
+
+	g.Disconnect()
+
+	if r.PlayerManage.PlayerGroup.Size() != 0 {
+		t.Fatal("断线后应移出 playerGroup")
+	}
+	if r.PlayerManage.PlayerAll.Size() != 1 {
+		t.Fatalf("对局中断线应保留在 playerAll, 得到 %d", r.PlayerManage.PlayerAll.Size())
 	}
 }
 

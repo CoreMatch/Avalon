@@ -12,7 +12,7 @@
 package command
 
 import (
-	"rwhps/internal/game"
+	"rwhps/internal/game/room"
 	"rwhps/internal/net/core"
 )
 
@@ -41,7 +41,7 @@ type Deps struct {
 
 	// Session 对应 HeadlessModuleManage.hps.room (单房间模式下的那一间)
 	// nil 表示还没有房间
-	Session *game.GameSession
+	Session *room.ServerRoom
 }
 
 // NewDeps 返回一套全部降级为无操作的依赖, 便于测试与早期启动阶段使用

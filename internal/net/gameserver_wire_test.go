@@ -13,6 +13,7 @@ import (
 
 	"rwhps/internal/game"
 	"rwhps/internal/game/external"
+	"rwhps/internal/game/room"
 	gameio "rwhps/internal/io"
 	"rwhps/internal/io/packet"
 	"rwhps/internal/io/packettype"
@@ -99,8 +100,8 @@ func TestWireHandshakeRoundTrip(t *testing.T) {
 	gameserver.SetHelper(h)
 	t.Cleanup(func() { gameserver.SetHelper(nil) })
 
-	game.SetDefaultRoom(game.NewGameSession("room-wire", nil))
-	t.Cleanup(func() { game.SetDefaultRoom(nil) })
+	room.SetDefault(room.NewServerRoom(game.NewGameSession("room-wire", nil)))
+	t.Cleanup(func() { room.SetDefault(nil) })
 
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -180,8 +181,8 @@ func TestWireVersionRejection(t *testing.T) {
 	gameserver.SetHelper(h)
 	t.Cleanup(func() { gameserver.SetHelper(nil) })
 
-	game.SetDefaultRoom(game.NewGameSession("room-reject", nil))
-	t.Cleanup(func() { game.SetDefaultRoom(nil) })
+	room.SetDefault(room.NewServerRoom(game.NewGameSession("room-reject", nil)))
+	t.Cleanup(func() { room.SetDefault(nil) })
 
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {

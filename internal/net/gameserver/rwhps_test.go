@@ -6,6 +6,7 @@ import (
 	"rwhps/internal/core/service"
 	"rwhps/internal/game"
 	"rwhps/internal/game/manage"
+	"rwhps/internal/game/room"
 	"rwhps/internal/net"
 	"rwhps/internal/net/core"
 	netpacket "rwhps/internal/net/core/server/netpacket"
@@ -73,8 +74,8 @@ func TestTypeConnectFactoryCreatesPerConnectionHandler(t *testing.T) {
 	factory := net.NetStaticData.RwHps().TypeConnect()
 
 	SetHelper(nil)
-	game.SetDefaultRoom(game.NewGameSession("room-factory", nil))
-	t.Cleanup(func() { game.SetDefaultRoom(nil) })
+	room.SetDefault(room.NewServerRoom(game.NewGameSession("room-factory", nil)))
+	t.Cleanup(func() { room.SetDefault(nil) })
 
 	ca1 := core.NewTestConnectionAgreement()
 	ca2 := core.NewTestConnectionAgreement()

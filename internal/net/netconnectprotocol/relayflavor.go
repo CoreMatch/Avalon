@@ -17,3 +17,9 @@ func RelayServerTypePacket(msg string) *packet.Packet { return relay.RelayServer
 
 // RelayServerTypeReply 对应 relayServerTypeReplyInternalPacket(packet): 解析 118 包
 func RelayServerTypeReply(p *packet.Packet) string { return relay.RelayServerTypeReply(p) }
+
+// FromRelayJumpsToAnotherServerPacket 对应 fromRelayJumpsToAnotherServerInternalPacket(ip):
+// 让客户端断开当前连接并加入新服务器 (playerJumpsToAnotherServer 用)
+func FromRelayJumpsToAnotherServerPacket(ip string) *packet.Packet {
+	return relay.FromRelayJumpsToAnotherServerPacket(ip)
+}
