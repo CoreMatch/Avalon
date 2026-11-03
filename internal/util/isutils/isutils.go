@@ -5,7 +5,10 @@
 // 判断落下来; 其余成员等出现消费者时再按需追加, 不预写 API.
 package isutils
 
-import "regexp"
+import (
+	"net"
+	"regexp"
+)
 
 var (
 	// patternNumeric 对应 IsUtils.PATTERN
@@ -36,3 +39,16 @@ func IsNumericNegative(s string) bool { return patternNegativeNumber.MatchString
 
 // NotIsNumeric 对应 notIsNumeric(string)
 func NotIsNumeric(s string) bool { return !IsNumeric(s) }
+
+// IsDomainName 对应 isDomainName(domain)
+//
+// 原版: InetAddress.getByName(domain) 解析成功且结果是 IPv4 才为 true.
+// Go 用 net.ResolveIPAddr("ip4", ...) 对齐: 解析出 IPv4 地址即通过.
+// 与原版一致, 这里会真实触发一次 DNS 解析.
+func IsDomainName(domain string) bool {
+	if domain == "" {
+		return false
+	}
+	addr, err := net.ResolveIPAddr("ip4", domain)
+	return err == nil && addr != nil && addr.IP.To4() != nil
+}

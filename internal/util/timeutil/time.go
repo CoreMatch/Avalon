@@ -17,5 +17,8 @@ func ConcurrentMillis() int64 { return time.Now().UnixMilli() }
 // ConcurrentSecond 对应 Time.concurrentSecond
 func ConcurrentSecond() int { return int(time.Now().UnixMilli() / 1000) }
 
+// GetTimeFutureMillis 对应 Time.getTimeFutureMillis: 当前毫秒 + 偏移
+func GetTimeFutureMillis(addTime int64) int64 { return Millis() + addTime }
+
 // NanoTime 对应 Time.nanoTime
 func NanoTime() int64 { return time.Since(startTime).Nanoseconds() }

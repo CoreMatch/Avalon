@@ -72,6 +72,19 @@ func (a *Administration) IsAdmin(uuid, name string) bool {
 	return true
 }
 
+// AdminData 对应 playerAdminData[uuid] 读取
+//
+// 返回副本避免调用方绕过锁修改; 不存在时 ok 为 false.
+func (a *Administration) AdminData(uuid string) (PlayerAdminInfo, bool) {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	info, ok := a.playerAdminData[uuid]
+	if !ok {
+		return PlayerAdminInfo{}, false
+	}
+	return *info, true
+}
+
 // Admins 返回全部管理员快照
 func (a *Administration) Admins() []PlayerAdminInfo {
 	a.mu.RLock()

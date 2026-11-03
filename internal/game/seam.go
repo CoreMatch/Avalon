@@ -222,6 +222,35 @@ func (s *GameSession) PlayerCount() int { return s.simulation().PlayerCount() }
 // Running 对应 room.isStartGame (以模拟内核的实际状态为准)
 func (s *GameSession) Running() bool { return s.simulation().Running() }
 
+// StopSimulation 只停止模拟内核, 不动房间状态
+//
+// 供 room.ServerRoom 组合使用: 上游 gr() 的清理与引擎停止是分开的两步,
+// GameOver 把它们合在了壳里, 实体链落地后需要拆开.
+func (s *GameSession) StopSimulation() error { return s.simulation().Stop() }
+
+// ResetMatchState 清空开局状态位 (对应 cleanData 里的 isStartGame/startTime/endTime 部分)
+func (s *GameSession) ResetMatchState() {
+	s.mu.Lock()
+	s.IsStartGame = false
+	s.StartTime = 0
+	s.EndTime = 0
+	s.mu.Unlock()
+}
+
+// GetStartTime 对应 startTime 的线程安全读
+func (s *GameSession) GetStartTime() int64 {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.StartTime
+}
+
+// GetEndTime 对应 endTime 的线程安全读
+func (s *GameSession) GetEndTime() int64 {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.EndTime
+}
+
 // Snapshot 返回当前房间状态的可读副本, 供 version / hi 命令使用
 func (s *GameSession) Snapshot() RoomState {
 	s.mu.RLock()
@@ -256,31 +285,6 @@ type RoomState struct {
 	StartTime      int64
 	EndTime        int64
 	ReplayFileName string
-}
-
-// DefaultRoom 对应 HeadlessModuleManage.hessLoaderMap[classLoader].room:
-// 服务端模式下的单例房间.
-//
-// 上游按 classLoader 区分多个游戏模块实例, 每个实例持有自己的 ServerRoom;
-// Go 版没有类加载器维度, 服务端模式恒为单房间, 因此收敛为一个全局槽位.
-// 连接层 (协议实现体) 通过它取到当前房间, 与上游 PlayerConnectX.room 的来源一致.
-var (
-	defaultRoomMu sync.RWMutex
-	defaultRoom   *GameSession
-)
-
-// SetDefaultRoom 由启动链在创建房间后调用; 传 nil 清除
-func SetDefaultRoom(s *GameSession) {
-	defaultRoomMu.Lock()
-	defaultRoom = s
-	defaultRoomMu.Unlock()
-}
-
-// DefaultRoom 取当前单例房间; 未设置时为 nil
-func DefaultRoom() *GameSession {
-	defaultRoomMu.RLock()
-	defer defaultRoomMu.RUnlock()
-	return defaultRoom
 }
 
 // 编译期确认
