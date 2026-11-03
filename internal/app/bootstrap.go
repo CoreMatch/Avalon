@@ -96,9 +96,8 @@ func (r *Runtime) Start() error {
 
 	// Event 加载
 	log.LoadStatusLog("server.load.events", func() {
-		// 原版: addGlobalEventManage(EventGlobal()) + runRegisterGlobalEvents().
-		// EventGlobal 的四个处理器都依赖尚未移植的子系统, 所以当前没有监听者;
-		// 事件总线本身是通的, 后续批次直接 AddGlobalEventManager 即可.
+		// 对应原版 addGlobalEventManage(EventGlobal()) + runRegisterGlobalEvents().
+		r.registerEventGlobal()
 	})
 
 	log.Set(global.Config.Log)
