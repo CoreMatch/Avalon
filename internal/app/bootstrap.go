@@ -7,6 +7,7 @@ import (
 	"rwhps/internal/data/global"
 	"rwhps/internal/game"
 	"rwhps/internal/game/manage"
+	"rwhps/internal/game/room"
 	"rwhps/internal/net"
 	"rwhps/internal/net/core"
 	cmd "rwhps/internal/util/game/command"
@@ -64,10 +65,11 @@ func (r *Runtime) Start() error {
 	// 后端必须在建房间之前装好: 房间在构造时就把 game.Backend 取走了.
 	// 对应原版的哪一行: 没有 —— 原版的内核在进程内, 见 loadSimulation 的说明.
 	game.SetBackend(loadSimulation())
-	r.Session = game.NewGameSession(global.ConfigServer.ServerID, game.Backend)
-	// 连接层经 game.DefaultRoom() 取单例房间, 对应上游
+	// ServerRoom 在 GameSession 状态壳之上装配玩家/广播/命令实体链 (里程碑 2).
+	r.Session = room.NewServerRoom(game.NewGameSession(global.ConfigServer.ServerID, game.Backend))
+	// 连接层经 room.Default() 取单例房间, 对应上游
 	// HeadlessModuleManage.hessLoaderMap[classLoader].room 的取用路径.
-	game.SetDefaultRoom(r.Session)
+	room.SetDefault(r.Session)
 
 	// startInit() + loadLib()
 	startInit(r.Core.Settings)

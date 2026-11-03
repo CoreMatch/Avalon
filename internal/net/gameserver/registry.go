@@ -3,7 +3,10 @@ package gameserver
 import (
 	"sync"
 
+	"rwhps/internal/data/global"
 	"rwhps/internal/game/external"
+	"rwhps/internal/game/player"
+	"rwhps/internal/game/room"
 	"rwhps/internal/io/packet"
 	"rwhps/internal/util/log"
 )
@@ -53,6 +56,9 @@ func AttachBackend(b *external.Backend) {
 	}
 	b.SetHandlers(external.Handlers{
 		Packet: DeliverPacket,
+		// 玩家档案 / 进房 / 离房事件: 驱动房间实体链 (里程碑 2).
+		// 对应上游引擎经 PlayerConnectX 回调 RW-HPS 的那条路.
+		Event: handleHelperEvent,
 		// 旧一代 helper 承载着所有客户端连接, 它一死这些连接全部作废:
 		// 与上游"引擎进程消失即断开全部玩家"一致.
 		HelperExit: func(gen uint64) {
@@ -63,6 +69,76 @@ func AttachBackend(b *external.Backend) {
 		// 且上游语义明确要求"不要自动开局".
 		HelperReady: func(uint64) {},
 	})
+}
+
+// handleHelperEvent 处理引擎发来的玩家事件
+//
+// 对应上游引擎 -> PlayerConnectX -> room.playerManage 的那条路:
+//   - player.join    : addAbstractPlayer 并绑定到对应连接
+//   - player.leave   : 断开该连接 (disconnect 内部完成房间列表清理)
+//   - player.update  : 刷新档案 (队伍 / 准备状态)
+//
+// 聊天与命令事件 (chat / command) 属里程碑 3 的指令体系, 此处暂不处理.
+func handleHelperEvent(ev *external.EventMessage) {
+	r := room.Default()
+	if r == nil {
+		return
+	}
+
+	switch ev.Event {
+	case external.EventPlayerJoin:
+		profile, err := external.DecodePlayerProfile(ev)
+		if err != nil {
+			log.Errorf("[GameServer]", "decode player.join: {0}", err)
+			return
+		}
+		g := connections.get(ev.Conn)
+		if g == nil {
+			log.Warnf("[GameServer]", "player.join for unknown conn {0}", ev.Conn)
+			return
+		}
+		data := player.NewData()
+		data.Apply(func(d *player.Data) {
+			d.ConnectHexID = profile.ID
+			d.Name = profile.Name
+			d.Team = profile.Team
+			d.Host = profile.Host
+			d.Bot = profile.Bot
+			d.Spectator = profile.Spectator
+		})
+		p := r.PlayerManage.AddAbstractPlayer(g, data, i18nInput)
+		g.SetPlayer(p)
+
+	case external.EventPlayerLeave:
+		if g := connections.get(ev.Conn); g != nil {
+			g.Disconnect()
+		}
+
+	case external.EventPlayerUpdate:
+		profile, err := external.DecodePlayerProfile(ev)
+		if err != nil {
+			log.Errorf("[GameServer]", "decode player.update: {0}", err)
+			return
+		}
+		if g := connections.get(ev.Conn); g != nil && g.Player() != nil {
+			d := g.Player().Data()
+			d.Apply(func(dd *player.Data) {
+				dd.Team = profile.Team
+				dd.Name = profile.Name
+				dd.Host = profile.Host
+				dd.Bot = profile.Bot
+				dd.Spectator = profile.Spectator
+			})
+		}
+	}
+}
+
+// i18nInput 对应 Data.i18NBundle.getinput, 供玩家实体取词
+func i18nInput(key string, params ...any) string {
+	if global.I18NBundle == nil {
+		return key
+	}
+	return global.I18NBundle.GetInput(key, params...)
 }
 
 // DeliverPacket 把引擎发来的一个游戏包路由给对应客户端

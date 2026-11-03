@@ -5,6 +5,8 @@ import (
 
 	"rwhps/internal/data/global"
 	"rwhps/internal/game"
+	"rwhps/internal/game/player"
+	"rwhps/internal/game/room"
 	gameio "rwhps/internal/io"
 	"rwhps/internal/io/packet"
 	"rwhps/internal/io/packettype"
@@ -32,9 +34,11 @@ const (
 // connSeq 连接 ID 序号: helper 协议里 conn 只需房间内唯一, 用单调序号即可
 var connSeq atomic.Int64
 
-// 编译期确认: 原版 GameVersionServer 实现 AbstractNetConnectServer
-// (AbstractNetConnectData 的 name / registerPlayerId 依赖 PlayerHess, 里程碑 2 补齐)
-var _ server.AbstractNetConnectServer = (*GameVersionServer)(nil)
+// 编译期确认: 原版 GameVersionServer 实现 AbstractNetConnectServer 与 AbstractNetConnectData
+var (
+	_ server.AbstractNetConnectServer = (*GameVersionServer)(nil)
+	_ server.AbstractNetConnectData   = (*GameVersionServer)(nil)
+)
 
 // GameVersionServer 对应 GameVersionServer: 通用服务端协议实现体
 //
@@ -49,7 +53,10 @@ type GameVersionServer struct {
 
 	// room 对应 room: ServerRoom, 构造时取单例房间
 	// (上游: playerConnectX.room = HeadlessModuleManage.hessLoaderMap[...].room)
-	room *game.GameSession
+	room *room.ServerRoom
+
+	// player 对应 player: PlayerHess, 玩家注册后绑定 (里程碑 2)
+	player *player.Player
 
 	// connID helper 协议里的连接 ID, 构造时分配
 	connID string
@@ -70,7 +77,7 @@ type GameVersionServer struct {
 func NewGameVersionServer(ca *core.ConnectionAgreement) *GameVersionServer {
 	g := &GameVersionServer{
 		AbstractNetConnect: core.NewAbstractNetConnect(ca),
-		room:               game.DefaultRoom(),
+		room:               room.Default(),
 		connID:             nextConnID(),
 		permissionStatus:   core.ServerInitialConnection,
 	}
@@ -101,11 +108,58 @@ func nextConnID() string {
 // ConnID 返回 helper 协议里的连接 ID (测试与路由用)
 func (g *GameVersionServer) ConnID() string { return g.connID }
 
-// Room 对应 room
-func (g *GameVersionServer) Room() *game.GameSession { return g.room }
+// Room 对应 room (AbstractNetConnectServer 接缝, 返回状态壳)
+func (g *GameVersionServer) Room() *game.GameSession {
+	if g.room == nil {
+		return nil
+	}
+	return g.room.GameSession
+}
+
+// ServerRoom 返回完整房间实体 (玩家/广播/命令链, 里程碑 2 起用)
+func (g *GameVersionServer) ServerRoom() *room.ServerRoom { return g.room }
+
+// Player 对应 player: PlayerHess (未注册时为 nil)
+func (g *GameVersionServer) Player() *player.Player { return g.player }
+
+// SetPlayer 绑定玩家实体 (玩家注册时由管理层调用)
+func (g *GameVersionServer) SetPlayer(p *player.Player) { g.player = p }
+
+// SendJumpToAnotherServer 实现 player.PlayerConnect: 发送跳转包
+//
+// 对应上游 playerJumpsToAnotherServer 里的发包动作; 包构造经 netconnectprotocol
+// 桥接到 internal/relay.
+func (g *GameVersionServer) SendJumpToAnotherServer(ipport string) {
+	g.SendPacket(netconnectprotocol.FromRelayJumpsToAnotherServerPacket(ipport))
+}
 
 // PermissionStatus 对应 permissionStatus
 func (g *GameVersionServer) PermissionStatus() core.ServerStatus { return g.permissionStatus }
+
+// Name 实现 AbstractNetConnectData, 对应 name: player.name
+//
+// 上游声明为 lateinit —— 玩家未注册时访问会抛异常; Go 侧返回空串,
+// 与 RegisterPlayerId 的"无即空串"约定一致.
+func (g *GameVersionServer) Name() string {
+	if g.player == nil {
+		return ""
+	}
+	return g.player.Name()
+}
+
+// RegisterPlayerId 实现 AbstractNetConnectData, 对应 registerPlayerId: player.connectHexID
+func (g *GameVersionServer) RegisterPlayerId() string {
+	if g.player == nil {
+		return ""
+	}
+	return g.player.ConnectHexID()
+}
+
+// BetaGameVersion 实现 AbstractNetConnectData, 对应 betaGameVersion = supportedversionBeta
+func (g *GameVersionServer) BetaGameVersion() bool { return g.SupportedVersionBeta() }
+
+// ClientVersion 实现 AbstractNetConnectData, 对应 clientVersion = supportedVersionInt
+func (g *GameVersionServer) ClientVersion() int { return g.SupportedVersionInt() }
 
 // SupportedVersionBeta 对应 supportedversionBeta
 func (g *GameVersionServer) SupportedVersionBeta() bool { return supportedVersionBeta }
@@ -175,9 +229,13 @@ func (g *GameVersionServer) SendKick(reason string) error {
 
 // Disconnect 对应 disconnect()
 //
-// 上游顺序: isDis 守卫 -> 从房间移除玩家 + PlayerLeaveEvent + playerExitInternalPacket
-// + player.clear() -> super.close(null). 玩家相关步骤依赖 PlayerHess (里程碑 2),
-// 此处先完成连接层自身闭环: 注销路由 + 通知 helper 关连接 + 关闭传输层.
+// 上游顺序: isDis 守卫 -> 玩家清理 (移出房间列表 / PlayerLeaveEvent /
+// playerExitInternalPacket 进引擎 / player.clear()) -> super.close(null).
+//
+// Go 侧差异只有两处:
+//   - PlayerLeaveEvent 属事件体系 (里程碑 3), 先留 TODO
+//   - playerExitInternalPacket 上游进引擎包队列, Go 版经 conn.packet 发给 helper;
+//     连接本身也要 conn.close 显式注销 (引擎在外部进程, 不会自己感知到)
 func (g *GameVersionServer) Disconnect() {
 	if g.IsDis {
 		return
@@ -185,6 +243,22 @@ func (g *GameVersionServer) Disconnect() {
 	g.IsDis = true
 
 	connections.remove(g.connID)
+
+	if g.player != nil && g.room != nil {
+		g.room.PlayerManage.RemoveFromGroup(g.player)
+		if !g.room.IsStartGame {
+			g.room.PlayerManage.RemoveFromAll(g.player)
+		}
+		// TODO(里程碑3): fire(PlayerLeaveEvent)
+
+		if h := currentHelper(); h != nil {
+			pkt := netconnectprotocol.PlayerExitPacket("exited")
+			if err := h.ConnPacket(g.room.RoomID, g.connID, pkt); err != nil {
+				log.Debugf("[GameServer]", "player exit packet: {0}", err)
+			}
+		}
+		g.player.Clear()
+	}
 
 	if h := currentHelper(); h != nil && g.room != nil {
 		if err := h.ConnClose(g.room.RoomID, g.connID); err != nil {

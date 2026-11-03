@@ -6,9 +6,13 @@ import (
 	"strings"
 	"testing"
 
+	"rwhps/internal/core/thread"
 	"rwhps/internal/data/global"
 	"rwhps/internal/game"
 	"rwhps/internal/game/manage"
+	"rwhps/internal/game/player"
+	"rwhps/internal/game/room"
+	"rwhps/internal/io/packet"
 	"rwhps/internal/net"
 	"rwhps/internal/net/core"
 	cmd "rwhps/internal/util/game/command"
@@ -43,6 +47,14 @@ func resetGlobals(t *testing.T) {
 	t.Cleanup(func() {
 		global.StartServer = oldStart
 		log.Bundle = oldBundle
+		// start 成功会挂上自动检查定时器 (上游同样常驻), 测试结束前收掉,
+		// 避免它跨测试触发 gr()
+		thread.CloseTimeTask(thread.AutoCheckTask, nil)
+		thread.CloseTimeTask(thread.GameOverTask, nil)
+		thread.CloseTimeTask(thread.CallTeamTask, nil)
+		// start 命令会向 manage 注册 ServerProtocol, 不清会污染后续
+		// "无协议" 场景 (version 输出 NullProtocol 的断言)
+		manage.Clear()
 		for _, s := range net.NetStaticData.Services() {
 			s.Stop()
 		}
@@ -195,7 +207,7 @@ func TestVersionServerProtocol(t *testing.T) {
 
 	// 注册一个服务端协议并让 RwHps 指向它
 	manageAddServer(t)
-	d.Session = game.NewGameSession("room-x", nil)
+	d.Session = room.NewServerRoom(game.NewGameSession("room-x", nil))
 
 	server.HandleMessage("version")
 
@@ -359,7 +371,7 @@ func TestStartWithoutBackend(t *testing.T) {
 	server, _, d, rec := setup(t)
 
 	global.StartServer = false
-	d.Session = game.NewGameSession("room-y", nil)
+	d.Session = room.NewServerRoom(game.NewGameSession("room-y", nil))
 
 	server.HandleMessage("start")
 
@@ -377,7 +389,7 @@ func TestStartWhenAlreadyRunning(t *testing.T) {
 	server, _, d, rec := setup(t)
 
 	global.StartServer = true
-	d.Session = game.NewGameSession("room-z", nil)
+	d.Session = room.NewServerRoom(game.NewGameSession("room-z", nil))
 
 	server.HandleMessage("start")
 
@@ -408,16 +420,44 @@ func TestStartWithBackend(t *testing.T) {
 	withBundle(t)
 
 	global.StartServer = false
-	d.Session = game.NewGameSession("room-ok", stubSim{})
+	d.Session = room.NewServerRoom(game.NewGameSession("room-ok", stubSim{}))
+	// 房间里要有玩家: 开局会挂自动检查定时器, 0 玩家时它会立刻 gr() 收掉对局
+	// (上游同样行为). 放两个玩家让对局存活, 断言才稳定.
+	d.Session.PlayerManage.AddAbstractPlayer(&cmdTestConnect{}, playerDataForTest("h1", "alice", 0), nil)
+	d.Session.PlayerManage.AddAbstractPlayer(&cmdTestConnect{}, playerDataForTest("h2", "bob", 1), nil)
 
 	server.HandleMessage("start")
 
 	if !global.StartServer {
 		t.Fatal("开局成功后 StartServer 应为 true")
 	}
-	if !d.Session.IsStartGame {
+	if !d.Session.Snapshot().IsStartGame {
 		t.Fatal("房间应处于开局状态")
 	}
+}
+
+// cmdTestConnect 命令层测试用的最小玩家连接
+type cmdTestConnect struct{}
+
+func (c *cmdTestConnect) SendSystemMessage(string) error            { return nil }
+func (c *cmdTestConnect) SendChatMessage(string, string, int) error { return nil }
+func (c *cmdTestConnect) SendKick(string) error                     { return nil }
+func (c *cmdTestConnect) SendRelayServerType(string, func(string))  {}
+func (c *cmdTestConnect) SendPacket(*packet.Packet)                 {}
+func (c *cmdTestConnect) SendJumpToAnotherServer(string)            {}
+func (c *cmdTestConnect) IP() string                                { return "127.0.0.1" }
+func (c *cmdTestConnect) UseConnectionAgreement() string            { return "TCP" }
+func (c *cmdTestConnect) IPCountry() string                         { return "LAN" }
+
+// playerDataForTest 构造测试玩家档案
+func playerDataForTest(hexID, name string, index int) *player.Data {
+	d := player.NewData()
+	d.Apply(func(dd *player.Data) {
+		dd.ConnectHexID = hexID
+		dd.Name = name
+		dd.Index = index
+	})
+	return d
 }
 
 // TestHiWithoutConnection 没有连接对象时静默返回

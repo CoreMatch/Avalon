@@ -23,7 +23,7 @@ import (
 
 	"rwhps/internal/command"
 	"rwhps/internal/data/global"
-	"rwhps/internal/game"
+	"rwhps/internal/game/room"
 	"rwhps/internal/net"
 	"rwhps/internal/util/console"
 	"rwhps/internal/util/log"
@@ -44,7 +44,7 @@ type Runtime struct {
 	//
 	// 原版由游戏模块 (闭源 rusted-warfare.jar) 加载时创建; Go 版没有游戏模块,
 	// 这里创建一个绑定 game.Backend 的空房间, 让 start / hi / version 有确定的落脚点.
-	Session *game.GameSession
+	Session *room.ServerRoom
 
 	// Params 对应 Data.mainParameters
 	Params global.MainParameters
