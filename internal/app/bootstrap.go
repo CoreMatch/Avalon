@@ -10,6 +10,8 @@ import (
 	"rwhps/internal/game/room"
 	"rwhps/internal/net"
 	"rwhps/internal/net/core"
+	nethttp "rwhps/internal/net/http"
+	"rwhps/internal/net/httpapi"
 	"rwhps/internal/net/uplist"
 	cmd "rwhps/internal/util/game/command"
 	"rwhps/internal/util/log"
@@ -97,9 +99,13 @@ func (r *Runtime) Start() error {
 	//   - UpList: runRegisterCoreCommands -> uplist.RegisterCommands
 	//             runRegisterServerClientCommands / runRegisterEvents 对应
 	//             上游在 ServerHessLoadEvent 时的接线, Go 版收敛到建房后一次性完成
+	//   - HttpApi: runOnEnable -> httpapi.Register (WebData 路由),
+	//              registerEvents -> httpapi.RegisterRoomEvents (结算缓存)
 	uplist.RegisterCommands(global.ServerCommand)
 	uplist.RegisterClientCommands(r.Session.ClientHandler)
 	uplist.RegisterRoomEvents(r.Session)
+	httpapi.Register(nethttp.DefaultWebData)
+	httpapi.RegisterRoomEvents(r.Session)
 
 	// Event 加载
 	log.LoadStatusLog("server.load.events", func() {
