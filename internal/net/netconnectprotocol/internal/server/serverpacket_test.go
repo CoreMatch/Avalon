@@ -80,7 +80,7 @@ func TestChatMessagePacket(t *testing.T) {
 	if in.ReadString() != "hello" {
 		t.Errorf("msg")
 	}
-	if in.ReadByte() != 3 {
+	if in.ReadSignedByte() != 3 {
 		t.Errorf("protocol version 应为 3")
 	}
 	if !in.ReadBoolean() {
@@ -100,7 +100,7 @@ func TestChatMessagePacket(t *testing.T) {
 	p2 := ChatMessagePacket("hello", "", 0)
 	in2 := gameio.NewGameInputStreamFromPacket(p2, 0)
 	in2.ReadString()
-	in2.ReadByte()
+	in2.ReadSignedByte()
 	if in2.ReadBoolean() {
 		t.Errorf("sendBy 为空时 prefix 标志应为 false")
 	}
@@ -116,7 +116,7 @@ func TestChatUserMessagePacket(t *testing.T) {
 	if in.ReadString() != "sim" {
 		t.Errorf("msg")
 	}
-	if in.ReadByte() != 0 {
+	if in.ReadSignedByte() != 0 {
 		t.Errorf("flag 应为 0")
 	}
 }
@@ -140,7 +140,7 @@ func TestReceivingStatusPacket(t *testing.T) {
 		t.Errorf("type")
 	}
 	in := gameio.NewGameInputStreamFromPacket(p, 0)
-	if in.ReadByte() != 0 {
+	if in.ReadSignedByte() != 0 {
 		t.Errorf("flag")
 	}
 	if in.ReadInt() != 100 {

@@ -113,7 +113,7 @@ func GetPacketTeamData(parse *gameio.GameInputStream, playerRelay *player.Player
 		}
 
 		unit.ReadInt()
-		site := unit.ReadByte()
+		site := unit.ReadSignedByte()
 		if site == playerRelay.Site {
 			unit.ReadInt()
 			// 原版是 `playerRelay.team = it.readInt()`, 走的是 setter (field = site)

@@ -44,8 +44,11 @@ func NewGameInputStreamFromPacket(p *packet.Packet, parseVersion int) *GameInput
 // ParseVersion 返回解析版本号
 func (s *GameInputStream) ParseVersion() int { return s.parseVersion }
 
-// ReadByte 读取 1 字节 (有符号语义, 与 Java byte 一致)
-func (s *GameInputStream) ReadByte() int {
+// ReadSignedByte 读取 1 字节 (有符号语义, 与 Java byte 一致)
+//
+// 对应上游 GameInputStream.readByte. 不叫 ReadByte 是因为 Go 惯例里
+// 这个名字属于 io.ByteReader (签名 (byte, error)), 签名不同会误导调用方.
+func (s *GameInputStream) ReadSignedByte() int {
 	b, err := s.r.ReadByte()
 	if err != nil {
 		return 0
@@ -306,9 +309,12 @@ func (o *GameOutputStream) GetFramedBytes(typeInt int) []byte {
 func (o *GameOutputStream) Size() int { return o.buf.Len() }
 
 // WriteByte 写入 1 字节
-func (o *GameOutputStream) WriteByte(v byte) *GameOutputStream {
-	_ = o.buf.WriteByte(v)
-	return o
+//
+// 对应上游 GameOutputStream.writeByte. 返回 error 以符合 io.ByteWriter 惯例
+// (底层 bytes.Buffer 写入不会失败, 实际恒为 nil); 这个名字在 Go 里属于
+// io.ByteWriter, 沿用 fluent 返回会误导调用方并触发 go vet stdmethods.
+func (o *GameOutputStream) WriteByte(v byte) error {
+	return o.buf.WriteByte(v)
 }
 
 // WriteBytes 写入原始字节

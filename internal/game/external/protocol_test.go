@@ -93,7 +93,7 @@ func TestDecodeResponse(t *testing.T) {
 func TestDecodeResponseErrors(t *testing.T) {
 	cases := map[string]string{
 		"":                                      "empty line",
-		`{"v":2,"type":"response","id":1,"ok":`:                "decode message",
+		`{"v":2,"type":"response","id":1,"ok":`: "decode message",
 		`{"v":99,"type":"response","id":1,"gen":1,"ok":true}`: "helper speaks protocol 99",
 		`{"v":2,"type":"response","id":1,"gen":0,"ok":true}`:  "without generation",
 		`{"v":2,"type":"response","id":0,"gen":1,"ok":true}`:  "without request id",
