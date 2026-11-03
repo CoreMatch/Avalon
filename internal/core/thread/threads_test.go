@@ -190,10 +190,13 @@ func TestNewTimedTaskRepeatsAndCloseTimeTask(t *testing.T) {
 		t.Fatal("task still registered after CloseTimeTask")
 	}
 
+	// Remove 之后, 已经排进池子的那一次仍可能跑完 (与上游一致, 无法中断在飞任务);
+	// 等它落定后断言"不再持续触发", 而不是苛求 Remove 返回即一次不跑.
+	time.Sleep(60 * time.Millisecond)
 	at := fired.Load()
 	time.Sleep(80 * time.Millisecond)
 	if fired.Load() != at {
-		t.Fatalf("task fired %d more times after CloseTimeTask", fired.Load()-at)
+		t.Fatalf("task kept firing after CloseTimeTask (%d -> %d)", at, fired.Load())
 	}
 	// 第二次关闭应返回 false 且不跑回调
 	closed.Store(0)

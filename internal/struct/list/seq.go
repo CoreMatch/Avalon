@@ -206,10 +206,14 @@ func (s *Seq[T]) Clear() {
 }
 
 // EachAll 对应 eachAll(block)
+//
+// 采用"快照遍历": 先在锁内拷出一份 (Elements), 再在锁外逐个回调.
+// 上游 Kotlin 版靠 ObjectLists.synchronize 的可重入锁支持"遍历中再入遍历/增删",
+// Go 的 sync.Mutex 不可重入, 若持锁回调会在嵌套 EachAll (如 giveadmin 遍历
+// playerGroup 时广播又遍历 playerGroup) 时自锁死. 快照语义与上游"遍历不应
+// 在回调里被并发修改"的约定兼容, 且天然免疫该死锁.
 func (s *Seq[T]) EachAll(block func(T)) {
-	s.lock()
-	defer s.unlock()
-	for _, v := range s.list {
+	for _, v := range s.Elements() {
 		block(v)
 	}
 }

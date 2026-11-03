@@ -14,6 +14,7 @@ package command
 import (
 	"rwhps/internal/game/room"
 	"rwhps/internal/net/core"
+	str "rwhps/internal/util/str"
 )
 
 // Deps 收集命令层需要、但无法直接 import 的外部能力
@@ -68,4 +69,12 @@ func (d *Deps) print(text string) {
 	if d.Print != nil {
 		d.Print(text)
 	}
+}
+
+// printf 对应 StrCons.invoke(t, vararg obj): 先做 MessageFormat 占位符替换再输出
+//
+// 上游命令回调里的 log("... {0}", arg) 走 java.text.MessageFormat,
+// Go 版经 util/str 的 MessageFormat 实现保持同款占位符语义.
+func (d *Deps) printf(t string, obj ...any) {
+	d.print(str.Format(t, obj))
 }

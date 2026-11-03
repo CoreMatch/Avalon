@@ -46,6 +46,9 @@ func newTestRoom(t *testing.T, sim game.Simulation) *ServerRoom {
 		thread.CloseTimeTask(thread.AutoCheckTask, nil)
 		thread.CloseTimeTask(thread.GameOverTask, nil)
 		thread.CloseTimeTask(thread.CallTeamTask, nil)
+		// 事件默认监听会挂自动开局/AFK 倒计时 (上游同样常驻), 测试结束前收掉
+		thread.CloseTimeTask(thread.AutoStartTask, nil)
+		thread.CloseTimeTask(thread.PlayerAfkTask, nil)
 		SetDefault(nil)
 	})
 	return r

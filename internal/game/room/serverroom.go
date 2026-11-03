@@ -7,6 +7,7 @@ import (
 	"rwhps/internal/data/global"
 	"rwhps/internal/data/temp"
 	"rwhps/internal/game"
+	"rwhps/internal/game/event"
 	"rwhps/internal/game/manage"
 	"rwhps/internal/game/player"
 	"rwhps/internal/struct/list"
@@ -35,11 +36,18 @@ type ServerRoom struct {
 	// Call 对应 call
 	Call *manage.CallManage
 
+	// EventManage 对应 eventManage: 房间的游戏事件总线
+	EventManage *event.Manage
+
 	// BanUnit 对应 banUnit: 被封禁的单位名
 	BanUnit *list.Seq[string]
 
 	// FlagData 对应 flagData: 一次性状态标志
 	FlagData *temp.ServerCacheFlag
+
+	// PlayerData 对应 playerData: 开局时快照的非 AI 玩家档案 (RePlay 素材)
+	// 上游为可空 Seq, 未开局 (或未启用 saveRePlayFile) 时为 nil
+	PlayerData []map[string]any
 
 	// IsMixPlayer 对应 isMixPlayer
 	IsMixPlayer bool
@@ -50,16 +58,21 @@ type ServerRoom struct {
 }
 
 // NewServerRoom 对应 ServerRoom(gameModule)
+//
+// 构造时即注册上游 Event() 的全部默认监听 (对应上游
+// EventGlobal.registerServerHessLoadEvent 在模块加载时的 registerListener(Event())).
 func NewServerRoom(session *game.GameSession) *ServerRoom {
 	r := &ServerRoom{
 		GameSession:   session,
 		ClientHandler: cmd.NewHandler("/"),
+		EventManage:   event.NewManage(),
 		BanUnit:       list.NewSeq[string](),
 		FlagData:      temp.NewServerCacheFlag(),
 	}
 	r.PlayerManage = manage.NewPlayerManage()
 	r.TeamManage = manage.NewTeamManage()
 	r.Call = manage.NewCallManage(r.PlayerManage, r)
+	r.registerDefaultEvents()
 	return r
 }
 
@@ -146,11 +159,19 @@ func (r *ServerRoom) GameOver() error {
 	return nil
 }
 
+// voteStopper 是房间对投票对象的最小依赖面.
+//
+// 上游 cleanThread 直接调 Data.vote!!.stopVote(); Go 版 Vote 位于命令层
+// (internal/command/ex), room 不能反向导入, 经 global.Vote 槽位 + 窄接口解耦.
+type voteStopper interface{ StopVote() }
+
 // cleanThread 对应 cleanThread
 //
-// 上游: 停止投票 + 关 GameOverTask/AutoCheckTask. 投票属里程碑 3,
-// 此处只关定时器.
+// 上游: 停止投票 + 关 GameOverTask/AutoCheckTask.
 func (r *ServerRoom) cleanThread() {
+	if v, ok := global.Vote.(voteStopper); ok && v != nil {
+		v.StopVote()
+	}
 	thread.CloseTimeTask(thread.GameOverTask, nil)
 	thread.CloseTimeTask(thread.AutoCheckTask, nil)
 }
@@ -164,7 +185,7 @@ func (r *ServerRoom) cleanThread() {
 //	flagData = ServerCacheFlag()                        -> FlagData.Reset (原地重置, 见 Reset 注释)
 //	banUnit.clear()
 //	forcedReturn = false
-//	eventManage.fire(ServerGameOverEvent)               -> 里程碑 3 (事件体系)
+//	eventManage.fire(ServerGameOverEvent(gameOverData)).await(); gameOverData = null
 //	MapManage.maps.mapData?.clean()                     -> manage.Maps
 func (r *ServerRoom) cleanData() {
 	r.GameSession.ResetMatchState()
@@ -178,7 +199,9 @@ func (r *ServerRoom) cleanData() {
 	r.forcedReturn = false
 	r.mu.Unlock()
 
-	// TODO(里程碑3): fire(ServerGameOverEvent(gameOverData)) 并清空 gameOverData
+	// 上游 gameOverData 由引擎结算产出; Go 版引擎在 helper 内, 结算数据尚无
+	// 协议通道 (DECISIONS D-9), 与上游字段为 null 的声明一致, 以 nil 触发.
+	r.EventManage.Fire(&event.ServerGameOverEvent{GameOverData: nil})
 
 	if manage.Maps.MapData != nil {
 		manage.Maps.MapData.Clean()
