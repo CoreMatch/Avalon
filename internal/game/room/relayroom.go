@@ -577,9 +577,13 @@ func (r *RelayRoom) RemoveRoom(run func()) {
 		if a := r.admin.Get(); a != nil {
 			a.Disconnect()
 		}
-		r.AbstractNetConnectIntMap.EachAll(func(_ int32, con RelayConnect) {
+		// 上游遍历 abstractNetConnectIntMap.values 逐个断开. 这里必须先取快照:
+		// con.Disconnect() 会回调 RemoveAbstractNetConnect 修改本表, 而 Go 的
+		// 线程安全 map 持锁回调, 边遍历边删会死锁 (上游 ConcurrentHashMap 的
+		// 弱一致迭代器没有这个问题).
+		for _, con := range r.AbstractNetConnectIntMap.Values() {
 			con.Disconnect()
-		})
+		}
 		r.closeRoom.Set(true)
 		r.AbstractNetConnectIntMap.Clear()
 		r.site.set(0)

@@ -625,18 +625,20 @@ func (g *GameVersionRelay) RelayRegisterConnection(p *packet.Packet) {
 	} else if g.permissionStatus >= core.RelayPlayerPermission {
 		if g.permissionStatus == core.RelayPlayerPermission {
 			if !g.room.IsStartGame() {
-				if _, found := g.room.AbstractNetConnectIntMap.Find(func(_ int32, other room.RelayConnect) bool {
-					// 通过检测房间已有的 UUID-Hex, 来激进的解决一些问题
-					//
-					// Luke 对此的回答 :
-					// True might make more sense, but a connection might be stale for a bit need to be careful with that.
-					// example just after a crash
-					if other.PermissionStatus() == core.RelayPlayerJoinPermission && other.RegisterPlayerId() == g.registerPlayerId {
-						g.Kick("[UUID Check] HEX 重复, 换个房间试试")
-						return true
-					}
-					return false
-				}); found {
+				// 通过检测房间已有的 UUID-Hex, 来激进的解决一些问题
+				//
+				// Luke 对此的回答 :
+				// True might make more sense, but a connection might be stale for a bit need to be careful with that.
+				// example just after a crash
+				//
+				// 上游在 find 回调内直接 kick (ConcurrentHashMap 允许遍历中修改);
+				// Go 的线程安全 map 持锁回调, kick->disconnect 会反向改本表导致死锁,
+				// 因此先查后踢, 可观察行为一致.
+				_, duplicate := g.room.AbstractNetConnectIntMap.Find(func(_ int32, other room.RelayConnect) bool {
+					return other.PermissionStatus() == core.RelayPlayerJoinPermission && other.RegisterPlayerId() == g.registerPlayerId
+				})
+				if duplicate {
+					g.Kick("[UUID Check] HEX 重复, 换个房间试试")
 					return
 				}
 			}
@@ -1195,9 +1197,11 @@ func (g *GameVersionRelay) adminMoveNew() {
 	g.room.UpdateMinSize()
 	if next, ok := g.room.GetAbstractNetConnect(g.room.MinSize()); ok {
 		next.SendRelayServerId(false)
-		g.room.AbstractNetConnectIntMap.EachAll(func(_ int32, obj room.RelayConnect) {
+		// 上游遍历 abstractNetConnectIntMap.values; Go 侧同样取快照遍历,
+		// 避免持锁回调期间转发链反向修改房间表
+		for _, obj := range g.room.AbstractNetConnectIntMap.Values() {
 			obj.AddReRelayConnect()
-		})
+		}
 		g.AddReRelayConnect()
 
 		np := g.netPacket()
