@@ -5,7 +5,9 @@ import (
 	"strings"
 	"sync"
 
+	"rwhps/internal/game/player"
 	"rwhps/internal/struct/list"
+	"rwhps/internal/util/timeutil"
 )
 
 // PlayerAdminInfo 对应 Administration.PlayerAdminInfo
@@ -32,18 +34,103 @@ type Administration struct {
 	BanQQ       *list.Seq[int64]
 
 	playerAdminData map[string]*PlayerAdminInfo
+
+	// PlayerDataCache 对应 playerDataCache: connectHexID -> 玩家离線档案
+	// (踢出到期时间 / 禁言到期时间等), 玩家离开时写入, 加入时恢复
+	PlayerDataCache map[string]*PlayerInfo
+
+	// chatFilters 对应 chatFilters
+	chatFilters []ChatFilter
+}
+
+// PlayerInfo 对应 Administration.PlayerInfo
+type PlayerInfo struct {
+	UUID        string
+	TimesKicked int64
+	TimesJoined int64
+	TimeMute    int64
+	Admin       bool
+	SuperAdmin  bool
+}
+
+// NewPlayerInfo 对应 PlayerInfo(uuid, timesKicked, timeMute) 构造器
+func NewPlayerInfo(uuid string, timesKicked, timeMute int64) *PlayerInfo {
+	return &PlayerInfo{UUID: uuid, TimesKicked: timesKicked, TimeMute: timeMute}
+}
+
+// ChatFilter 对应 Administration.ChatFilter
+//
+// 上游签名: filter(player, message): String?, 返回 null 表示丢弃该消息.
+// Go 版以 (过滤后的消息, 是否放行) 表达.
+type ChatFilter interface {
+	Filter(p *player.Player, message string) (string, bool)
+}
+
+// ChatFilterFunc 对应以匿名对象实现的 ChatFilter
+type ChatFilterFunc func(p *player.Player, message string) (string, bool)
+
+// Filter 实现 ChatFilter
+func (f ChatFilterFunc) Filter(p *player.Player, message string) (string, bool) {
+	return f(p, message)
 }
 
 // NewAdministration 对应 Administration(pluginData)
 func NewAdministration() *Administration {
-	return &Administration{
+	a := &Administration{
 		BannedIPs:       list.NewSeq[string](),
 		BannedIP24:      list.NewSeq[string](),
 		BannedUUIDs:     list.NewSeq[string](),
 		Whitelist:       list.NewSeq[string](),
 		BanQQ:           list.NewSeq[int64](),
 		playerAdminData: map[string]*PlayerAdminInfo{},
+		PlayerDataCache: map[string]*PlayerInfo{},
 	}
+
+	// 上游 Administration.init 里注册的默认过滤器:
+	// 非管理员 30 秒内不允许发送两条相同消息
+	a.AddChatFilter(ChatFilterFunc(func(p *player.Player, message string) (string, bool) {
+		if !p.IsAdmin {
+			if message == p.LastSentMessage && timeutil.GetTimeSinceMillis(p.LastMessageTime) < 1000*30 {
+				_ = p.SendSystemMessage("You may not send the same message twice.")
+				return "", false
+			}
+			p.LastSentMessage = message
+			p.LastMessageTime = timeutil.ConcurrentMillis()
+		}
+		return message, true
+	}))
+	return a
+}
+
+// AddChatFilter 对应 addChatFilter
+func (a *Administration) AddChatFilter(filter ChatFilter) {
+	if filter == nil {
+		return
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.chatFilters = append(a.chatFilters, filter)
+}
+
+// FilterMessage 对应 filterMessage(player, message)
+//
+// 上游逐过滤器执行, 任一返回 null 即整体返回 null (消息被丢弃).
+// 注意上游把"原始 message"传给每个过滤器而不是上一步的结果, 照搬该行为.
+func (a *Administration) FilterMessage(p *player.Player, message string) (string, bool) {
+	a.mu.RLock()
+	filters := make([]ChatFilter, len(a.chatFilters))
+	copy(filters, a.chatFilters)
+	a.mu.RUnlock()
+
+	current := message
+	for _, f := range filters {
+		var ok bool
+		current, ok = f.Filter(p, message)
+		if !ok {
+			return "", false
+		}
+	}
+	return current, true
 }
 
 // AddAdmin 对应 addAdmin(uuid, supAdmin)
