@@ -6,8 +6,10 @@ import (
 
 	"rwhps/internal/core/service"
 	"rwhps/internal/data/global"
+	"rwhps/internal/game/manage"
 	"rwhps/internal/io/packettype"
 	"rwhps/internal/net/core"
+	"rwhps/internal/net/gameserver"
 	"rwhps/internal/net/netconnectprotocol/realize"
 	"rwhps/internal/resource"
 	"rwhps/internal/util/file/load"
@@ -187,8 +189,14 @@ func checkEnvironment() {}
 // GameVersionRelay / GameVersionRelayRebroadcast) 属于 Relay 批次, 尚未移植;
 // 这里只注册已经存在的实现, 不注册空壳.
 //
-// IRwHps 一族也不在这里注册: 原版 addIRwHps 通过 ServiceLoader.newInstance 创建实例,
-// Go 版对应 game/manage 的 Provider 接缝, 其默认实现已经等价于 FakeRwHps.
+// IRwHps 一族: 原版 addIRwHps 通过 ServiceLoader.newInstance 创建实例,
+// 实例来源按 netType 查表 —— ServerProtocol 的实现体 (HeadlessTypeConnect 一族)
+// 已移植为 net/gameserver, 经 manage.SetProvider 注入; 其余 NetType 保持
+// 默认的 NullRwHps 等价物.
+//
+// 上游对应的注册点:
+//   - GameEngine.kt:118 ServiceLoader.addService(ProtocolType, ServerProtocol, HeadlessTypeConnect)
+//   - Initialization.kt:264-266 Relay 两型 (Relay 批次)
 func loadService() {
 	if err := service.Default.RegisterDefault(service.KindProtocolPacket, core.GlobalProtocol.String(), realize.NewGameVersionPacket()); err != nil {
 		log.Errorf("[ServiceLoader]", "{0}", err)
@@ -196,6 +204,13 @@ func loadService() {
 	if err := service.Default.RegisterDefault(service.KindPacketType, core.GlobalProtocol.String(), packettype.INSTANCE); err != nil {
 		log.Errorf("[ServiceLoader]", "{0}", err)
 	}
+
+	manage.SetProvider(func(netType core.NetType) core.IRwHps {
+		if netType == core.ServerProtocol {
+			return gameserver.NewRwHps(netType)
+		}
+		return core.NewNullRwHps(netType)
+	})
 }
 
 // tr 对应 Data.i18NBundle.getinput

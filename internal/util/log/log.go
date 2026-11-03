@@ -194,8 +194,8 @@ func logs(l Level, tag any, eIn any) {
 
 	text := FormatColors(parseStr(b.String()), false)
 
-	// 输出到当前重定向目标 (默认 os.Stdout)
-	fmt.Fprintln(Output(), text)
+	// 输出到当前重定向目标 (默认 os.Stdout), 经 WriteOutput 串行化
+	WriteOutput(text + "\n")
 
 	if ConsoleHook != nil {
 		ConsoleHook(text)

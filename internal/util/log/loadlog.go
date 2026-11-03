@@ -62,8 +62,8 @@ func LoadStatusLog(input string, run func()) {
 func printOverride(text string, nextLine bool) {
 	line := "[" + timestamp() + "] " + FormatColors(text+"&fr", false)
 	if nextLine {
-		fmt.Fprint(Output(), "\r"+line+"   \n")
+		WriteOutput("\r" + line + "   \n")
 		return
 	}
-	fmt.Fprint(Output(), line)
+	WriteOutput(line)
 }

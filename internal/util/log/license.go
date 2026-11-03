@@ -2,7 +2,6 @@
 package log
 
 import (
-	"fmt"
 	"strings"
 )
 
@@ -27,7 +26,7 @@ func WaitLicense(show, ok, no func()) {
 	}
 
 	Clog("Agree to enter : Yes , Otherwise please enter : No")
-	fmt.Fprint(Output(), "Please Enter (Yes/No) > ")
+	WriteOutput("Please Enter (Yes/No) > ")
 
 	reader := InputReader()
 	for {
@@ -52,7 +51,7 @@ func WaitLicense(show, ok, no func()) {
 			return
 		default:
 			Clog("Re Enter")
-			fmt.Fprint(Output(), "Please Enter (Yes/No) > ")
+			WriteOutput("Please Enter (Yes/No) > ")
 		}
 	}
 }

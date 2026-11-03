@@ -7,6 +7,7 @@ import (
 	"rwhps/internal/data/global"
 	"rwhps/internal/game"
 	"rwhps/internal/game/external"
+	"rwhps/internal/net/gameserver"
 	"rwhps/internal/util/file"
 	"rwhps/internal/util/log"
 )
@@ -38,6 +39,16 @@ func anchorPath(p string) string {
 // 这里只做"参数是否齐备 + 文件是否存在"的静态检查, 不启动子进程: 配置错了
 // 应该在启动日志里看见一句话, 而不是等到第一次开局才以一个奇怪的 EOF 炸出来.
 func loadSimulation() game.Simulation {
+	sim := attachSimulation()
+	if sim == nil {
+		// 没有内核就清空连接层的 helper 槽位: 重复启动 / 测试场景里,
+		// 不能让上一次装上的 (可能已关闭的) 后端残留在那里.
+		gameserver.AttachBackend(nil)
+	}
+	return sim
+}
+
+func attachSimulation() game.Simulation {
 	cfg := global.Config
 
 	if strings.TrimSpace(cfg.GameHelperPath) == "" {
@@ -67,6 +78,10 @@ func loadSimulation() game.Simulation {
 			log.Errorf("[GameCore]", "close helper: {0}", err)
 		}
 	}
+
+	// 连接层要能找到内核 (conn.* 转发) 与内核要能把包发回客户端
+	// (Handlers.Packet 路由), 两侧在这里一次接好.
+	gameserver.AttachBackend(backend)
 
 	// 用 Clog 而不是 Infof: 这一行是启动状态, 该和 server.hi 它们一样始终可见
 	// (Clog 走 LevelConsole, 不被 logGrade 过滤), 而且要走语言包 ——

@@ -189,6 +189,13 @@ func (s *NetService) OpenPortRange(port, startPort, endPort int) {
 	}
 
 	s.mu.Lock()
+	if s.closed {
+		// Stop 抢在监听器登记之前发生: 自己关掉, 否则会留下一个
+		// 永远没人关的 listener (Stop 的 closeSeq 快照里没有它).
+		s.mu.Unlock()
+		_ = listener.Close()
+		return
+	}
 	s.closeSeq = append(s.closeSeq, func() { _ = listener.Close() })
 	s.mu.Unlock()
 
@@ -200,6 +207,11 @@ func (s *NetService) OpenPortRange(port, startPort, endPort int) {
 			continue
 		}
 		s.mu.Lock()
+		if s.closed {
+			s.mu.Unlock()
+			_ = l.Close()
+			return
+		}
 		s.closeSeq = append(s.closeSeq, func() { _ = l.Close() })
 		s.mu.Unlock()
 		go s.acceptLoop(l)

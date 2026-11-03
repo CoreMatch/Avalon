@@ -65,6 +65,9 @@ func (r *Runtime) Start() error {
 	// 对应原版的哪一行: 没有 —— 原版的内核在进程内, 见 loadSimulation 的说明.
 	game.SetBackend(loadSimulation())
 	r.Session = game.NewGameSession(global.ConfigServer.ServerID, game.Backend)
+	// 连接层经 game.DefaultRoom() 取单例房间, 对应上游
+	// HeadlessModuleManage.hessLoaderMap[classLoader].room 的取用路径.
+	game.SetDefaultRoom(r.Session)
 
 	// startInit() + loadLib()
 	startInit(r.Core.Settings)
