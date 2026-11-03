@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"rwhps/internal/data/global"
+	"rwhps/internal/game/event"
 	"rwhps/internal/game/external"
 	"rwhps/internal/game/player"
 	"rwhps/internal/game/room"
@@ -74,11 +75,9 @@ func AttachBackend(b *external.Backend) {
 // handleHelperEvent 处理引擎发来的玩家事件
 //
 // 对应上游引擎 -> PlayerConnectX -> room.playerManage 的那条路:
-//   - player.join    : addAbstractPlayer 并绑定到对应连接
-//   - player.leave   : 断开该连接 (disconnect 内部完成房间列表清理)
+//   - player.join    : addAbstractPlayer 并绑定到对应连接, 随后 fire PlayerJoinEvent
+//   - player.leave   : 断开该连接 (disconnect 内部完成房间列表清理与 PlayerLeaveEvent)
 //   - player.update  : 刷新档案 (队伍 / 准备状态)
-//
-// 聊天与命令事件 (chat / command) 属里程碑 3 的指令体系, 此处暂不处理.
 func handleHelperEvent(ev *external.EventMessage) {
 	r := room.Default()
 	if r == nil {
@@ -108,6 +107,10 @@ func handleHelperEvent(ev *external.EventMessage) {
 		})
 		p := r.PlayerManage.AddAbstractPlayer(g, data, i18nInput)
 		g.SetPlayer(p)
+
+		// 上游 PlayerConnectX 在 addAbstractPlayer 后立刻 fire PlayerJoinEvent
+		// (名字校验 / 封禁踢出 / 自动开局等默认监听都挂在这里).
+		r.EventManage.Fire(&event.PlayerJoinEvent{Player: p})
 
 	case external.EventPlayerLeave:
 		if g := connections.get(ev.Conn); g != nil {

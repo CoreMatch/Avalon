@@ -1,10 +1,14 @@
 package gameserver
 
 import (
+	"strings"
 	"sync/atomic"
 
+	"rwhps/internal/core/thread"
 	"rwhps/internal/data/global"
 	"rwhps/internal/game"
+	"rwhps/internal/game/enums"
+	"rwhps/internal/game/event"
 	"rwhps/internal/game/player"
 	"rwhps/internal/game/room"
 	gameio "rwhps/internal/io"
@@ -15,8 +19,18 @@ import (
 	netpacket "rwhps/internal/net/core/server/netpacket"
 	"rwhps/internal/net/netconnectprotocol"
 	"rwhps/internal/util/control"
+	cmd "rwhps/internal/util/game/command"
 	"rwhps/internal/util/log"
 )
+
+// chatVoter 是连接层对全局投票对象的最小依赖面.
+//
+// 上游 receiveChat 直接调 Data.vote!!.toVote(player, message); Go 版 Vote 位于
+// 命令层 (internal/command/ex), net 层不能反向导入, 经 global.Vote 槽位 +
+// 窄接口解耦 (与 room.cleanThread 的 voteStopper 同款手法).
+type chatVoter interface {
+	ToVote(votePlayer *player.Player, playerPick string)
+}
 
 // 上游常量, 来源 GameVersionServer.kt:72-90:
 //
@@ -232,10 +246,9 @@ func (g *GameVersionServer) SendKick(reason string) error {
 // 上游顺序: isDis 守卫 -> 玩家清理 (移出房间列表 / PlayerLeaveEvent /
 // playerExitInternalPacket 进引擎 / player.clear()) -> super.close(null).
 //
-// Go 侧差异只有两处:
-//   - PlayerLeaveEvent 属事件体系 (里程碑 3), 先留 TODO
-//   - playerExitInternalPacket 上游进引擎包队列, Go 版经 conn.packet 发给 helper;
-//     连接本身也要 conn.close 显式注销 (引擎在外部进程, 不会自己感知到)
+// Go 侧差异只有一处: playerExitInternalPacket 上游进引擎包队列, Go 版经
+// conn.packet 发给 helper; 连接本身也要 conn.close 显式注销 (引擎在外部进程,
+// 不会自己感知到).
 func (g *GameVersionServer) Disconnect() {
 	if g.IsDis {
 		return
@@ -249,7 +262,8 @@ func (g *GameVersionServer) Disconnect() {
 		if !g.room.IsStartGame {
 			g.room.PlayerManage.RemoveFromAll(g.player)
 		}
-		// TODO(里程碑3): fire(PlayerLeaveEvent)
+		// 上游在移出列表后触发 PlayerLeaveEvent (oneAdmin 移交等默认监听依赖该时序)
+		g.room.EventManage.Fire(&event.PlayerLeaveEvent{Player: g.player})
 
 		if h := currentHelper(); h != nil {
 			pkt := netconnectprotocol.PlayerExitPacket("exited")
@@ -289,37 +303,156 @@ func (g *GameVersionServer) ReceivePacket(p *packet.Packet) {
 // 上游完整流程: 读消息 -> AFK 任务清理 -> 投票 -> 命令分发 (. - _ 前缀) ->
 // 非命令时做 maxLen / muteAll / filterMessage 检查 -> PlayerChatEvent -> 控制台回显.
 //
-// 里程碑 1 只落地不依赖玩家的两道检查 (maxLen / muteAll); 命令分发 / 过滤 /
-// 事件 / 回显依赖 PlayerHess 与客户端命令体系 (里程碑 2/3), 落地前聊天不向下
-// 转发 —— 上游的引擎本来就收不到聊天包, 拦住才是等价行为.
+// 与上游一致的包状态语义: 只有"被拦截"的路径置 STOPPED; 普通聊天通过全部检查
+// 后保持 CONTINUE, 由 ProcessConnect 继续转给引擎 (上游同样如此).
 func (g *GameVersionServer) ReceiveChat(p *packet.Packet) {
 	stream := gameio.NewGameInputStreamFromPacket(p, 0)
 	message := stream.ReadString()
 
-	// TODO(里程碑3): AFK Stop / Data.vote / 命令分发 (依赖 player 与 clientHandler)
-
-	if len(message) > global.ConfigServer.MaxMessageLen {
-		_ = g.SendSystemMessage(i18n("message.maxLen"))
-		p.Status = control.STOPPED
-		return
-	}
-	if g.room != nil && g.room.Snapshot().MuteAll {
+	pl := g.player
+	if pl == nil || g.room == nil {
+		// 上游 player 是 lateinit, 未注册即抛异常; Go 侧无玩家时无法走聊天链,
+		// 直接拦下 (等价于异常被 processConnect 的 recover 吞掉后连接继续).
 		p.Status = control.STOPPED
 		return
 	}
 
-	// TODO(里程碑2/3): filterMessage + PlayerChatEvent + Log.clog 回显 (依赖 player)
-	p.Status = control.STOPPED
+	// Afk Stop: 管理员发言即取消 AFK 权力移交倒计时
+	if pl.IsAdmin && thread.ContainsTimeTask(thread.PlayerAfkTask) {
+		thread.CloseTimeTask(thread.PlayerAfkTask, nil)
+	}
+
+	if v, ok := global.Vote.(chatVoter); ok && v != nil {
+		v.ToVote(pl, message)
+	}
+
+	// Msg Command: 以 . - _ 开头的消息转给客户端命令系统
+	var response *cmd.CommandResponse
+	if strings.HasPrefix(message, ".") || strings.HasPrefix(message, "-") || strings.HasPrefix(message, "_") {
+		strEnd := len(message)
+		if strEnd > 3 {
+			strEnd = 3
+		}
+		if message[1:strEnd] == "qc" {
+			// 上游 message.substring(5): 跳过 qc 前缀区
+			response = g.room.ClientHandler.HandleMessageWith("/"+safeSubstr(message, 5), pl)
+		} else {
+			response = g.room.ClientHandler.HandleMessageWith("/"+message[1:], pl)
+		}
+	}
+
+	if response == nil || response.Type == cmd.NoCommand {
+		if len(message) > global.ConfigServer.MaxMessageLen {
+			_ = g.SendSystemMessage(i18n("message.maxLen"))
+			p.Status = control.STOPPED
+			return
+		}
+		if g.room.Snapshot().MuteAll {
+			p.Status = control.STOPPED
+			return
+		}
+		messageOut, ok := filterChatMessage(pl, message)
+		if !ok {
+			p.Status = control.STOPPED
+			return
+		}
+		g.room.EventManage.Fire(&event.PlayerChatEvent{Player: pl, Message: messageOut})
+	} else if response.Type != cmd.Valid {
+		switch response.Type {
+		case cmd.ManyArguments:
+			_ = pl.SendSystemMessage("Too many arguments. Usage: " + response.Command.Text + " " + response.Command.ParamText)
+			p.Status = control.STOPPED
+		case cmd.FewArguments:
+			_ = pl.SendSystemMessage("Too few arguments. Usage: " + response.Command.Text + " " + response.Command.ParamText)
+			p.Status = control.STOPPED
+		default:
+			// Ignore (上游对 unknownCommand 等不做处理)
+		}
+	} else {
+		p.Status = control.STOPPED
+	}
+
+	log.Clog("[&by {0} &fr]: &y{1}", pl.Name(), log.FormatColors(message, true))
+}
+
+// filterChatMessage 对应 Data.core.admin.filterMessage; 无 Administration 时原样放行
+func filterChatMessage(pl *player.Player, message string) (string, bool) {
+	if global.Core == nil || global.Core.Admin == nil {
+		return message, true
+	}
+	return global.Core.Admin.FilterMessage(pl, message)
+}
+
+// safeSubstr 对应 Kotlin substring(fromIndex): 越界时返回空串而不 panic
+func safeSubstr(s string, from int) string {
+	if from >= len(s) {
+		return ""
+	}
+	return s[from:]
 }
 
 // ReceiveCommand 对应 receiveCommand
 //
 // 上游: 解析 GameCommandOnePacket, 按配置/事件决定是否拦截, 其余放行给引擎.
-// 事件体系落地前没有拦截依据, 包保持 CONTINUE 由 ReceivePacket 转给引擎 ——
-// 与上游"事件全部放行"时的行为一致.
-func (g *GameVersionServer) ReceiveCommand(*packet.Packet) {
-	// TODO(里程碑3): GameCommandOnePacket 解析 + PlayerOperationUnitEvent /
-	// PlayerOperationFactoryBuildUnitEvent 拦截 + turnStoneIntoGold / Ping 处理
+// 与上游一致: 解析失败只记日志 (try/catch), 包保持 CONTINUE 转给引擎.
+func (g *GameVersionServer) ReceiveCommand(p *packet.Packet) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Errorf("[GameServer]", "receiveCommand panic: {0}", r)
+		}
+	}()
+
+	if g.player == nil || g.room == nil {
+		return
+	}
+
+	command := gameio.NewGameCommandOnePacket(gameio.NewGameInputStreamFromPacket(p, 0).GetDecodeBytes())
+
+	if ou := command.OperationUnit; ou != nil {
+		if global.ConfigServer.TurnStoneIntoGold && ou.GameCommandActions == enums.ActionBuild {
+			// 上游: gameSummon(unitName, x, y) 把建造指令塞进引擎队列.
+			// Go 版引擎在 helper 内, 召唤指令无协议通道 (DECISIONS D-9), 不拦截.
+		} else {
+			ev := &event.PlayerOperationUnitEvent{
+				Player:       g.player,
+				Actions:      ou.GameCommandActions,
+				UnitName:     ou.UnitName,
+				X:            ou.X,
+				Y:            ou.Y,
+				ResultStatus: true,
+			}
+			g.room.EventManage.Fire(ev)
+			if !ev.ResultStatus {
+				p.Status = control.STOPPED
+				return
+			}
+		}
+	}
+
+	// 地图 Ping (c_6_ 前缀): 触发玩家注册的 Ping 回调 (如 summon/nuke/clone)
+	if command.MapPoint != nil && strings.HasPrefix(command.ActionID, "c_6_") {
+		action := enums.PingFromName(strings.TrimPrefix(command.ActionID, "c_6_"))
+		if lambda, ok := g.player.GetData("Ping"); ok {
+			if fn, ok := lambda.(func(*GameVersionServer, enums.GamePingActions, float32, float32)); ok {
+				fn(g, action, command.MapPoint[0], command.MapPoint[1])
+			}
+			g.player.RemoveData("Ping")
+		}
+	}
+
+	// 工厂建造单位事件: actionId 不以 "_" 开头时触发
+	if !strings.HasPrefix(command.ActionID, "_") {
+		ev := &event.PlayerOperationFactoryBuildUnitEvent{
+			Player:       g.player,
+			ActionID:     command.ActionID,
+			ResultStatus: true,
+		}
+		g.room.EventManage.Fire(ev)
+		if !ev.ResultStatus {
+			p.Status = control.STOPPED
+			return
+		}
+	}
 }
 
 // SendRelayServerType 对应 sendRelayServerType(msg, run) (Relay flavour)

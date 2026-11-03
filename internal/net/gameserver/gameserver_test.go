@@ -108,6 +108,11 @@ func newTestServer(t *testing.T, h HelperBackend) (*GameVersionServer, *captureW
 	// 装上游默认值并在结束时还原.
 	oldCfg := global.ConfigServer
 	global.ConfigServer = bean.NewServerConfig()
+	// 测试隔离: 关掉会落盘的 RePlay 写入与自动开局/进场广告 (事件默认监听会读它们)
+	global.ConfigServer.SaveRePlayFile = false
+	global.ConfigServer.AutoStartMinPlayerSize = -1
+	global.ConfigServer.EnterAd = ""
+	global.ConfigServer.StartAd = ""
 	t.Cleanup(func() { global.ConfigServer = oldCfg })
 
 	SetHelper(h)
@@ -218,35 +223,80 @@ func TestProcessConnectForwardsGamePackets(t *testing.T) {
 	}
 }
 
-// TestChatIsIntercepted 聊天包不转发给引擎 (上游由 RW-HPS 自行处理)
-func TestChatIsIntercepted(t *testing.T) {
+// bindTestPlayer 给连接绑定一个玩家 (经 helper join 事件).
+//
+// receiveChat 与上游一致要求玩家已注册. 注意 join 事件默认监听会向在场广播
+// player.ent, 调用方若断言回包数量, 应在本函数返回后再取基线.
+func bindTestPlayer(t *testing.T, g *GameVersionServer, hexID, name string) {
+	t.Helper()
+	handleHelperEvent(joinEvent(g.ConnID(), hexID, name, 1))
+	if g.Player() == nil {
+		t.Fatal("前置: 玩家应已绑定")
+	}
+}
+
+// TestChatCommandIntercepted 合法客户端命令经聊天进入, 被拦下不转引擎
+//
+// 对应上游: 命令响应为 valid 时 packet.status = STOPPED.
+func TestChatCommandIntercepted(t *testing.T) {
 	h := &mockHelper{}
 	g, w := newTestServer(t, h)
-	tc := &HeadlessTypeConnect{con: g}
+	bindTestPlayer(t, g, "hex-c", "carl")
+	base := len(w.snapshot())
+
+	// 在房间 ClientHandler 上挂一个测试命令
+	ran := false
+	g.room.ClientHandler.Register("testcmd", "HIDE", func(_ []string, _ any) { ran = true })
+
+	o := gameio.NewGameOutputStream()
+	o.WriteString(".testcmd")
+	if err := (&HeadlessTypeConnect{con: g}).ProcessConnect(o.CreatePacket(packettype.CHAT_RECEIVE)); err != nil {
+		t.Fatalf("ProcessConnect: %v", err)
+	}
+
+	if !ran {
+		t.Fatal("命令应被执行")
+	}
+	h.mu.Lock()
+	n := len(h.packets)
+	h.mu.Unlock()
+	if n != 0 {
+		t.Fatalf("合法命令不应转发给引擎, 转发了 %d 个包", n)
+	}
+	// 命令本身不给客户端回包 (valid 分支只 STOPPED)
+	if pkts := w.snapshot(); len(pkts) != base {
+		t.Fatalf("合法命令不应有回包, 新增 %d 个", len(pkts)-base)
+	}
+}
+
+// TestChatNormalForwarded 普通聊天通过检查后转发给引擎 (上游 status 保持 CONTINUE)
+func TestChatNormalForwarded(t *testing.T) {
+	h := &mockHelper{}
+	g, _ := newTestServer(t, h)
+	bindTestPlayer(t, g, "hex-n", "nina")
 
 	o := gameio.NewGameOutputStream()
 	o.WriteString("hello everyone")
-	if err := tc.ProcessConnect(o.CreatePacket(packettype.CHAT_RECEIVE)); err != nil {
+	if err := (&HeadlessTypeConnect{con: g}).ProcessConnect(o.CreatePacket(packettype.CHAT_RECEIVE)); err != nil {
 		t.Fatalf("ProcessConnect: %v", err)
 	}
 
 	h.mu.Lock()
 	n := len(h.packets)
 	h.mu.Unlock()
-	if n != 0 {
-		t.Fatalf("聊天包不应转发给引擎, 转发了 %d 个包", n)
-	}
-	// 玩家实体落地前聊天被拦在 Go 侧, 客户端也不会收到回包
-	if pkts := w.snapshot(); len(pkts) != 0 {
-		t.Fatalf("不应有回包, 收到 %d 个", len(pkts))
+	if n != 1 {
+		t.Fatalf("普通聊天应转发给引擎, 转发了 %d 个包", n)
 	}
 }
 
-// TestChatMaxLenReplies 超长消息回 message.maxLen 系统消息
+// TestChatMaxLenReplies 超长消息回 message.maxLen 系统消息且不转引擎
 //
 // 对应上游 receiveChat 的 maxMessageLen 分支.
 func TestChatMaxLenReplies(t *testing.T) {
-	g, w := newTestServer(t, &mockHelper{})
+	h := &mockHelper{}
+	g, w := newTestServer(t, h)
+	bindTestPlayer(t, g, "hex-m", "max")
+	base := len(w.snapshot())
 
 	old := global.ConfigServer.MaxMessageLen
 	global.ConfigServer.MaxMessageLen = 5
@@ -254,30 +304,43 @@ func TestChatMaxLenReplies(t *testing.T) {
 
 	o := gameio.NewGameOutputStream()
 	o.WriteString("this message is far too long")
-	p := o.CreatePacket(packettype.CHAT_RECEIVE)
-	g.ReceiveChat(p)
+	g.ReceiveChat(o.CreatePacket(packettype.CHAT_RECEIVE))
 
 	pkts := w.snapshot()
-	if len(pkts) != 1 {
-		t.Fatalf("应回一条系统消息, 收到 %d 个包", len(pkts))
+	if len(pkts)-base != 1 {
+		t.Fatalf("应回一条系统消息, 新增 %d 个包", len(pkts)-base)
 	}
-	if pkts[0].Type.TypeInt() != int(packettype.CHAT) {
-		t.Fatalf("回包类型 = %d, 期望 CHAT", pkts[0].Type.TypeInt())
+	if pkts[base].Type.TypeInt() != int(packettype.CHAT) {
+		t.Fatalf("回包类型 = %d, 期望 CHAT", pkts[base].Type.TypeInt())
+	}
+	h.mu.Lock()
+	n := len(h.packets)
+	h.mu.Unlock()
+	if n != 0 {
+		t.Fatalf("超长消息不应转发给引擎, 转发了 %d 个包", n)
 	}
 }
 
-// TestChatMuteAllSilenced 全员禁言时聊天被静默拦下
+// TestChatMuteAllSilenced 全员禁言时聊天被静默拦下 (不回包也不转引擎)
 func TestChatMuteAllSilenced(t *testing.T) {
-	g, w := newTestServer(t, &mockHelper{})
+	h := &mockHelper{}
+	g, w := newTestServer(t, h)
+	bindTestPlayer(t, g, "hex-mu", "mute")
+	base := len(w.snapshot())
 	g.room.MuteAll = true
 
 	o := gameio.NewGameOutputStream()
 	o.WriteString("hi")
-	p := o.CreatePacket(packettype.CHAT_RECEIVE)
-	g.ReceiveChat(p)
+	g.ReceiveChat(o.CreatePacket(packettype.CHAT_RECEIVE))
 
-	if pkts := w.snapshot(); len(pkts) != 0 {
-		t.Fatalf("禁言时不应有任何回包, 收到 %d 个", len(pkts))
+	if pkts := w.snapshot(); len(pkts) != base {
+		t.Fatalf("禁言时不应有任何回包, 新增 %d 个", len(pkts)-base)
+	}
+	h.mu.Lock()
+	n := len(h.packets)
+	h.mu.Unlock()
+	if n != 0 {
+		t.Fatalf("禁言时不应转发给引擎, 转发了 %d 个包", n)
 	}
 }
 
