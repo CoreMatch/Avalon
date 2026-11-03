@@ -7,6 +7,7 @@ package log
 
 import (
 	"bufio"
+	"fmt"
 	"io"
 	"os"
 	"sync"
@@ -16,10 +17,26 @@ var (
 	outMu sync.RWMutex
 	outW  io.Writer = os.Stdout
 
+	// writeMu 串行化对输出目标的写入
+	//
+	// 日志会从多个 goroutine 同时写 (网络层/命令层/helper 回调), 而输出目标
+	// 不保证并发安全 (测试里常重定向到 bytes.Buffer). 原版的 System.out 是
+	// synchronized 的 PrintStream, Go 版用这把锁对齐同样的保证.
+	writeMu sync.Mutex
+
 	inMu     sync.RWMutex
 	inR      io.Reader = os.Stdin
 	inReader *bufio.Reader
 )
+
+// WriteOutput 串行化地向当前输出目标写一段文本
+//
+// 所有日志/进度/提示的最终写出都必须经此, 不能直接 fmt.Fprint(Output(), ...).
+func WriteOutput(s string) {
+	writeMu.Lock()
+	defer writeMu.Unlock()
+	fmt.Fprint(Output(), s)
+}
 
 // SetOutput 重定向全部输出 (对应原版替换 System.out 与 Data.privateOut 的作用)
 //

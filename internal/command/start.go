@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"rwhps/internal/data/global"
+	"rwhps/internal/game/manage"
 	"rwhps/internal/net"
 	"rwhps/internal/net/core"
 	cmd "rwhps/internal/util/game/command"
@@ -89,6 +90,12 @@ func registerStartGame(h *cmd.Handler, d *Deps) {
 			log.LogError("start", err)
 			return
 		}
+
+		// 对应 CustomServerSocket.run: 上游引擎就绪后, 由游戏层注册
+		// ServerProtocol 实现并经 startnetservice 开放游戏端口.
+		// Go 版引擎在外部 helper 内, "引擎就绪"即 StartGame 成功.
+		iRwHps := manage.AddIRwHps(core.ServerProtocol, "")
+		global.ServerCommand.HandleMessageWith("startnetservice "+net.CoreID()+" true", iRwHps)
 
 		log.Clog(tr("server.load.headless"))
 		log.Set(strings.ToUpper(global.Config.Log))
