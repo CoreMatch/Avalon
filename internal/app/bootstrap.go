@@ -10,6 +10,7 @@ import (
 	"rwhps/internal/game/room"
 	"rwhps/internal/net"
 	"rwhps/internal/net/core"
+	"rwhps/internal/net/uplist"
 	cmd "rwhps/internal/util/game/command"
 	"rwhps/internal/util/log"
 )
@@ -91,8 +92,14 @@ func (r *Runtime) Start() error {
 	})
 
 	// 插件系统 (server.load.plugin / runOnEnable / server.load.plugin.command / runInit)
-	// 按 batch-1 的决定暂不移植. 原版在这里会打印 "Loading plugins...OK",
-	// 而 Go 版确实什么都没加载, 因此不打印这一步 —— 不伪造加载进度.
+	// 插件加载框架本身 (JVM 类加载) 不移植; 原内置插件承载的具体功能以普通 Go
+	// 代码内建, 在此按上游插件阶段的时序接线 (里程碑 5):
+	//   - UpList: runRegisterCoreCommands -> uplist.RegisterCommands
+	//             runRegisterServerClientCommands / runRegisterEvents 对应
+	//             上游在 ServerHessLoadEvent 时的接线, Go 版收敛到建房后一次性完成
+	uplist.RegisterCommands(global.ServerCommand)
+	uplist.RegisterClientCommands(r.Session.ClientHandler)
+	uplist.RegisterRoomEvents(r.Session)
 
 	// Event 加载
 	log.LoadStatusLog("server.load.events", func() {

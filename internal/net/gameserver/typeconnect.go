@@ -88,5 +88,18 @@ func (t *HeadlessTypeConnect) AbstractNetConnect() *core.AbstractNetConnect {
 	return t.con.AbstractNetConnect
 }
 
+// SupportedVersionBeta / SupportedVersionGame / SupportedVersionInt
+// 对应上游 UpListMain.initUpListData 里的
+// `(NetStaticData.RwHps.typeConnect.abstractNetConnect as AbstractNetConnectServer)`
+// 取 supportedversion* 一段 (UpListMain.kt:145-151).
+//
+// 上游工厂形态的 HeadlessTypeConnect 特意持有一个 dummy GameVersionServer
+// (构造注释 "will not be used ; just override the initial value"), 就是为了让
+// 这个强转在工厂形态下也能拿到版本常量. Go 版工厂形态没有 con, 因此直接把
+// 同一组包级常量暴露出来, 语义等价.
+func (t *HeadlessTypeConnect) SupportedVersionBeta() bool   { return supportedVersionBeta }
+func (t *HeadlessTypeConnect) SupportedVersionGame() string { return supportedVersionGame }
+func (t *HeadlessTypeConnect) SupportedVersionInt() int     { return supportedVersionInt }
+
 // Version 对应 version: "${Data.SERVER_CORE_VERSION}: 1.0.0"
 func (t *HeadlessTypeConnect) Version() string { return Version() }
