@@ -21,7 +21,9 @@ Go 服务端与它之间用一条文本协议（protocol v2，见 `docs/HELPER-P
 | **有 helper** | 配置 `gameHelperPath` 指向一个实现了 protocol v2 的 Java helper | 上述全部 + 真实开局/游戏模拟 |
 
 > 没有 helper 时服务器依然能完整启动（控制台、HTTP、Relay 都不依赖它），只是无法真正开局。
-> helper 本体不在本仓库内，需要按 `docs/HELPER-PROTOCOL.md` 另行实现/获取。
+> helper 本体在本仓库 `Helper/` 模块（薄封装：复用上游 Kotlin headless 内核，
+> 把网络层换成 protocol v2/v2-ext 的 stdin/stdout 适配），构建方式见下文
+> 「安装并接入外部游戏内核」。协议合同见 `docs/HELPER-PROTOCOL.md`。
 
 ---
 
@@ -106,26 +108,60 @@ go test ./...          # 需要时追加 -race
 
 ## 安装并接入外部游戏内核（helper）
 
-只有需要**真实开局**时才需要这一步。
+只有需要**真实开局**时才需要这一步。helper 是本仓库 `Helper/` 模块：薄封装上游
+Kotlin headless 内核（引擎装载链、ASM 重定向、游戏 classloader 全部复用上游），
+客户端网络层换成 protocol v2/v2-ext 的 stdin/stdout 适配。协议合同见
+[`docs/HELPER-PROTOCOL.md`](docs/HELPER-PROTOCOL.md)。
 
-1. **准备运行环境**：安装 Java（helper 是 Java 进程）。确认 `java -version` 可用，
-   或在 `javaPath` 里给出绝对路径。
-2. **获取/构建 helper**：helper 是一个实现 protocol v2 的 Java 程序（内含闭源游戏内核），
-   本仓库不提供。协议合同见 [`docs/HELPER-PROTOCOL.md`](docs/HELPER-PROTOCOL.md)。
-3. **配置**：在 `data/Config.json` 填入（或用 `-D` 覆盖）：
-   ```json
-   {
-     "javaPath": "",
-     "gameHelperPath": "/path/to/rwhps-helper.jar",
-     "gameHelperArgs": ["-Xmx512m"]
-   }
-   ```
-   - `gameHelperPath` 相对路径会锚定到数据根目录；裸文件名按 `PATH`/当前目录解释。
-4. **启动并确认**：日志出现 `server.load.gameCore`（外部内核已接入）即成功。
-   若配置有误，启动日志会给出 `external game core unavailable, falling back to no backend`，
-   服务器仍以无内核形态运行（开局报错）。
+### 前置环境
 
-helper 子进程的生命周期由 Go 侧托管：服务器退出时会先 `stop`、关 stdin、再回收。
+- **JDK 17**（构建与运行都需要）。注意：过新的 JDK（如 25）会让仓库使用的
+  Kotlin 2.0.0 编译器崩溃，请用 Temurin 17 这类 17 线发行版。
+  构建时用 `-Dorg.gradle.java.home` 指定，运行时把 `javaPath` 指向它。
+- **游戏数据**：仓库根目录 `data/gameData`（随仓库提供；helper 首次启动会校验
+  MD5，缺失才走下载）。
+
+### 一条命令构建
+
+在**仓库根目录**执行（产物 `Helper/build/libs/Helper.jar`，不入库）：
+
+```bash
+./gradlew :Helper:jar -Dorg.gradle.java.home=/path/to/jdk-17
+```
+
+（依赖已缓存时可加 `--offline` 加速。）
+
+### 配置接入
+
+在 `data/Config.json` 填入（或用 `-D` 覆盖）：
+
+```json
+{
+  "javaPath": "/path/to/jdk-17/bin/java",
+  "gameHelperPath": "/path/to/repo/Helper/build/libs/Helper.jar",
+  "gameHelperArgs": [
+    "-Drwhps.helper.dataPath=/path/to/helper-data-root",
+    "-Xmx512m"
+  ]
+}
+```
+
+- `gameHelperPath` 相对路径会锚定到数据根目录；绝对路径原样使用。
+- `-Drwhps.helper.dataPath` 指定 **helper 自己的数据目录**（配置、回放、
+  `data/gameData` 等）。该目录下的 `data/gameData` 可软链到仓库
+  `data/gameData` 以免重复占用空间；缺省时 helper 以 jar 同级目录为数据根。
+- 集成测试用同样的方式拉起 helper（`RWHPS_TEST_JAVA` 环境变量可指定 JDK 17
+  的 java；jar 未构建/缺数据时测试自动跳过）。
+
+### 启动并确认
+
+日志出现 `server.load.gameCore`（外部内核已接入）即成功。若配置有误，启动日志
+会给出 `external game core unavailable, falling back to no backend`，服务器仍以
+无内核形态运行（开局报错）。
+
+helper 子进程的生命周期由 Go 侧托管：崩溃自动重启（新一代世代号，旧连接全部
+断开），服务器退出时先 `stop`、关 stdin、再回收。helper 的日志/引擎输出走
+stderr（stdout 是协议通道），Go 侧保留尾部 8KB 供诊断。
 
 ### 扩展操作（protocol v2-ext）
 

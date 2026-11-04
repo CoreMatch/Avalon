@@ -57,6 +57,19 @@ func newTestRoom(t *testing.T, sim game.Simulation) *ServerRoom {
 	return r
 }
 
+// quietCheckThread 让开局挂上的检查线程空转, 供"开局后立即断言状态"的测试用.
+//
+// StartGame 挂的检查线程以延迟 0 立即异步执行, 空房间会命中"0 人 -> gr()"
+// 分支, 与这类测试的断言竞态 (高负载/-race 下偶发). 用 NeverEnd 让它空转
+// (对应上游 Data.neverEnd 的跳过语义); 依赖检查线程行为的测试
+// (TestAutoCheckEndsEmptyRoom 等) 不调用本函数.
+func quietCheckThread(t *testing.T) {
+	t.Helper()
+	old := global.NeverEnd
+	global.NeverEnd = true
+	t.Cleanup(func() { global.NeverEnd = old })
+}
+
 // TestRoomAssembly 实体链装配: 上游 ServerRoom 的成员一个不少
 func TestRoomAssembly(t *testing.T) {
 	r := newTestRoom(t, nil)
@@ -84,6 +97,7 @@ func TestRoomAssembly(t *testing.T) {
 
 // TestRoomStartGame 开局状态机: 内核成功后才写状态并挂检查线程
 func TestRoomStartGame(t *testing.T) {
+	quietCheckThread(t)
 	old := global.ConfigServer.MaxGameIngTime
 	global.ConfigServer.MaxGameIngTime = 3600
 	t.Cleanup(func() { global.ConfigServer.MaxGameIngTime = old })
@@ -124,6 +138,7 @@ func TestRoomStartGameBackendError(t *testing.T) {
 
 // TestGr 强制结束: 状态清零, 检查线程收掉
 func TestGr(t *testing.T) {
+	quietCheckThread(t)
 	fs := &fakeSim{}
 	r := newTestRoom(t, fs)
 	if err := r.StartGame(); err != nil {
@@ -172,6 +187,7 @@ func TestGameOverCommand(t *testing.T) {
 
 // TestGameOverBackendError 内核拒绝停止时不清空状态
 func TestGameOverBackendError(t *testing.T) {
+	quietCheckThread(t)
 	boom := errors.New("boom")
 	fs := &fakeSim{stopErr: boom}
 	r := newTestRoom(t, fs)
@@ -240,21 +256,22 @@ func TestDefaultSlot(t *testing.T) {
 type fakeRoomControl struct {
 	fakeSim
 
-	addAIErr  error
-	addAICnt  int
-	syncErr   error
-	syncCnt   int
-	removeErr error
-	removed   []int
+	addAIProfile *game.AIProfile
+	addAIErr     error
+	addAICnt     int
+	syncErr      error
+	syncCnt      int
+	removeErr    error
+	removed      []int
 
 	result    *event.GameOverData
 	resultOK  bool
 	resultErr error
 }
 
-func (f *fakeRoomControl) AddAI() error {
+func (f *fakeRoomControl) AddAI() (*game.AIProfile, error) {
 	f.addAICnt++
-	return f.addAIErr
+	return f.addAIProfile, f.addAIErr
 }
 
 func (f *fakeRoomControl) SyncAllPlayer() error {
@@ -293,6 +310,46 @@ func TestRoomExtAddAI(t *testing.T) {
 	r2 := newTestRoom(t, nil)
 	if err := r2.AddAI(); err != manage.ErrNotPortable {
 		t.Fatalf("无后端应降级为 ErrNotPortable, 得到 %v", err)
+	}
+}
+
+// TestRoomExtAddAIRegister 内核回报档案时, AI 按上游语义包装入房
+// (对应 PlayerManage.addAI 的 playerGroup.add + playerAll.add)
+func TestRoomExtAddAIRegister(t *testing.T) {
+	rc := &fakeRoomControl{addAIProfile: &game.AIProfile{
+		ID: "aihex", Name: "AI - Hard", Team: 2, Position: 5,
+	}}
+	r := newTestRoom(t, rc)
+
+	if err := r.AddAI(); err != nil {
+		t.Fatalf("AddAI: %v", err)
+	}
+	if r.PlayerManage.PlayerGroup.Size() != 1 || r.PlayerManage.PlayerAll.Size() != 1 {
+		t.Fatalf("AI 应进房: group=%d all=%d",
+			r.PlayerManage.PlayerGroup.Size(), r.PlayerManage.PlayerAll.Size())
+	}
+
+	p := r.PlayerManage.GetPlayer(5)
+	if p == nil {
+		t.Fatal("GetPlayer(5) 应按 index 找到 AI")
+	}
+	if p.Name() != "AI - Hard" || p.Team() != 2 || !p.Data().Bot {
+		t.Fatalf("AI 档案字段 = name=%s team=%d bot=%v", p.Name(), p.Team(), p.Data().Bot)
+	}
+
+	// 引擎未创建 (无空位): 档案为 nil, 房间不变化
+	rc.addAIProfile = nil
+	if err := r.AddAI(); err != nil {
+		t.Fatalf("AddAI (无档案): %v", err)
+	}
+	if r.PlayerManage.PlayerGroup.Size() != 1 {
+		t.Fatal("无档案时不应登记")
+	}
+
+	// AI 的 kick 自移除: 上游 AiPlayer.kickPlayer 的房间列表清理语义
+	p.KickPlayer("remove", 0)
+	if r.PlayerManage.PlayerGroup.Size() != 0 || r.PlayerManage.PlayerAll.Size() != 0 {
+		t.Fatal("KickPlayer 后 AI 应移出房间列表")
 	}
 }
 

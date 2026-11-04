@@ -4,6 +4,9 @@ Go 服务端与外部游戏内核（helper，一个 Java 进程）之间的通�
 
 - **权威实现**：`internal/game/external/protocol.go`（Go 侧编解码与校验）。本文档与之
   一一对应；若两者不一致，以 `protocol.go` 为准。
+- **helper 侧参考实现**：仓库根目录 `Helper/` 模块（`HelperMain.kt` 协议主循环 +
+  `GoBridge.kt` 引擎桥接，v2 与 v2-ext 全部操作）。构建与部署见
+  `Go-Server/README.md`「安装并接入外部游戏内核」。
 - **协议版本**：`ProtocolVersion = 2`。握手时版本不一致直接失败，不做尽力兼容。
   升级协议时递增该值。
 
@@ -107,6 +110,9 @@ Go 服务端与外部游戏内核（helper，一个 Java 进程）之间的通�
 {"id":"<玩家唯一标识>","name":"<名字>","team":1,"ready":true,"host":false,"bot":false,"spectator":false}
 ```
 
+v2-ext 扩展：`room.addai` 应答里的 AI 档案额外携带 **`position`** 字段（0 基整数，
+引擎内槽位，指针语义——`0` 必须原样上线）。常规 `player.*` 事件不携带该字段。
+
 ### ChatPayload / CommandPayload
 
 ```json
@@ -162,7 +168,7 @@ Go 服务端与外部游戏内核（helper，一个 Java 进程）之间的通�
 
 | op | 必填字段 | 语义 |
 | --- | --- | --- |
-| `room.addai` | room | 让引擎生成一个 AI（对应 `gameScriptMultiPlayer.addAi`）。AI 档案随后经既有 `player.join` 事件（`bot:true`）推回 Go 侧 |
+| `room.addai` | room | 让引擎生成一个 AI（对应 `gameScriptMultiPlayer.addAi`）。创建的 AI 档案随应答的 `ai` 字段推回 Go 侧（见下） |
 | `room.sync` | room | 引擎全量同步（对应 `gameLinkFunction.allPlayerSync`） |
 | `room.removeplayer` | room, position | 按位置移除引擎内的玩家（AI 移除，对应 `playerPrivateData.removePlayer`） |
 | `game.result` | room | 查询结算数据（对应 `gameHessData.getGameOverData`） |
@@ -179,6 +185,24 @@ Go 服务端与外部游戏内核（helper，一个 Java 进程）之间的通�
 ```json
 {"v":2,"id":4,"gen":1,"op":"room.removeplayer","room":"r1","position":3}
 ```
+
+### 应答字段扩展：`ai`
+
+仅 `room.addai` 有效。**有意修正（作者已批准，2026-11-04）**：上游 `addAI` 同步把
+引擎生成的 AI 包装进 `room.playerManage`；Go 版引擎在 helper 内，档案经本字段回传，
+Go 侧据此登记入房（DECISIONS D-9）。
+
+```json
+{"v":2,"type":"response","gen":1,"id":3,"ok":true,"ai":{
+  "id":"AI-zIp74I0J","name":"AI-Hard","team":0,"ready":true,
+  "host":false,"bot":true,"spectator":false,"position":0}}
+```
+
+- 负载形状为 PlayerProfile + `position`（0 基槽位，指针语义）。
+- **引擎没有创建 AI**（无空位，对应上游扫描的静默返回）：应答 `ok:true` 且
+  **不带** `ai` 字段，Go 侧不登记。
+- 不走 `player.join` 事件：引擎只为真实连接触发 `PlayerJoinEvent`（上游
+  `PlayerConnectX`），AI 没有对应事件可搭。
 
 ### 应答字段扩展：`result`
 

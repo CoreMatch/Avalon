@@ -11,6 +11,7 @@ import (
 	"rwhps/internal/game/event"
 	"rwhps/internal/game/manage"
 	"rwhps/internal/game/player"
+	"rwhps/internal/io/packet"
 	"rwhps/internal/struct/list"
 	cmd "rwhps/internal/util/game/command"
 	"rwhps/internal/util/log"
@@ -112,19 +113,78 @@ func (r *ServerRoom) roomControl() game.RoomControl {
 }
 
 // AddAI 对应 gameScriptMultiPlayer.addAi(): 让引擎生成一个 AI
+//
+// 有意修正（作者已批准，2026-11-04）: 上游 addAI 在引擎生成 AI 后同步把它
+// 包装成 AiPlayer 放进 room.playerManage (PlayerManage.addAI 的两步);
+// Go 版引擎在 helper 内, 档案随 room.addai 应答回传, 这里完成第二步——
+// 包装入房 (DECISIONS D-9).
 func (r *ServerRoom) AddAI() error {
 	rc := r.roomControl()
 	if rc == nil {
 		return manage.ErrNotPortable
 	}
-	if err := rc.AddAI(); err != nil {
+	profile, err := rc.AddAI()
+	if err != nil {
 		if errors.Is(err, game.ErrUnsupported) {
 			log.Warnf("[Room]", "helper unsupported room.addai (v2-ext), degraded to no-op")
 			return manage.ErrNotPortable
 		}
 		return err
 	}
+	if profile != nil {
+		r.registerAI(profile)
+	}
 	return nil
+}
+
+// registerAI 对应上游 PlayerManage.addAI 的扫描包装段:
+// playerGroup.add(AiPlayer) + playerAll.add(AiPlayer).
+//
+// AI 没有 Go 侧网络连接 (上游用引擎内的 headlessAIServer 占位连接),
+// 这里用 aiConnect 空实现占位; 档案字段来自 helper 的 room.addai 应答.
+func (r *ServerRoom) registerAI(profile *game.AIProfile) {
+	data := player.NewData()
+	data.Apply(func(d *player.Data) {
+		d.ConnectHexID = profile.ID
+		d.Name = profile.Name
+		d.Team = profile.Team
+		d.Bot = true
+		d.Index = profile.Position
+	})
+
+	var ai *player.AiPlayer
+	ai = player.NewAiPlayer(aiConnect{}, aiI18nInput, data, func() {
+		// 对应上游 AiPlayer.kickPlayer 里"从房间列表移除自己"的一步
+		// (引擎侧移除已由 room.removeplayer 操作完成, 见 RemovePlayer)
+		r.PlayerManage.RemovePlayer(ai.Player)
+	})
+	r.PlayerManage.PlayerGroup.Add(ai.Player)
+	r.PlayerManage.PlayerAll.Add(ai.Player)
+}
+
+// aiConnect 是 AI 玩家的占位连接, 对应上游 AiPlayer 构造时传入的
+// gameHessData.getHeadlessAIServer() (引擎内的无客户端连接).
+//
+// AI 不收聊天/系统消息/踢出包: 上游对它的"发送"最终落到引擎内部,
+// Go 侧没有对应物, 一律空操作.
+type aiConnect struct{}
+
+func (aiConnect) SendSystemMessage(string) error              { return nil }
+func (aiConnect) SendChatMessage(string, string, int) error   { return nil }
+func (aiConnect) SendKick(string) error                       { return nil }
+func (aiConnect) SendRelayServerType(string, func(string))    {}
+func (aiConnect) SendPacket(*packet.Packet)                   {}
+func (aiConnect) SendJumpToAnotherServer(string)              {}
+func (aiConnect) IP() string                                  { return "127.0.0.1" }
+func (aiConnect) UseConnectionAgreement() string              { return "AI" }
+func (aiConnect) IPCountry() string                           { return "" }
+
+// aiI18nInput 对应 Data.i18NBundle.getinput (AI 与上游一致用全局语言包)
+func aiI18nInput(key string, params ...any) string {
+	if global.I18NBundle == nil {
+		return key
+	}
+	return global.I18NBundle.GetInput(key, params...)
 }
 
 // SyncAllPlayer 对应 gameLinkFunction.allPlayerSync(): 引擎全量同步

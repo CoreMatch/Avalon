@@ -29,13 +29,54 @@ func startRoom(t *testing.T, steps ...step) *Backend {
 	return b
 }
 
-// TestBackendExtAddAI room.addai 往返
+// TestBackendExtAddAI room.addai 往返: 应答带 AI 档案
 func TestBackendExtAddAI(t *testing.T) {
+	pos := 3
+	b := startRoom(t,
+		step{wantOp: OpRoomAddAI, reply: &Response{V: ProtocolVersion, OK: true, AI: &PlayerProfile{
+			ID: "hex-ai", Name: "AI - Hard", Team: 2, Bot: true, Position: &pos,
+		}}},
+	)
+	ai, err := b.AddAI()
+	if err != nil {
+		t.Fatalf("AddAI: %v", err)
+	}
+	if ai == nil {
+		t.Fatal("应答带 ai 字段时档案不应为 nil")
+	}
+	if ai.ID != "hex-ai" || ai.Name != "AI - Hard" || ai.Team != 2 || ai.Position != 3 {
+		t.Fatalf("AI 档案 = %+v", ai)
+	}
+}
+
+// TestBackendExtAddAIPositionZero position=0 必须原样到达 (指针语义)
+func TestBackendExtAddAIPositionZero(t *testing.T) {
+	pos := 0
+	b := startRoom(t,
+		step{wantOp: OpRoomAddAI, reply: &Response{V: ProtocolVersion, OK: true, AI: &PlayerProfile{
+			ID: "hex-ai", Name: "AI - Hard", Bot: true, Position: &pos,
+		}}},
+	)
+	ai, err := b.AddAI()
+	if err != nil {
+		t.Fatalf("AddAI: %v", err)
+	}
+	if ai == nil || ai.Position != 0 {
+		t.Fatalf("position 0 应原样到达, 得到 %+v", ai)
+	}
+}
+
+// TestBackendExtAddAINoProfile 应答不带 ai 字段: 引擎未创建 (无空位), 档案为 nil
+func TestBackendExtAddAINoProfile(t *testing.T) {
 	b := startRoom(t,
 		step{wantOp: OpRoomAddAI, reply: ok()},
 	)
-	if err := b.AddAI(); err != nil {
+	ai, err := b.AddAI()
+	if err != nil {
 		t.Fatalf("AddAI: %v", err)
+	}
+	if ai != nil {
+		t.Fatalf("无 ai 字段时档案应为 nil, 得到 %+v", ai)
 	}
 }
 
@@ -139,7 +180,7 @@ func TestBackendExtUnsupported(t *testing.T) {
 		step{wantOp: OpGameResult, reply: &Response{V: ProtocolVersion, OK: false, Error: "unsupported"}},
 	)
 
-	if err := b.AddAI(); !errors.Is(err, game.ErrUnsupported) {
+	if _, err := b.AddAI(); !errors.Is(err, game.ErrUnsupported) {
 		t.Fatalf("AddAI = %v, 期望 game.ErrUnsupported", err)
 	}
 	if err := b.SyncAllPlayer(); !errors.Is(err, game.ErrUnsupported) {
@@ -157,7 +198,7 @@ func TestBackendExtUnsupported(t *testing.T) {
 func TestBackendExtNoRoom(t *testing.T) {
 	b := newTestBackend(t, 2*time.Second)
 
-	if err := b.AddAI(); err != ErrNoRoom {
+	if _, err := b.AddAI(); err != ErrNoRoom {
 		t.Fatalf("AddAI = %v, 期望 ErrNoRoom", err)
 	}
 	if err := b.SyncAllPlayer(); err != ErrNoRoom {
