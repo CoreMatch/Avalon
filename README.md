@@ -165,19 +165,115 @@ stderr（stdout 是协议通道），Go 侧保留尾部 8KB 供诊断。
 
 ### 扩展操作（protocol v2-ext）
 
-在 v2 基础上追加了四个扩展操作（**有意修正，作者已批准，2026-11-04**；详见
+在 v2 基础上追加了五个扩展操作（**有意修正，作者已批准，2026-11-04**；详见
 [`docs/HELPER-PROTOCOL.md`](docs/HELPER-PROTOCOL.md) 的「扩展操作」章节）：
 
 | 操作 | 能力 |
 | --- | --- |
-| `room.addai` | 添加 AI 玩家（`addai` 命令链路） |
+| `room.addai` | 添加 AI 玩家（`addai` 命令链路），AI 档案随应答回传并登记入房 |
 | `room.sync` | 全量同步（`addmoney` 等命令收尾） |
 | `room.removeplayer` | 按位置移除引擎内玩家（AI 移除） |
 | `game.result` | 结算与战绩数据（对局结束播报 `survive.player`、随 `ServerGameOverEvent` 发出） |
+| `room.settings` | 房间设置写入引擎（Cascade 门面 `PUT /v1/rooms/{code}/settings` 的引擎侧字段） |
 
 向后兼容：线格式与协议版本不变（仍为 v2）。只实现 v2 的 helper 对这些操作回
 `{"ok":false,"error":"unsupported"}`，Go 侧降级为空操作并记日志（不 panic、不断连）；
 未配置 helper 时行为与无扩展时完全一致。
+
+---
+
+## Cascade 边缘代理模式（后端契约）
+
+**有意修正（作者已批准，2026-11-04）**：Go Server 可作为
+[Cascade](https://github.com/CoreMatch/Cascade)（RW 边缘反向代理，契约
+`Cascade-Backend-v1`）的后端，方案 B 单房间合规体（DECISIONS D-17~D-21）。
+`cascadeEnable=false`（默认）时本节全部不生效，明文直连行为不变。
+
+启用后**游戏端口改为仅接受 Cascade 的 mTLS 连接**（明文直连不再可用），
+并另起 `/v1` 控制面：
+
+| 端点 | 行为 |
+| --- | --- |
+| `GET /v1/health` | 游戏监听已建立即 `ready`（D-21；helper 有无不纳入判据） |
+| `GET /v1/rooms` | 单房间归属快照（5 秒轮询语义），字段见契约 |
+| `PUT /v1/sessions/{sid}/identity` | Ed25519 JWT 校验 + jti 一次性消费（持久化于 `data/CascadeJti.bin`），PENDING→BOUND |
+| `POST /v1/rooms/create` | 仅接受本服房间码（幂等 201），异码 409（D-20 单房间） |
+| `GET /v1/rooms/{code}` / `GET .../players` | 房间详情（含 members）/ 玩家列表 |
+| `PUT /v1/rooms/{code}/settings` | `mapName` 作用于房间；引擎字段经 v2-ext `room.settings` 写入 |
+| `POST /v1/rooms/{code}/kick` / `ban` | 按 `playerId`（connectHexID）复用既有踢出/封禁语义 |
+| `DELETE /v1/rooms/{code}` | 不支持（单房间后端的唯一房间不可删，400） |
+
+**门控语义（D-18）**：会话绑定（`PUT identity` 成功）前，只放行
+Preregister(160)——引擎照常应答 161（客户端要先收到 161 才会发
+RegisterPlayer，代理也才因此触发绑定）；RegisterPlayer(110) 及其后一切包
+在 BOUND 前到达一律断开。绑定成功后 RegisterPlayer 放行，身份以 JWT 的
+`sub` 为准（不信任客户端自报）。
+
+### 密钥生成
+
+```bash
+# 1) 代理签名密钥对 (Ed25519): Cascade 签发 JWT, Go 校验
+openssl genpkey -algorithm Ed25519 -out proxy-ed25519-key.pem          # 交 Cascade, 权限 0600
+openssl pkey -in proxy-ed25519-key.pem -pubout -out proxy-ed25519-pub.pem  # 交 Go 后端
+
+# 2) mTLS: CA + 后端服务端证书 + 代理客户端证书
+openssl req -x509 -newkey rsa:2048 -nodes -days 365 \
+  -keyout ca.key -out ca.pem -subj "/CN=rwhps-cascade-ca"
+openssl req -newkey rsa:2048 -nodes -keyout backend.key -out backend.csr \
+  -subj "/CN=rwhps-backend"
+openssl x509 -req -in backend.csr -CA ca.pem -CAkey ca.key -CAcreateserial \
+  -days 365 -out backend.crt \
+  -extfile <(printf "subjectAltName=IP:127.0.0.1,DNS:localhost")   # SAN 须含 Cascade 拨号地址
+openssl req -newkey rsa:2048 -nodes -keyout proxy-client.key -out proxy-client.csr \
+  -subj "/CN=cascade-proxy"
+openssl x509 -req -in proxy-client.csr -CA ca.pem -CAkey ca.key -days 365 \
+  -out proxy-client.crt
+chmod 600 proxy-ed25519-key.pem backend.key proxy-client.key
+```
+
+### Go 侧配置（Config.json）
+
+```json
+{
+  "port": 5124,
+  "cascadeEnable": true,
+  "cascadeBackendId": "rwhps-backend-a",
+  "cascadeRoomCode": "GW01",
+  "cascadeTlsCert": "/run/secrets/backend.crt",
+  "cascadeTlsKey": "/run/secrets/backend.key",
+  "cascadeClientCa": "/run/secrets/ca.pem",
+  "cascadeControlAddr": ":5125",
+  "cascadeProxyIssuer": "cascade",
+  "cascadeProxyKeyId": "proxy-key-2026-01",
+  "cascadeProxyPublicKeyPath": "/run/secrets/proxy-ed25519-pub.pem"
+}
+```
+
+`cascadeRoomCode` 留空回落 `ConfigServer.serverID`；`cascadeControlAddr` 是
+`/v1` 控制面监听地址（与 `webPort` 面板互不干扰）。材料缺失/非法时**启动直接
+失败**（显式配置不静默降级回明文）。
+
+### Cascade 侧对应配置（config.yaml 片段）
+
+```yaml
+default_backend_id: "rwhps-backend-a"
+backends:
+  - id: "rwhps-backend-a"            # 必须等于 Go 的 cascadeBackendId (JWT aud)
+    control_url: "https://127.0.0.1:5125"
+    game_address: "127.0.0.1:5124"
+    prefixes: ["GW"]                 # 房间码前缀路由 (与 cascadeRoomCode 配合)
+proxy_issuer: "cascade"              # 须等于 Go 的 cascadeProxyIssuer
+proxy_key_id: "proxy-key-2026-01"    # 须等于 Go 的 cascadeProxyKeyId
+proxy_private_key_path: "/run/secrets/proxy-ed25519-key.pem"
+backend_client_cert: "/run/secrets/proxy-client.crt"
+backend_client_key: "/run/secrets/proxy-client.key"
+backend_ca_pool: "/run/secrets/ca.pem"
+```
+
+> 契约歧义处以 Go 侧实现行为为准（`internal/net/gateway`），本表即行为清单；
+> 已知差异均记录于 DECISIONS D-17~D-21。uplist 在 Cascade 模式下暂不改动
+> （待决策保留）。端到端联调测试：`go test ./internal/net/gateway/ -run
+> TestCascadeRealProxyE2E`（需本机有 Cascade 源码，`RWHPS_CASCADE_SRC` 可指定）。
 
 ---
 

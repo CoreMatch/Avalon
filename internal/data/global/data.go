@@ -2,6 +2,8 @@
 package global
 
 import (
+	"sync/atomic"
+
 	"rwhps/internal/data/bean"
 	"rwhps/internal/util/file/load"
 	"rwhps/internal/util/game/command"
@@ -83,7 +85,15 @@ var (
 	StartServer   bool
 	ServerCountry = "EN"
 
-	NeverEnd = false
+	// NeverEnd 对应 Data.neverEnd (NeverEndGame 插件开关).
+	// 检查线程每秒读、运行期可能写, 用原子量避免数据竞态.
+	NeverEnd atomic.Bool
+
+	// CascadeGateway 持有 *net/gateway.Gateway (启用 Cascade 后端契约时).
+	// 有意修正（作者已批准，2026-11-04）: DECISIONS D-17. 用 any 避免
+	// global 反向依赖 net/gateway; 由 app 启动链装配, 命令层按接口断言取用.
+	// 未启用时为 nil, 一切行为与现网一致.
+	CascadeGateway any
 )
 
 // MainParameters 对应 BeanMainParameters

@@ -170,6 +170,16 @@ func (s *NetService) SetWebData(d *nethttp.WebData) *NetService {
 	return s
 }
 
+// SetGateway 给游戏协议启动器装配 Cascade 网关 (仅 *AbstractNet 有效).
+//
+// 有意修正（作者已批准，2026-11-04）: Cascade 后端契约的传输层
+// (DECISIONS D-17). 非游戏协议启动器上调用为静默无操作.
+func (s *NetService) SetGateway(gw GameGateway) {
+	if an, ok := s.start.(*AbstractNet); ok {
+		an.SetGateway(gw)
+	}
+}
+
 // OpenPort 对应 openPort(port)
 func (s *NetService) OpenPort(port int) {
 	s.OpenPortRange(port, 1, 0)
@@ -204,6 +214,11 @@ func (s *NetService) OpenPortRange(port, startPort, endPort int) {
 	}
 	s.closeSeq = append(s.closeSeq, func() { _ = listener.Close() })
 	s.mu.Unlock()
+
+	// 网关模式: 游戏监听已建立即视为就绪 (health 判据, DECISIONS D-21)
+	if an, ok := s.start.(*AbstractNet); ok && an.gateway != nil {
+		an.gateway.SetReady(true)
+	}
 
 	// 端口段: 从 startPort 到 endPort 各开一个额外 listener
 	for i := startPort; i <= endPort; i++ {

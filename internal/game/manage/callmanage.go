@@ -126,7 +126,7 @@ func (c *CallManage) StartCheckThread() {
 	var aiEndTime int64
 
 	thread.NewTimedTask(thread.AutoCheckTask, 0, 1*time.Second, func() {
-		if global.NeverEnd {
+		if global.NeverEnd.Load() {
 			return
 		}
 

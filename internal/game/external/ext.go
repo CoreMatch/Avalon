@@ -90,6 +90,40 @@ func (b *Backend) GameResult() (*event.GameOverData, bool, error) {
 	return toGameOverData(resp.Result), true, nil
 }
 
+// ApplySettings 实现 game.RoomControl, 对应 v2-ext room.settings:
+// 把引擎侧房间设置写进 helper 内的 gameLinkServerData (DECISIONS D-20).
+//
+// 全部字段都未提供时不发请求 (没有可写的字段).
+func (b *Backend) ApplySettings(s game.RoomSettings) error {
+	room := b.currentRoom()
+	if room == "" {
+		return ErrNoRoom
+	}
+	payload := toSettingsPayload(s)
+	if payload == nil {
+		return nil
+	}
+	_, err := b.Request(&Request{Op: OpRoomSettings, Room: room, Settings: payload})
+	return err
+}
+
+// toSettingsPayload 把接缝层设置转成线上负载; 无任何字段时返回 nil
+func toSettingsPayload(s game.RoomSettings) *SettingsPayload {
+	if s.Credits == nil && s.Fog == nil && s.Income == nil && s.DisableNuke == nil &&
+		s.SharedControl == nil && s.StartingUnits == nil && s.MaxUnits == nil {
+		return nil
+	}
+	return &SettingsPayload{
+		Credits:       s.Credits,
+		Fog:           s.Fog,
+		Income:        s.Income,
+		DisableNuke:   s.DisableNuke,
+		SharedControl: s.SharedControl,
+		StartingUnits: s.StartingUnits,
+		MaxUnits:      s.MaxUnits,
+	}
+}
+
 // toGameOverData 把线上结构转成事件层的 GameOverData
 //
 // 线上结构 (GameResult) 带 JSON 标签, 事件层结构不带 —— 协议格式变化时

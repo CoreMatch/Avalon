@@ -77,6 +77,35 @@ type CoreConfig struct {
 	GameHelperPath string `json:"gameHelperPath"`
 	// GameHelperArgs 追加给 java 的参数, 例如 -Xmx512m
 	GameHelperArgs []string `json:"gameHelperArgs"`
+
+	// ---- 以下字段是 Go 版新增的第二批: Cascade 边缘代理后端契约 ----
+	//
+	// 有意修正（作者已批准，2026-11-04）: Go Server 作为 Cascade
+	// (CoreMatch/Cascade, 契约 Cascade-Backend-v1) 的后端, 方案 B 单房间合规体
+	// (DECISIONS D-17~D-21). 全部留空/关闭 = 不启用, 行为与现网完全一致.
+
+	// CascadeEnable 启用 Cascade 网关模式: 游戏端口改为 mTLS + 24 字节 CASC
+	// 前导 + 身份门控, 并另起 /v1 控制面. 关闭时保持明文 TCP 直连.
+	CascadeEnable bool `json:"cascadeEnable"`
+	// CascadeBackendID 后端 ID: JWT 的 aud, health/rooms 应答的 backendId
+	CascadeBackendID string `json:"cascadeBackendId"`
+	// CascadeRoomCode 本后端对 Cascade 暴露的唯一房间码; 空回落 ConfigServer.ServerID
+	CascadeRoomCode string `json:"cascadeRoomCode"`
+	// CascadeTLSCert / CascadeTLSKey 服务端证书/私钥 (PEM), 游戏口与控制面共用
+	CascadeTLSCert string `json:"cascadeTlsCert"`
+	CascadeTLSKey  string `json:"cascadeTlsKey"`
+	// CascadeClientCA 校验 Cascade 代理客户端证书的 CA (PEM)
+	CascadeClientCA string `json:"cascadeClientCa"`
+	// CascadeControlAddr /v1 控制面监听地址, 例如 ":5125"
+	CascadeControlAddr string `json:"cascadeControlAddr"`
+	// CascadeProxyIssuer 期望的 JWT iss
+	CascadeProxyIssuer string `json:"cascadeProxyIssuer"`
+	// CascadeProxyKeyID 期望的 JWT kid
+	CascadeProxyKeyID string `json:"cascadeProxyKeyId"`
+	// CascadeProxyPublicKeyPath 代理 Ed25519 公钥的 PEM (PKIX) 文件路径
+	CascadeProxyPublicKeyPath string `json:"cascadeProxyPublicKeyPath"`
+	// CascadePendingTimeoutSec 会话 pending 绑定超时秒数, 0 用默认 5 (契约 :58)
+	CascadePendingTimeoutSec int `json:"cascadePendingTimeoutSec"`
 }
 
 // NewCoreConfig 创建带默认值的核心配置
@@ -118,6 +147,18 @@ func NewCoreConfig() CoreConfig {
 		JavaPath:       "",
 		GameHelperPath: "",
 		GameHelperArgs: nil,
+
+		CascadeEnable:             false,
+		CascadeBackendID:          "rwhps-backend",
+		CascadeRoomCode:           "",
+		CascadeTLSCert:            "",
+		CascadeTLSKey:             "",
+		CascadeClientCA:           "",
+		CascadeControlAddr:        ":5125",
+		CascadeProxyIssuer:        "cascade",
+		CascadeProxyKeyID:         "",
+		CascadeProxyPublicKeyPath: "",
+		CascadePendingTimeoutSec:  0,
 	}
 }
 

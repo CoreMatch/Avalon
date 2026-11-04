@@ -194,6 +194,48 @@ func TestBackendExtUnsupported(t *testing.T) {
 	}
 }
 
+// TestBackendExtApplySettings room.settings 携带负载往返
+func TestBackendExtApplySettings(t *testing.T) {
+	var got *Request
+	credits := int32(5000)
+	fog := int32(1)
+	income := float32(2.0)
+	disableNuke := true
+	b := startRoom(t,
+		step{wantOp: OpRoomSettings, before: func(req *Request, _ *os.File) {
+			got = req
+		}, reply: ok()},
+	)
+	err := b.ApplySettings(game.RoomSettings{
+		Credits:     &credits,
+		Fog:         &fog,
+		Income:      &income,
+		DisableNuke: &disableNuke,
+	})
+	if err != nil {
+		t.Fatalf("ApplySettings: %v", err)
+	}
+	if got == nil || got.Settings == nil {
+		t.Fatal("线上应携带 settings 负载")
+	}
+	s := got.Settings
+	if s.Credits == nil || *s.Credits != 5000 || s.Fog == nil || *s.Fog != 1 ||
+		s.Income == nil || *s.Income != 2.0 || s.DisableNuke == nil || !*s.DisableNuke {
+		t.Fatalf("settings 负载 = %+v", s)
+	}
+	if s.SharedControl != nil || s.StartingUnits != nil || s.MaxUnits != nil {
+		t.Fatal("未提供的字段应保持 nil")
+	}
+}
+
+// TestBackendExtApplySettingsEmpty 无字段时不发请求
+func TestBackendExtApplySettingsEmpty(t *testing.T) {
+	b := startRoom(t) // 不期望任何后续请求
+	if err := b.ApplySettings(game.RoomSettings{}); err != nil {
+		t.Fatalf("ApplySettings(空): %v", err)
+	}
+}
+
 // TestBackendExtNoRoom 未创建房间时扩展操作返回 ErrNoRoom
 func TestBackendExtNoRoom(t *testing.T) {
 	b := newTestBackend(t, 2*time.Second)
@@ -209,5 +251,9 @@ func TestBackendExtNoRoom(t *testing.T) {
 	}
 	if _, _, err := b.GameResult(); err != ErrNoRoom {
 		t.Fatalf("GameResult = %v, 期望 ErrNoRoom", err)
+	}
+	credits := int32(1)
+	if err := b.ApplySettings(game.RoomSettings{Credits: &credits}); err != ErrNoRoom {
+		t.Fatalf("ApplySettings = %v, 期望 ErrNoRoom", err)
 	}
 }

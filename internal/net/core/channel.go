@@ -10,6 +10,15 @@ import (
 	"rwhps/internal/io/packet"
 )
 
+// PacketGate 是网关模式下的包放行裁决接缝 (如 Cascade 会话绑定前的门控).
+//
+// 有意修正（作者已批准，2026-11-04）: Cascade 契约要求身份绑定前不得
+// 接受注册/游戏流量 (DECISIONS D-18); 裁决逻辑在 net/gateway, 本接口放在
+// 消费方 (core) 避免反向依赖. 返回 false 时调用方断开连接.
+type PacketGate interface {
+	AllowPacket(typeInt int) bool
+}
+
 // Channel 对应 Netty 的 Channel.
 // 由于 Go 使用 net.Conn 而非 Netty Pipeline, 这里承载 Channel 的
 // 属性存储 (TypeConnect) 与串行化写出职责.
@@ -20,6 +29,9 @@ type Channel struct {
 
 	tcMu        sync.Mutex
 	typeConnect TypeConnect
+
+	// Gate 网关模式门控; 明文直连模式恒为 nil (行为与既有完全一致)
+	Gate PacketGate
 
 	LocalPort int
 
