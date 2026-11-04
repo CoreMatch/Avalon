@@ -208,6 +208,10 @@ func runMatrixScenario(t *testing.T, java, jar string, sc matrixScenario, idx in
 	}
 
 	// --- 11. 轮询结算 ---
+	// 注意时序: 胜负判定后 getGameOverData 即返回非空, 但 ReplayName 来自
+	// room.replayFileName, 由引擎 game-over 流程中 "Recording replay to:"
+	// 重定向 (GameMainRedirections) 异步写入, 晚于胜负判定. 因此拿到首个
+	// 非空结果后还要等 ReplayName 落定, 否则测试会随引擎保存时序抖动.
 	deadline := time.Now().Add(60 * time.Second)
 	for {
 		result, ok, err := backend.GameResult()
@@ -224,20 +228,19 @@ func runMatrixScenario(t *testing.T, java, jar string, sc matrixScenario, idx in
 			// 注: result.MapName 是引擎结算数据里的静态默认图名 (headless 下
 			// 不随 room.start 更新), 实际对局地图以回放文件名为准 —— 引擎按
 			// 真实地图生成回放 (见下方 replayFiles 断言).
-			if result.ReplayName == "" {
-				t.Fatalf("结算缺回放字段: %+v", result)
+			if result.ReplayName != "" {
+				replayFiles := findReplayFiles(t, dataDir)
+				t.Logf("[矩阵] %s: 开局耗时=%v 获胜=%v 地图=%q 回放=%q 时长=%ds 回放文件=%v",
+					sc.name, startDur.Round(time.Millisecond), result.WinPlayerList,
+					result.MapName, result.ReplayName, result.GameTime, replayFiles)
+				if len(replayFiles) == 0 {
+					t.Errorf("结算报告了回放 %q 但数据目录未找到回放文件", result.ReplayName)
+				}
+				return
 			}
-			replayFiles := findReplayFiles(t, dataDir)
-			t.Logf("[矩阵] %s: 开局耗时=%v 获胜=%v 地图=%q 回放=%q 时长=%ds 回放文件=%v",
-				sc.name, startDur.Round(time.Millisecond), result.WinPlayerList,
-				result.MapName, result.ReplayName, result.GameTime, replayFiles)
-			if len(replayFiles) == 0 {
-				t.Errorf("结算报告了回放 %q 但数据目录未找到回放文件", result.ReplayName)
-			}
-			return
 		}
 		if time.Now().After(deadline) {
-			t.Fatal("60 秒内未拿到引擎结算数据")
+			t.Fatal("60 秒内未拿到含回放名的引擎结算数据")
 		}
 		time.Sleep(2 * time.Second)
 	}
