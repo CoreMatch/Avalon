@@ -189,19 +189,35 @@ stderr（stdout 是协议通道），Go 侧保留尾部 8KB 供诊断。
 `Cascade-Backend-v1`）的后端，方案 B 单房间合规体（DECISIONS D-17~D-21）。
 `cascadeEnable=false`（默认）时本节全部不生效，明文直连行为不变。
 
-启用后**游戏端口改为仅接受 Cascade 的 mTLS 连接**（明文直连不再可用），
-并另起 `/v1` 控制面：
+启用后游戏端口改为 **CASC 前导 + 会话门控**，并另起 `/v1` 控制面。
+**对端信任为三档（DECISIONS D-24，作者定稿"默认就是裸奔"）**：
+
+| 档位 | `cascadeTrustMode` | 行为 |
+| --- | --- | --- |
+| 裸奔（默认） | `open`（或留空） | 接受任何来源；不校验客户端证书、不校验 JWT 签名；启动告警一次 + 每连接 debug 记录来源 IP |
+| IP 白名单 | `ip` | 只接受 `trustedCascadeIPs`（精确 IP/CIDR）内的来源；仍不校验 JWT 签名；白名单为空启动报错 |
+| 指纹固定 | `pinned` | 在 IP 约束之上校验 TLS 客户端证书指纹（SHA-256 证书 DER），不匹配即断开 |
+
+> **安全提示**：`open` 档下后端端口**严禁暴露公网**——任何能连到端口的人都
+> 可以冒充代理并绑定任意身份。生产环境至少开 `ip` 档；跨公网对接建议
+> `pinned` 档。配置了 `cascadeTlsCert`/`cascadeTlsKey` 时传输走 TLS（open/ip
+> 不索取客户端证书，pinned 索取并验指纹），留空即明文。
+
+控制面端点：
 
 | 端点 | 行为 |
 | --- | --- |
-| `GET /v1/health` | 游戏监听已建立即 `ready`（D-21；helper 有无不纳入判据） |
+| `GET /v1/health` | 游戏监听已建立即 `ready`；**配置了 helper 时还须 helper 活着**（D-21 修订），未配置维持现状 |
 | `GET /v1/rooms` | 单房间归属快照（5 秒轮询语义），字段见契约 |
-| `PUT /v1/sessions/{sid}/identity` | Ed25519 JWT 校验 + jti 一次性消费（持久化于 `data/CascadeJti.bin`），PENDING→BOUND |
+| `PUT /v1/sessions/{sid}/identity` | JWT 结构化声明校验（三档都**不验签**，信任由档位承担）+ jti 一次性消费（持久化于 `data/CascadeJti.bin`），PENDING→BOUND |
 | `POST /v1/rooms/create` | 仅接受本服房间码（幂等 201），异码 409（D-20 单房间） |
 | `GET /v1/rooms/{code}` / `GET .../players` | 房间详情（含 members）/ 玩家列表 |
 | `PUT /v1/rooms/{code}/settings` | `mapName` 作用于房间；引擎字段经 v2-ext `room.settings` 写入 |
 | `POST /v1/rooms/{code}/kick` / `ban` | 按 `playerId`（connectHexID）复用既有踢出/封禁语义 |
 | `DELETE /v1/rooms/{code}` | 不支持（单房间后端的唯一房间不可删，400） |
+
+信任档位同时作用于游戏口与控制面；`ip`/`pinned` 档控制面拒绝返回
+`403 {"code":"FORBIDDEN"}`。
 
 **门控语义（D-18）**：会话绑定（`PUT identity` 成功）前，只放行
 Preregister(160)——引擎照常应答 161（客户端要先收到 161 才会发
@@ -209,27 +225,33 @@ RegisterPlayer，代理也才因此触发绑定）；RegisterPlayer(110) 及其�
 在 BOUND 前到达一律断开。绑定成功后 RegisterPlayer 放行，身份以 JWT 的
 `sub` 为准（不信任客户端自报）。
 
-### 密钥生成
+### 指纹配置（仅 `pinned` 档）
+
+指纹方案选型见 DECISIONS D-24：采用 **TLS 客户端证书指纹**
+（SHA-256(证书 DER)）——运维只需在 Cascade 侧提供一个客户端证书文件，
+后端配置一行指纹；Ed25519 公钥指纹列后续项。
 
 ```bash
-# 1) 代理签名密钥对 (Ed25519): Cascade 签发 JWT, Go 校验
-openssl genpkey -algorithm Ed25519 -out proxy-ed25519-key.pem          # 交 Cascade, 权限 0600
-openssl pkey -in proxy-ed25519-key.pem -pubout -out proxy-ed25519-pub.pem  # 交 Go 后端
-
-# 2) mTLS: CA + 后端服务端证书 + 代理客户端证书
+# 1) 服务端证书 (Go 出示; SAN 须含 Cascade 拨号地址)
 openssl req -x509 -newkey rsa:2048 -nodes -days 365 \
-  -keyout ca.key -out ca.pem -subj "/CN=rwhps-cascade-ca"
-openssl req -newkey rsa:2048 -nodes -keyout backend.key -out backend.csr \
-  -subj "/CN=rwhps-backend"
-openssl x509 -req -in backend.csr -CA ca.pem -CAkey ca.key -CAcreateserial \
-  -days 365 -out backend.crt \
-  -extfile <(printf "subjectAltName=IP:127.0.0.1,DNS:localhost")   # SAN 须含 Cascade 拨号地址
-openssl req -newkey rsa:2048 -nodes -keyout proxy-client.key -out proxy-client.csr \
-  -subj "/CN=cascade-proxy"
-openssl x509 -req -in proxy-client.csr -CA ca.pem -CAkey ca.key -days 365 \
-  -out proxy-client.crt
-chmod 600 proxy-ed25519-key.pem backend.key proxy-client.key
+  -keyout backend.key -out backend.crt -subj "/CN=rwhps-backend" \
+  -addext "subjectAltName=IP:127.0.0.1,DNS:localhost"
+
+# 2) 代理客户端证书 (Cascade 出示, Go 验指纹; 无需 CA 链)
+openssl req -x509 -newkey rsa:2048 -nodes -days 365 \
+  -keyout proxy-client.key -out proxy-client.crt -subj "/CN=cascade-proxy" \
+  -addext "extendedKeyUsage=clientAuth"
+
+# 3) 计算指纹写进 Go 配置 (openssl 3.x)
+openssl x509 -in proxy-client.crt -noout -fingerprint -sha256 | \
+  sed 's/.*=//; s/://g' | tr 'A-Z' 'a-z'
+chmod 600 backend.key proxy-client.key
 ```
+
+**轮换（不停服）**：默认轮换周期 **30 天**、新旧并存重叠期 **10 分钟**。
+`pinned` 档轮换 = 新证书算出新指纹追加进 `cascadePinnedFingerprints`
+（列表天然支持新旧并存），Cascade 换用新证书，重叠窗口过后删旧指纹。
+游戏口在重叠窗口内新旧指纹都放行，不断连、不重启。
 
 ### Go 侧配置（Config.json）
 
@@ -239,19 +261,20 @@ chmod 600 proxy-ed25519-key.pem backend.key proxy-client.key
   "cascadeEnable": true,
   "cascadeBackendId": "rwhps-backend-a",
   "cascadeRoomCode": "GW01",
+  "cascadeTrustMode": "pinned",
+  "trustedCascadeIPs": ["203.0.113.7", "198.51.100.0/24"],
+  "cascadePinnedFingerprints": ["3f2a…64 位十六进制…"],
   "cascadeTlsCert": "/run/secrets/backend.crt",
   "cascadeTlsKey": "/run/secrets/backend.key",
-  "cascadeClientCa": "/run/secrets/ca.pem",
-  "cascadeControlAddr": ":5125",
-  "cascadeProxyIssuer": "cascade",
-  "cascadeProxyKeyId": "proxy-key-2026-01",
-  "cascadeProxyPublicKeyPath": "/run/secrets/proxy-ed25519-pub.pem"
+  "cascadeControlAddr": ":5125"
 }
 ```
 
 `cascadeRoomCode` 留空回落 `ConfigServer.serverID`；`cascadeControlAddr` 是
-`/v1` 控制面监听地址（与 `webPort` 面板互不干扰）。材料缺失/非法时**启动直接
-失败**（显式配置不静默降级回明文）。
+`/v1` 控制面监听地址（与 `webPort` 面板互不干扰）。`cascadeTrustMode`
+留空等同 `open`。证书/密钥路径按"cwd 优先、再可执行文件目录"回退解析；
+配置非法（未知档位、坏 IP/CIDR、坏指纹、`ip` 档空白名单、`pinned` 档缺
+TLS 或指纹）时**启动直接失败**（显式配置不静默降级）。
 
 ### Cascade 侧对应配置（config.yaml 片段）
 
@@ -259,19 +282,20 @@ chmod 600 proxy-ed25519-key.pem backend.key proxy-client.key
 default_backend_id: "rwhps-backend-a"
 backends:
   - id: "rwhps-backend-a"            # 必须等于 Go 的 cascadeBackendId (JWT aud)
-    control_url: "https://127.0.0.1:5125"
+    control_url: "https://127.0.0.1:5125"   # Go 未配证书时用 http://
     game_address: "127.0.0.1:5124"
     prefixes: ["GW"]                 # 房间码前缀路由 (与 cascadeRoomCode 配合)
-proxy_issuer: "cascade"              # 须等于 Go 的 cascadeProxyIssuer
-proxy_key_id: "proxy-key-2026-01"    # 须等于 Go 的 cascadeProxyKeyId
+proxy_issuer: "cascade"              # Cascade 仍照常签 JWT; Go 三档都不验签
+proxy_key_id: "proxy-key-2026-01"
 proxy_private_key_path: "/run/secrets/proxy-ed25519-key.pem"
-backend_client_cert: "/run/secrets/proxy-client.crt"
+backend_client_cert: "/run/secrets/proxy-client.crt"   # pinned 档必需
 backend_client_key: "/run/secrets/proxy-client.key"
-backend_ca_pool: "/run/secrets/ca.pem"
+backend_ca_pool: "/run/secrets/ca.pem"                 # 校验 Go 服务端证书
 ```
 
 > 契约歧义处以 Go 侧实现行为为准（`internal/net/gateway`），本表即行为清单；
-> 已知差异均记录于 DECISIONS D-17~D-21。
+> 已知差异均记录于 DECISIONS D-17~D-21；信任三档与"health 等 helper"为
+> D-24/D-21 修订（契约 "Transport and trust" 的 mTLS+验签叙述待升版）。
 >
 > **UPLIST 自报**（DECISIONS D-22）：由 `Config.json` 的 `uplistEnable` 独立控制，
 > 默认 `true` = 保持自报，**与 `cascadeEnable` 无关**。核实（2026-11-04，Cascade
