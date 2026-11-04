@@ -127,6 +127,47 @@ go test ./...          # 需要时追加 -race
 
 helper 子进程的生命周期由 Go 侧托管：服务器退出时会先 `stop`、关 stdin、再回收。
 
+### 扩展操作（protocol v2-ext）
+
+在 v2 基础上追加了四个扩展操作（**有意修正，作者已批准，2026-11-04**；详见
+[`docs/HELPER-PROTOCOL.md`](docs/HELPER-PROTOCOL.md) 的「扩展操作」章节）：
+
+| 操作 | 能力 |
+| --- | --- |
+| `room.addai` | 添加 AI 玩家（`addai` 命令链路） |
+| `room.sync` | 全量同步（`addmoney` 等命令收尾） |
+| `room.removeplayer` | 按位置移除引擎内玩家（AI 移除） |
+| `game.result` | 结算与战绩数据（对局结束播报 `survive.player`、随 `ServerGameOverEvent` 发出） |
+
+向后兼容：线格式与协议版本不变（仍为 v2）。只实现 v2 的 helper 对这些操作回
+`{"ok":false,"error":"unsupported"}`，Go 侧降级为空操作并记日志（不 panic、不断连）；
+未配置 helper 时行为与无扩展时完全一致。
+
+---
+
+## HTTP 面板与 WebSocket 控制台
+
+`webPort` 不为 0 时启用 HTTP 面板（内建 HttpApi 端点，对应上游同名插件）：
+
+1. **换取 Cookie**：`GET /HttpApi/api/AuthCookie?passwd=<webToken>`，响应 `Set-Cookie`
+   下发 `HttpApi-Authentication`（24h 有效）。
+2. **只读查询**（带 Cookie）：`GET /HttpApi/api/get/event/GameOver`、
+   `info/SystemInfo`、`info/GameInfo`。
+3. **服务端命令**（带 Cookie）：`POST /HttpApi/api/post/run/ServerCommand`，
+   body 传 `runCommand=<命令>`。
+4. **WebSocket 控制台**（**有意修正，作者已批准，2026-11-04**，DECISIONS D-14）：
+   `GET /WebSocket/HttpApi/api/Console` 升级握手（RFC 6455），首帧带
+   `{"cookie":"<Cookie 值>",...}` 鉴权，之后支持：
+   - `{"type":"register"}` / `{"type":"ping"}`：注册 / 心跳；
+   - `{"type":"getConsole"}`：订阅控制台输出（先回最近 20 条缓存，之后实时推送）；
+   - `{"type":"runCommand","runCommand":"..."}`：下发服务端命令。
+
+   应答统一为 `{"code":N,"data":"..."}`（200 正常 / 400 非法 JSON / 401 Cookie 失效 /
+   403 重复订阅 / 1000 实时控制台行）。
+
+   > `run/ClientCommand` 端点**未移植**（依赖上游 Cherry 假玩家，Go 无对应物，
+   > 保持 not-portable，见 DECISIONS D-14）。
+
 ---
 
 ## 常用控制台命令
@@ -142,6 +183,7 @@ helper 子进程的生命周期由 Go 侧托管：服务器退出时会先 `stop
 | `players` / `admins` | 在线玩家 / 管理员 |
 | `say <text>` | 向全体广播 |
 | `kick <位置> [秒]` / `ban <位置>` / `mute <位置>` | 踢出 / 封禁 / 禁言 |
+| `unban <位置>` | 解除封禁（清除该玩家的 UUID/IP 封禁记录并播报） |
 | `gameover` | 强制结束本局 |
 | `uplist add\|update\|remove\|help` | 服务器列表上报（需 helper/Relay 场景） |
 | `exit` | 退出 |
@@ -149,6 +191,22 @@ helper 子进程的生命周期由 Go 侧托管：服务器退出时会先 `stop
 游戏内聊天命令（玩家侧）以 `.`、`-`、`_` 开头，或 `/` 前缀；Relay 场景用 `.` 前缀。
 具体清单见 `internal/command/`（ServerCommands/ClientCommands）与
 `internal/command/relay/`、`internal/net/uplist/`。
+
+---
+
+## 与上游的行为差异（有意修正）
+
+以下偏离上游的地方均为**有意修正（作者已批准，2026-11-04）**，源码注释与
+`RW-HPS-GO-DECISIONS.md` 有逐条记录：
+
+1. **封禁语义（D-10）**：上游 `unban` 误发 `PlayerBanEvent`（实为再次封禁）、
+   客户端 `/ban` 对发起者触发（封禁管理员自己）。Go 版修正为：`unban` 触发
+   `PlayerUnBanEvent` 并由默认监听清除封禁记录；`/ban` 对被 ban 的目标玩家触发。
+2. **Relay 踢出/取代（D-12）**：上游 `relayRegisterConnection` 的 `ifNullResult`
+   恒 null 块会吞掉 `KICK$uuid` 踢出记录、`rp` 在线检查拿连接名比 UUID 恒不命中。
+   Go 版修正为：踢出等待两级取值（先 `KICK$uuid` 后 `KICK$ipLong24`）、
+   `rp` 在线检查用 `conTg[0]`（UUID）。
+3. **helper 协议扩展（D-9）**与 **WebSocket 控制台（D-14）**：见上文两节。
 
 ---
 
