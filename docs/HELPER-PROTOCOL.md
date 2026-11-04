@@ -132,3 +132,91 @@ Go 服务端与外部游戏内核（helper，一个 Java 进程）之间的通�
 3. 玩家级事件（`player.*`/`chat`/`command`）必须带 `conn`，否则 Go 侧无法定位连接。
 4. 游戏包负载一律 Base64；`ptype` 用 Rusted Warfare 协议号（与 `internal/io/packettype` 一致）。
 5. 不要在 JSON 里做 HTML 转义。
+
+---
+
+## 扩展操作（protocol v2-ext）
+
+> **有意修正（作者已批准，2026-11-04）**：上游这些能力直接调用进程内的游戏引擎对象；
+> Go 版引擎在 helper 内，经本节扩展操作完成（DECISIONS D-9）。
+> 权威实现：`internal/game/external/protocol.go`（操作常量与校验）、
+> `internal/game/external/ext.go`（Backend 方法）。
+
+### 版本与向后兼容
+
+- **扩展版本记为 v2-ext**：它不是新的线协议版本——`ProtocolVersion` 仍为 `2`，信封、
+  世代号、传输格式与 v2 完全一致，只是**新增**了四个操作名、一个请求字段（`position`）
+  与一个应答字段（`result`）。v2 现有操作不受任何影响。
+- **只实现了 v2 的 helper**（未声明支持 v2-ext）收到这四个操作时，应应答：
+
+  ```json
+  {"v":2,"type":"response","gen":1,"id":1,"ok":false,"error":"unsupported"}
+  ```
+
+  Go 侧把 `error:"unsupported"` 归一为 `game.ErrUnsupported` 并**降级为空操作、仅记日志**：
+  不 panic、不断开连接、不影响 v2 功能。
+- 未配置 helper 时，Go 侧根本不会发起这些操作（走既有降级路径：`ErrNotPortable` /
+  空操作 + 日志），行为与扩展引入前一致。
+
+### 扩展操作一览（Go -> helper）
+
+| op | 必填字段 | 语义 |
+| --- | --- | --- |
+| `room.addai` | room | 让引擎生成一个 AI（对应 `gameScriptMultiPlayer.addAi`）。AI 档案随后经既有 `player.join` 事件（`bot:true`）推回 Go 侧 |
+| `room.sync` | room | 引擎全量同步（对应 `gameLinkFunction.allPlayerSync`） |
+| `room.removeplayer` | room, position | 按位置移除引擎内的玩家（AI 移除，对应 `playerPrivateData.removePlayer`） |
+| `game.result` | room | 查询结算数据（对应 `gameHessData.getGameOverData`） |
+
+校验规则（Go 侧发送前拦截）：四个操作都必须带 `room`；`room.removeplayer` 另需
+`position`（**0 基**，0 合法；上游位置即 0..maxPlayer-1）。
+
+### 请求字段扩展
+
+| 字段 | 说明 |
+| --- | --- |
+| `position` | 仅 `room.removeplayer`：玩家在引擎内的位置（0 基整数）。以指针语义编码——`0` 必须原样上线，不得被当作缺省吞掉 |
+
+```json
+{"v":2,"id":4,"gen":1,"op":"room.removeplayer","room":"r1","position":3}
+```
+
+### 应答字段扩展：`result`
+
+仅 `game.result` 有效。**字段与上游 `getGameOverData()` 返回的 `GameOverData` 一一对应**：
+
+```json
+{"v":2,"type":"response","gen":1,"id":5,"ok":true,"result":{
+  "gameTime":600,
+  "allPlayerList":["alice","bob"],
+  "winPlayerList":["alice"],
+  "mapName":"Crossing Large (10p)",
+  "playerData":{
+    "alice":{"unitsKilled":12,"buildingsKilled":3,"experimentalsKilled":1,
+             "unitsLost":4,"buildingsLost":2,"experimentalsLost":0},
+    "bob":{"unitsKilled":4,"buildingsKilled":2,"experimentalsKilled":0,
+           "unitsLost":12,"buildingsLost":3,"experimentalsLost":1}
+  },
+  "replayName":"2026-11-04-1"
+}}
+```
+
+| 字段 | 说明 |
+| --- | --- |
+| `gameTime` | 对局时长（秒），对应 `concurrentSecond - startTime` |
+| `allPlayerList` | 全部玩家名 |
+| `winPlayerList` | 获胜方玩家名 |
+| `mapName` | 地图名 |
+| `playerData` | 玩家名 -> 战绩键值表，**固定六项**：`unitsKilled` / `buildingsKilled` / `experimentalsKilled` / `unitsLost` / `buildingsLost` / `experimentalsLost` |
+| `replayName` | 回放文件名 |
+
+**尚未分出胜负时**（上游 `getGameOverData()` 返回 `null`）：应答 `ok:true` 且**不带**
+`result` 字段。Go 侧把它当作"无结算数据"，跳过播报（与上游 `?: return` 一致）。
+
+### Go 侧消费点
+
+| 操作 | 消费方 |
+| --- | --- |
+| `room.addai` | 控制台/客户端 `addai` 命令 → `PlayerManage.AddAI` → `ServerRoom.AddAI` |
+| `room.sync` | `CallManage.SyncAllPlayer`（`addmoney` 等命令收尾的全量同步） |
+| `room.removeplayer` | `ServerRoom.RemovePlayer`（AI 移除：引擎侧成功后清房间列表） |
+| `game.result` | `CallManage` 检查线程结算播报（`survive.player`），数据暂存房间后随 `ServerGameOverEvent` 发出 |
