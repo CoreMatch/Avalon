@@ -455,36 +455,35 @@ func TestRelayCmdRpNotStarted(t *testing.T) {
 	}
 }
 
-// TestRelayCmdRpOnlineTarget 对应 rp 的在线检查分支
+// TestRelayCmdRpOnlineTarget 对应 rp 的在线检查分支: 在线目标不可取代.
 //
-// 注意: 上游的在线检查是 `conTg[1] == u.registerPlayerId`, 而 conTg[1] 存的是
-// **连接名**, 与 UUID-Hex 永不相等 —— 检查恒不命中, 在线目标同样会被标记取代
-// (上游疑似笔误, 按"照搬优先"保留, 见 DECISIONS D-12).
+// 有意修正（作者已批准，2026-11-04）: 上游在线检查用连接名比 UUID
+// (RelayClientCommands.kt rp), 恒不命中, 在线目标也会被标记取代.
+// 按作者决定改用 conTg[0] (UUID) 后, 在线目标应被拒绝 (DECISIONS D-12).
 func TestRelayCmdRpOnlineTarget(t *testing.T) {
 	installFakeRwHps(t)
 	handler := installRelayCommand(t)
 	RegisterRelayCommands(cmd.NewHandler(""))
 
 	host, w := makeHost(t, "alice", "aabbcc")
-	player := joinPlayerForRp(t, host)
+	joinPlayerForRp(t, host)
 	host.Room().SetIsStartGame(true)
 	before := w.count()
 
 	handler.HandleMessageWith(".rp bob", host)
 
-	// 上游在线检查恒不命中: 即使目标在线也会设置 replacePlayerHex
-	if host.Room().ReplacePlayerHex != player.RegisterPlayerId() {
-		t.Fatalf("replacePlayerHex = %q, want %q (上游在线检查为死代码)",
-			host.Room().ReplacePlayerHex, player.RegisterPlayerId())
+	// 修正后: 目标在线, 在线检查命中, 不设置 replacePlayerHex
+	if host.Room().ReplacePlayerHex != "" {
+		t.Fatalf("在线目标不应被取代, replacePlayerHex = %q", host.Room().ReplacePlayerHex)
 	}
 	found := false
 	for _, m := range w.messagesAfter(before) {
-		if strings.Contains(m, "准备取代玩家") {
+		if strings.Contains(m, "还在线, 不能取代") {
 			found = true
 		}
 	}
 	if !found {
-		t.Fatalf("应提示准备取代: %v", w.messagesAfter(before))
+		t.Fatalf("应提示目标在线: %v", w.messagesAfter(before))
 	}
 }
 

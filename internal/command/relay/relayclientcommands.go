@@ -98,7 +98,11 @@ func RegisterRelayClientCommands(handler *cmd.Handler) {
 			if conTg[0] != "" {
 				flag := false
 				con.Room().AbstractNetConnectIntMap.EachAll(func(_ int32, u room.RelayConnect) {
-					if conTg[1] == u.RegisterPlayerId() {
+					// 有意修正（作者已批准，2026-11-04）: 上游用 conTg[1] (连接名)
+					// 与 u.registerPlayerId (UUID-Hex) 比较, 永不相等, 在线检查恒不
+					// 命中 (上游笔误). findPlayerUUIDAll 的 conTg[0] 才是 UUID,
+					// 按作者决定改用 conTg[0] (DECISIONS D-12).
+					if conTg[0] == u.RegisterPlayerId() {
 						flag = true
 						sendMsg(con, "玩家 "+conTg[1]+", 还在线, 不能取代")
 					}

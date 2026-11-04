@@ -661,18 +661,18 @@ func (g *GameVersionRelay) RelayRegisterConnection(p *packet.Packet) {
 				return
 			}
 
-			// 上游:
+			// 有意修正（作者已批准，2026-11-04）: 上游
 			//   relayKickData["KICK$registerPlayerId"]
 			//       .ifNullResult(relayKickData["KICK$ipLong24"]) { null }
-			// ifNullResult(result, blockNotNull) 的语义是: 接收者为 null 时返回
-			// result, 否则返回 blockNotNull(接收者) —— 而这里的 blockNotNull 恒返回
-			// null. 即 KICK$uuid 存在时 time 反而为 null (上游如此, 照搬).
+			// 的 blockNotNull 恒返回 null, 导致 KICK$uuid 命中时 time 反而为 null,
+			// UUID 踢出记录被吞掉 (上游笔误). 按作者决定改为普通两级取值:
+			// KICK$uuid 命中则用其值, 未命中再看 KICK$ipLong24 (DECISIONS D-12).
 			var kickTime int
 			hasKickTime := false
-			if _, uuidKicked := g.room.RelayKickData.Get("KICK" + g.registerPlayerId); !uuidKicked {
-				if v, ipKicked := g.room.RelayKickData.Get("KICK" + g.IPLong24()); ipKicked {
-					kickTime, hasKickTime = v, true
-				}
+			if v, uuidKicked := g.room.RelayKickData.Get("KICK" + g.registerPlayerId); uuidKicked {
+				kickTime, hasKickTime = v, true
+			} else if v, ipKicked := g.room.RelayKickData.Get("KICK" + g.IPLong24()); ipKicked {
+				kickTime, hasKickTime = v, true
 			}
 
 			if hasKickTime {
