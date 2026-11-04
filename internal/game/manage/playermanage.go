@@ -58,11 +58,10 @@ func (m *PlayerManage) attachCall(c *CallManage) {
 // AI 玩家包装成 AiPlayer. Go 版引擎在 helper 内:
 //
 // 有意修正（作者已批准，2026-11-04）: 经房间转发到 helper 协议 v2-ext 的
-// room.addai 操作 (DECISIONS D-9); AI 档案随后经既有的 player.join 事件
-// 回到 Go 侧. 无后端时房间侧返回 ErrNotPortable, 与既有降级行为一致.
-//
-// 上游在 addAi 之后还会扫描位置把引擎回报的 AI 包装成 AiPlayer; Go 版该
-// 包装由连接层的 player.join 事件路径完成, 不在本方法内.
+// room.addai 操作 (DECISIONS D-9); AI 档案随 room.addai 应答回传, 由房间层
+// (ServerRoom.AddAI) 包装成 AiPlayer 登记——引擎不会为 AI 触发
+// PlayerJoinEvent, 档案不走 player.join 事件. 无后端时房间侧返回
+// ErrNotPortable, 与既有降级行为一致.
 func (m *PlayerManage) AddAI() error {
 	m.mu.Lock()
 	call := m.call

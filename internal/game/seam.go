@@ -64,8 +64,14 @@ type Simulation interface {
 //
 // 实现方返回 ErrUnsupported 表示 helper 只支持 v2; 调用方降级为空操作并记日志.
 type RoomControl interface {
-	// AddAI 对应 gameScriptMultiPlayer.addAi(): 让引擎生成一个 AI
-	AddAI() error
+	// AddAI 对应 gameScriptMultiPlayer.addAi(): 让引擎生成一个 AI.
+	//
+	// 成功时返回引擎创建的 AI 档案; nil 表示引擎没有创建 (无空位,
+	// 对应上游 addAI 扫描不到空位时的静默返回).
+	// 有意修正（作者已批准，2026-11-04）: 上游 addAI 同步把 AI 包装进
+	// room.playerManage; Go 版档案随 room.addai 应答回传, 房间层据此登记
+	// (DECISIONS D-9).
+	AddAI() (*AIProfile, error)
 	// SyncAllPlayer 对应 gameLinkFunction.allPlayerSync(): 引擎全量同步
 	SyncAllPlayer() error
 	// RemovePlayer 对应引擎侧玩家移除 (AiPlayer.kickPlayer 里的
@@ -87,6 +93,23 @@ type MatchConfig struct {
 	MapPlayer string
 	// MaxPlayer 对应 Data.configServer.maxPlayer
 	MaxPlayer int
+}
+
+// AIProfile 是 room.addai 成功后 helper 回报的 AI 档案 (v2-ext 扩展).
+//
+// 有意修正（作者已批准，2026-11-04）: 上游 addAI 同步把引擎生成的 AI 包装成
+// AiPlayer 放进 room.playerManage; Go 版引擎在 helper 内, 档案经
+// RoomControl.AddAI 的返回值到达房间层, 由房间包装成 AiPlayer 登记
+// (DECISIONS D-9). 字段对应上游 AiPlayer 构造所需的 playerPrivateData 项.
+type AIProfile struct {
+	// ID 对应 connectHexID: AI 在引擎内的唯一标识
+	ID string
+	// Name 对应 name (引擎分配, 形如 "AI - Hard")
+	Name string
+	// Team 对应 team
+	Team int
+	// Position 引擎内槽位 (0 基), 对应 index; room.removeplayer 按它寻人
+	Position int
 }
 
 // Unimplemented 是 Simulation 的占位实现: Start/Stop 返回 ErrNotImplemented.

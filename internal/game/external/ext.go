@@ -19,15 +19,31 @@ var _ game.RoomControl = (*Backend)(nil)
 
 // AddAI 实现 game.RoomControl, 对应 gameScriptMultiPlayer.addAi()
 //
-// 引擎生成 AI 后会经既有的 player.join 事件把 AI 档案推回 Go 侧,
-// 本操作只负责触发, 不等待档案.
-func (b *Backend) AddAI() error {
+// 有意修正（作者已批准，2026-11-04）: 引擎不会为 AI 触发 PlayerJoinEvent
+// (上游该事件只由真实连接的 PlayerConnectX 发出), 档案改为随 room.addai
+// 应答的 ai 字段回传 (DECISIONS D-9). 返回 nil 档案 + nil 错误表示引擎
+// 没有创建 AI (无空位), 对应上游 addAI 扫描不到空位时的静默返回.
+func (b *Backend) AddAI() (*game.AIProfile, error) {
 	room := b.currentRoom()
 	if room == "" {
-		return ErrNoRoom
+		return nil, ErrNoRoom
 	}
-	_, err := b.Request(&Request{Op: OpRoomAddAI, Room: room})
-	return err
+	resp, err := b.Request(&Request{Op: OpRoomAddAI, Room: room})
+	if err != nil {
+		return nil, err
+	}
+	if resp.AI == nil {
+		return nil, nil
+	}
+	ai := &game.AIProfile{
+		ID:   resp.AI.ID,
+		Name: resp.AI.Name,
+		Team: resp.AI.Team,
+	}
+	if resp.AI.Position != nil {
+		ai.Position = *resp.AI.Position
+	}
+	return ai, nil
 }
 
 // SyncAllPlayer 实现 game.RoomControl, 对应 gameLinkFunction.allPlayerSync()

@@ -205,6 +205,15 @@ type Response struct {
 	// Result 仅 game.result 有效 (v2-ext): 结算数据.
 	// 缺失表示尚未分出胜负 (对应上游 getGameOverData 返回 null).
 	Result *GameResult `json:"result,omitempty"`
+
+	// AI 仅 room.addai 有效 (v2-ext 扩展): 引擎本次创建的 AI 档案.
+	// 缺失表示引擎没有创建 AI (无空位).
+	//
+	// 有意修正（作者已批准，2026-11-04）: 上游 addAI 同步把引擎生成的 AI
+	// 包装进 room.playerManage; Go 版引擎在 helper 内, 档案随本应答字段回传,
+	// Go 侧据此登记入房 (DECISIONS D-9). 不走 player.join 事件: 引擎只为
+	// 真实连接触发 PlayerJoinEvent, AI 没有对应事件可搭.
+	AI *PlayerProfile `json:"ai,omitempty"`
 }
 
 // GameResult 是 game.result 应答的结算数据负载 (v2-ext).
@@ -300,6 +309,13 @@ type PlayerProfile struct {
 	Bot bool `json:"bot"`
 	// Spectator 是否是观战者
 	Spectator bool `json:"spectator"`
+
+	// Position 引擎内玩家槽位 (0 基, v2-ext 扩展).
+	//
+	// 用指针区分"未提供"与"位置 0": 常规 player.* 事件不携带本字段
+	// (v2 helper 也不知道槽位), room.addai 应答的 AI 档案携带它,
+	// Go 侧用它设置 AI 的 index (room.removeplayer 按位置寻人).
+	Position *int `json:"position,omitempty"`
 }
 
 // ChatPayload 是 EventChat 的负载

@@ -240,21 +240,22 @@ func TestDefaultSlot(t *testing.T) {
 type fakeRoomControl struct {
 	fakeSim
 
-	addAIErr  error
-	addAICnt  int
-	syncErr   error
-	syncCnt   int
-	removeErr error
-	removed   []int
+	addAIProfile *game.AIProfile
+	addAIErr     error
+	addAICnt     int
+	syncErr      error
+	syncCnt      int
+	removeErr    error
+	removed      []int
 
 	result    *event.GameOverData
 	resultOK  bool
 	resultErr error
 }
 
-func (f *fakeRoomControl) AddAI() error {
+func (f *fakeRoomControl) AddAI() (*game.AIProfile, error) {
 	f.addAICnt++
-	return f.addAIErr
+	return f.addAIProfile, f.addAIErr
 }
 
 func (f *fakeRoomControl) SyncAllPlayer() error {
@@ -293,6 +294,46 @@ func TestRoomExtAddAI(t *testing.T) {
 	r2 := newTestRoom(t, nil)
 	if err := r2.AddAI(); err != manage.ErrNotPortable {
 		t.Fatalf("无后端应降级为 ErrNotPortable, 得到 %v", err)
+	}
+}
+
+// TestRoomExtAddAIRegister 内核回报档案时, AI 按上游语义包装入房
+// (对应 PlayerManage.addAI 的 playerGroup.add + playerAll.add)
+func TestRoomExtAddAIRegister(t *testing.T) {
+	rc := &fakeRoomControl{addAIProfile: &game.AIProfile{
+		ID: "aihex", Name: "AI - Hard", Team: 2, Position: 5,
+	}}
+	r := newTestRoom(t, rc)
+
+	if err := r.AddAI(); err != nil {
+		t.Fatalf("AddAI: %v", err)
+	}
+	if r.PlayerManage.PlayerGroup.Size() != 1 || r.PlayerManage.PlayerAll.Size() != 1 {
+		t.Fatalf("AI 应进房: group=%d all=%d",
+			r.PlayerManage.PlayerGroup.Size(), r.PlayerManage.PlayerAll.Size())
+	}
+
+	p := r.PlayerManage.GetPlayer(5)
+	if p == nil {
+		t.Fatal("GetPlayer(5) 应按 index 找到 AI")
+	}
+	if p.Name() != "AI - Hard" || p.Team() != 2 || !p.Data().Bot {
+		t.Fatalf("AI 档案字段 = name=%s team=%d bot=%v", p.Name(), p.Team(), p.Data().Bot)
+	}
+
+	// 引擎未创建 (无空位): 档案为 nil, 房间不变化
+	rc.addAIProfile = nil
+	if err := r.AddAI(); err != nil {
+		t.Fatalf("AddAI (无档案): %v", err)
+	}
+	if r.PlayerManage.PlayerGroup.Size() != 1 {
+		t.Fatal("无档案时不应登记")
+	}
+
+	// AI 的 kick 自移除: 上游 AiPlayer.kickPlayer 的房间列表清理语义
+	p.KickPlayer("remove", 0)
+	if r.PlayerManage.PlayerGroup.Size() != 0 || r.PlayerManage.PlayerAll.Size() != 0 {
+		t.Fatal("KickPlayer 后 AI 应移出房间列表")
 	}
 }
 
