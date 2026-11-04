@@ -57,6 +57,19 @@ func newTestRoom(t *testing.T, sim game.Simulation) *ServerRoom {
 	return r
 }
 
+// quietCheckThread 让开局挂上的检查线程空转, 供"开局后立即断言状态"的测试用.
+//
+// StartGame 挂的检查线程以延迟 0 立即异步执行, 空房间会命中"0 人 -> gr()"
+// 分支, 与这类测试的断言竞态 (高负载/-race 下偶发). 用 NeverEnd 让它空转
+// (对应上游 Data.neverEnd 的跳过语义); 依赖检查线程行为的测试
+// (TestAutoCheckEndsEmptyRoom 等) 不调用本函数.
+func quietCheckThread(t *testing.T) {
+	t.Helper()
+	old := global.NeverEnd
+	global.NeverEnd = true
+	t.Cleanup(func() { global.NeverEnd = old })
+}
+
 // TestRoomAssembly 实体链装配: 上游 ServerRoom 的成员一个不少
 func TestRoomAssembly(t *testing.T) {
 	r := newTestRoom(t, nil)
@@ -84,6 +97,7 @@ func TestRoomAssembly(t *testing.T) {
 
 // TestRoomStartGame 开局状态机: 内核成功后才写状态并挂检查线程
 func TestRoomStartGame(t *testing.T) {
+	quietCheckThread(t)
 	old := global.ConfigServer.MaxGameIngTime
 	global.ConfigServer.MaxGameIngTime = 3600
 	t.Cleanup(func() { global.ConfigServer.MaxGameIngTime = old })
@@ -124,6 +138,7 @@ func TestRoomStartGameBackendError(t *testing.T) {
 
 // TestGr 强制结束: 状态清零, 检查线程收掉
 func TestGr(t *testing.T) {
+	quietCheckThread(t)
 	fs := &fakeSim{}
 	r := newTestRoom(t, fs)
 	if err := r.StartGame(); err != nil {
@@ -172,6 +187,7 @@ func TestGameOverCommand(t *testing.T) {
 
 // TestGameOverBackendError 内核拒绝停止时不清空状态
 func TestGameOverBackendError(t *testing.T) {
+	quietCheckThread(t)
 	boom := errors.New("boom")
 	fs := &fakeSim{stopErr: boom}
 	r := newTestRoom(t, fs)
