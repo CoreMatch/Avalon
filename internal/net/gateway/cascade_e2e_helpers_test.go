@@ -86,22 +86,21 @@ func startGoBackend(t *testing.T, java, jar string, km *keyMaterial, gamePort, c
 		t.Fatalf("room.create: %v", err)
 	}
 
-	// 网关: jti 账本 + mTLS 材料 + 代理公钥
+	// 网关: jti 账本 + TLS 传输材料. 信任三档默认 open (DECISIONS D-24):
+	// 不索客户端证书、不验令牌签名 —— 真实 Cascade 照常签 JWT 并出示证书,
+	// Go 侧只取声明与转发, 完整链路不受影响.
 	store, err := plugindata.Open(&file.FileUtils{Path: filepath.Join(t.TempDir(), "jti.bin")})
 	if err != nil {
 		t.Fatal(err)
 	}
 	gw, err := gateway.New(gateway.Config{
-		BackendID:          "rwhps-e2e",
-		RoomCode:           "GW01",
-		TLSCert:            km.serverCert,
-		TLSKey:             km.serverKey,
-		ClientCA:           km.caPath,
-		ControlAddr:        fmt.Sprintf("127.0.0.1:%d", controlPort),
-		ProxyIssuer:        "cascade",
-		ProxyKeyID:         "proxy-key-e2e",
-		ProxyPublicKeyPath: km.proxyPubPath,
-		PendingTimeout:     5 * time.Second,
+		BackendID:   "rwhps-e2e",
+		RoomCode:    "GW01",
+		TLSCert:     km.serverCert,
+		TLSKey:      km.serverKey,
+		ControlAddr: fmt.Sprintf("127.0.0.1:%d", controlPort),
+		HelperReady: backend.Ready,
+		PendingTimeout: 5 * time.Second,
 	}, gateway.NewJtiStore(store))
 	if err != nil {
 		t.Fatalf("gateway.New: %v", err)

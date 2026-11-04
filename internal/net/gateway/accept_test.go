@@ -52,19 +52,14 @@ func mustJtiStore(t *testing.T) *plugindata.Settings {
 // TestAcceptGameHandshakeAndGate 完整握手: TLS + CASC 前导 -> PENDING 会话,
 // 门控只放行 Preregister; 绑定后放行全部.
 func TestAcceptGameHandshakeAndGate(t *testing.T) {
-	certPath, keyPath, caPath, clientCert, _ := tlsFixture(t)
-	pubPath, _ := ed25519Fixture(t)
+	certPath, keyPath, _, clientCert, _ := tlsFixture(t)
 
 	gw, err := New(Config{
-		BackendID:          "backend-t",
-		RoomCode:           "GW01",
-		TLSCert:            certPath,
-		TLSKey:             keyPath,
-		ClientCA:           caPath,
-		ControlAddr:        "127.0.0.1:0",
-		ProxyIssuer:        "cascade",
-		ProxyKeyID:         "kid-t",
-		ProxyPublicKeyPath: pubPath,
+		BackendID:   "backend-t",
+		RoomCode:    "GW01",
+		TLSCert:     certPath,
+		TLSKey:      keyPath,
+		ControlAddr: "127.0.0.1:0",
 	}, NewJtiStore(mustJtiStore(t)))
 	if err != nil {
 		t.Fatalf("gateway.New: %v", err)
@@ -139,19 +134,14 @@ func TestAcceptGameHandshakeAndGate(t *testing.T) {
 
 // TestAcceptGameRejectsBadPreamble 前导非法: 断开且不登记会话
 func TestAcceptGameRejectsBadPreamble(t *testing.T) {
-	certPath, keyPath, caPath, clientCert, _ := tlsFixture(t)
-	pubPath, _ := ed25519Fixture(t)
+	certPath, keyPath, _, clientCert, _ := tlsFixture(t)
 
 	gw, err := New(Config{
-		BackendID:          "backend-t",
-		RoomCode:           "GW01",
-		TLSCert:            certPath,
-		TLSKey:             keyPath,
-		ClientCA:           caPath,
-		ControlAddr:        "127.0.0.1:0",
-		ProxyIssuer:        "cascade",
-		ProxyKeyID:         "kid-t",
-		ProxyPublicKeyPath: pubPath,
+		BackendID:   "backend-t",
+		RoomCode:    "GW01",
+		TLSCert:     certPath,
+		TLSKey:      keyPath,
+		ControlAddr: "127.0.0.1:0",
 	}, NewJtiStore(mustJtiStore(t)))
 	if err != nil {
 		t.Fatal(err)

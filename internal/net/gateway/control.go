@@ -24,15 +24,24 @@ const (
 	CodeRoomConflict            = "ROOM_CONFLICT"
 	CodeBackendNotReady         = "BACKEND_NOT_READY"
 	CodeInternalError           = "INTERNAL_ERROR"
+	// CodeForbidden 信任档位拒绝 (来源 IP / 客户端证书指纹不匹配).
+	// 有意修正 (作者已批准, 2026-11-04; DECISIONS D-24): 契约错误码表
+	// 未含信任拒绝, 新增此码, 待契约升版收录.
+	CodeForbidden = "FORBIDDEN"
 )
 
-// ServeControl 启动 /v1 控制面 (mTLS, 契约 :10-12). 阻塞直到 Stop/出错.
+// ServeControl 启动 /v1 控制面. 传输随信任档位: 配置了服务端证书走 TLS,
+// 否则明文 (DECISIONS D-24). 阻塞直到 Stop/出错.
 func (g *Gateway) ServeControl() error {
 	ln, err := net.Listen("tcp", g.cfg.ControlAddr)
 	if err != nil {
 		return err
 	}
-	log.Clog("[Cascade] control API listening on {0} (mTLS)", g.cfg.ControlAddr)
+	if g.tlsCfg != nil {
+		log.Clog("[Cascade] control API listening on {0} (TLS)", g.cfg.ControlAddr)
+	} else {
+		log.Clog("[Cascade] control API listening on {0} (明文)", g.cfg.ControlAddr)
+	}
 	return g.ServeControlOn(ln)
 }
 
@@ -43,15 +52,45 @@ func (g *Gateway) ServeControlOn(ln net.Listener) error {
 	g.controlLn = ln
 	g.controlMu.Unlock()
 
+	if g.tlsCfg != nil {
+		ln = newTLSListener(ln, g.tlsCfg)
+	}
+
 	srv := &http.Server{
-		Handler:           g.controlRouter(),
+		Handler:           g.trustMiddleware(g.controlRouter()),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
-	err := srv.Serve(newTLSListener(ln, g.tlsCfg))
+	err := srv.Serve(ln)
 	if errors.Is(err, http.ErrServerClosed) || errors.Is(err, net.ErrClosed) {
 		return nil
 	}
 	return err
+}
+
+// trustMiddleware 把连接层信任档位套到控制面 (DECISIONS D-24):
+// ip 档查来源白名单; pinned 档再查 TLS 客户端证书指纹.
+// open 档不拦截 (裸奔). 被拒一律 403 + 契约错误形状.
+func (g *Gateway) trustMiddleware(next http.Handler) http.Handler {
+	if g.cfg.TrustMode == TrustOpen {
+		return next
+	}
+	ipCheck := g.cfg.TrustMode == TrustIP || !g.cfg.TrustedIPs.empty()
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if ipCheck && !g.cfg.TrustedIPs.contains(remoteIP(r.RemoteAddr)) {
+			log.Warnf("[Cascade]", "control request from {0} rejected: source IP not trusted (trust={1})", r.RemoteAddr, g.cfg.TrustMode)
+			writeErr(w, http.StatusForbidden, CodeForbidden, "source IP is not trusted")
+			return
+		}
+		if g.cfg.TrustMode == TrustPinned {
+			if r.TLS == nil || len(r.TLS.PeerCertificates) == 0 ||
+				!fingerprintMatches(r.TLS.PeerCertificates[0].Raw, g.cfg.PinnedFingerprints) {
+				log.Warnf("[Cascade]", "control request from {0} rejected: client certificate fingerprint not pinned", r.RemoteAddr)
+				writeErr(w, http.StatusForbidden, CodeForbidden, "client certificate fingerprint is not pinned")
+				return
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 // controlRouter 契约 HTTP API (Cascade-Backend-v1.md :86-101,
@@ -74,9 +113,14 @@ func (g *Gateway) controlRouter() *http.ServeMux {
 // --- 核心三端点: health / rooms / sessions identity ---
 
 func (g *Gateway) handleHealth(w http.ResponseWriter, _ *http.Request) {
-	// ready 判据 (DECISIONS D-21): 游戏监听已建立; helper 有无不纳入
+	// ready 判据 (DECISIONS D-21, 2026-11-04 修订): 游戏监听已建立;
+	// 配置了 helper 时还须 helper 活着 (HelperReady 探针), 未配置维持现状.
 	if !g.Ready() {
 		writeErr(w, http.StatusServiceUnavailable, CodeBackendNotReady, "game listener is not ready")
+		return
+	}
+	if g.cfg.HelperReady != nil && !g.cfg.HelperReady() {
+		writeErr(w, http.StatusServiceUnavailable, CodeBackendNotReady, "external game helper is not ready")
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{

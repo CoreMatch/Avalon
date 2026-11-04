@@ -3,11 +3,9 @@ package gateway
 import (
 	"crypto/ed25519"
 	"crypto/rand"
-	"crypto/x509"
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
-	"encoding/pem"
 	"errors"
 	"strings"
 	"testing"
@@ -121,20 +119,13 @@ func (s *testSigner) sign(t *testing.T, aud, sid, sub, jti string, iat, exp int6
 
 func newVerifierFixture(t *testing.T) (*TokenVerifier, *testSigner) {
 	t.Helper()
-	pub, priv, err := ed25519.GenerateKey(rand.Reader)
+	_, priv, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		t.Fatal(err)
 	}
-	der, err := x509.MarshalPKIXPublicKey(pub)
-	if err != nil {
-		t.Fatal(err)
-	}
-	pemBytes := pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: der})
-	v, err := NewTokenVerifier("cascade", "kid-1", "backend-a", pemBytes)
-	if err != nil {
-		t.Fatalf("NewTokenVerifier: %v", err)
-	}
-	return v, &testSigner{issuer: "cascade", kid: "kid-1", key: priv}
+	// 信任三档 (DECISIONS D-24): 校验器只做结构化声明校验, 不装载公钥;
+	// 测试签发器仍真签名, 证明"不验签也接受合法形状"与"验不验签与声明无关".
+	return NewTokenVerifier("backend-a"), &testSigner{issuer: "cascade", kid: "kid-1", key: priv}
 }
 
 func TestJWTVerifyOK(t *testing.T) {
@@ -150,6 +141,21 @@ func TestJWTVerifyOK(t *testing.T) {
 	}
 }
 
+// TestJWTVerifyIgnoresSignature 信任三档下不验签 (DECISIONS D-24):
+// 签名被篡改的令牌只要声明合法仍被接受 —— 对端身份由连接层信任承担.
+func TestJWTVerifyIgnoresSignature(t *testing.T) {
+	v, s := newVerifierFixture(t)
+	now := time.Now()
+	token := s.sign(t, "backend-a", "sid", "sub", "jti", now.Unix(), now.Add(30*time.Second).Unix())
+	parts := strings.Split(token, ".")
+	sig, _ := base64.RawURLEncoding.DecodeString(parts[2])
+	sig[0] ^= 0xff
+	parts[2] = base64.RawURLEncoding.EncodeToString(sig)
+	if _, err := v.Verify(strings.Join(parts, "."), now); err != nil {
+		t.Fatalf("不验签: 签名篡改不应影响结构化校验: %v", err)
+	}
+}
+
 func TestJWTVerifyRejects(t *testing.T) {
 	v, s := newVerifierFixture(t)
 	now := time.Now()
@@ -161,35 +167,27 @@ func TestJWTVerifyRejects(t *testing.T) {
 		want  error
 	}{
 		{"aud 不符", s.sign(t, "other-backend", "sid", "sub", "jti", iat, exp), ErrTokenClaims},
-		{"iss 不符", func() string {
-			s2 := *s
-			s2.issuer = "evil"
-			return s2.sign(t, "backend-a", "sid", "sub", "jti", iat, exp)
-		}(), ErrTokenClaims},
-		{"kid 不符", func() string {
+		{"kid 不同仍接受 (不校验)", func() string {
 			s2 := *s
 			s2.kid = "kid-2"
 			return s2.sign(t, "backend-a", "sid", "sub", "jti", iat, exp)
-		}(), ErrTokenKid},
+		}(), nil},
 		{"已过期", s.sign(t, "backend-a", "sid", "sub", "jti", now.Add(-60*time.Second).Unix(), now.Add(-30*time.Second).Unix()), ErrTokenExpired},
 		{"寿命超 30 秒", s.sign(t, "backend-a", "sid", "sub", "jti", iat, iat+61), ErrTokenClaims},
 		{"sub 为空", s.sign(t, "backend-a", "sid", "", "jti", iat, exp), ErrTokenClaims},
 		{"结构残缺", "abc.def", ErrTokenMalformed},
 	}
 	for _, c := range cases {
-		if _, err := v.Verify(c.token, now); !errors.Is(err, c.want) {
+		_, err := v.Verify(c.token, now)
+		if c.want == nil {
+			if err != nil {
+				t.Fatalf("%s: 不应拒绝: %v", c.name, err)
+			}
+			continue
+		}
+		if !errors.Is(err, c.want) {
 			t.Fatalf("%s: err = %v, 期望 %v", c.name, err, c.want)
 		}
-	}
-
-	// 签名篡改
-	token := s.sign(t, "backend-a", "sid", "sub", "jti", iat, exp)
-	parts := strings.Split(token, ".")
-	sig, _ := base64.RawURLEncoding.DecodeString(parts[2])
-	sig[0] ^= 0xff
-	parts[2] = base64.RawURLEncoding.EncodeToString(sig)
-	if _, err := v.Verify(strings.Join(parts, "."), now); !errors.Is(err, ErrTokenSignature) {
-		t.Fatalf("签名篡改: err = %v, 期望 ErrTokenSignature", err)
 	}
 }
 

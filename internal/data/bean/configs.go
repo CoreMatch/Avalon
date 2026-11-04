@@ -16,10 +16,6 @@ type CoreConfig struct {
 	// DefStartCommand 默认启动命令
 	DefStartCommand string `json:"defStartCommand"`
 	Log             string `json:"log"`
-	CmdTitle        string `json:"cmdTitle"`
-
-	// FollowBetaVersion 更新是否使用测试版本
-	FollowBetaVersion bool `json:"followBetaVersion"`
 
 	// Port 端口
 	Port int `json:"port"`
@@ -40,21 +36,10 @@ type CoreConfig struct {
 	// 上报链路之前, 关闭自报会让玩家在游戏内服务器列表看不到本服.
 	UplistEnable bool `json:"uplistEnable"`
 
-	// IpCheckMultiLanguageSupport ip多语言支持
-	IpCheckMultiLanguageSupport bool `json:"ipCheckMultiLanguageSupport"`
-
-	// SingleUserRelay 单用户 relay 禁用弹窗选择
-	SingleUserRelay bool `json:"singleUserRelay"`
-	// SingleUserRelayMod 单用户 relay 默认 mods 配置
-	SingleUserRelayMod bool `json:"singleUserRelayMod"`
-
 	// MixProtocolEnable 混合协议监听
 	MixProtocolEnable bool `json:"mixProtocolEnable"`
 	RconMixEnable     bool `json:"rconMixEnable"`
 	WebMixEnable      bool `json:"webMixEnable"`
-
-	RconPort   int    `json:"rconPort"`
-	RconPasswd string `json:"rconPasswd"`
 
 	// WebPort 不为 0 时在对应端口启用一个 HTTP 服务
 	WebPort int `json:"webPort"`
@@ -62,14 +47,15 @@ type CoreConfig struct {
 	WebToken string `json:"webToken"`
 	// WebHOST 限制
 	WebHOST string `json:"webHOST"`
-	// SslEnable 启用 SSL
-	SslEnable bool `json:"sslEnable"`
-	// SslMixEnable 混合协议下 SSL 同端口
-	SslMixEnable bool `json:"sslMixEnable"`
-	// SslPasswd SSL 密码
-	SslPasswd string `json:"sslPasswd"`
 
 	RunPid int64 `json:"runPid"`
+
+	// 已删除的死配置 (2026-11-04, 作者批准的清理; 对应上游功能未移植,
+	// 全仓库零运行时引用): cmdTitle (控制台标题), followBetaVersion
+	// (更新系统), ipCheckMultiLanguageSupport, singleUserRelay /
+	// singleUserRelayMod (relay 弹窗), rconPort / rconPasswd (RCON),
+	// sslEnable / sslMixEnable / sslPasswd (SSL). 旧 Config.json 里的
+	// 这些键在载入时被忽略, 下次保存自动消失.
 
 	// ---- 以下三项是 Go 版新增, 原版没有对应字段 ----
 	//
@@ -93,26 +79,41 @@ type CoreConfig struct {
 	// (CoreMatch/Cascade, 契约 Cascade-Backend-v1) 的后端, 方案 B 单房间合规体
 	// (DECISIONS D-17~D-21). 全部留空/关闭 = 不启用, 行为与现网完全一致.
 
-	// CascadeEnable 启用 Cascade 网关模式: 游戏端口改为 mTLS + 24 字节 CASC
-	// 前导 + 身份门控, 并另起 /v1 控制面. 关闭时保持明文 TCP 直连.
+	// CascadeEnable 启用 Cascade 网关模式: 游戏端口改为 CASC 前导 + 会话门控,
+	// 并另起 /v1 控制面. 关闭时保持明文 TCP 直连.
 	CascadeEnable bool `json:"cascadeEnable"`
 	// CascadeBackendID 后端 ID: JWT 的 aud, health/rooms 应答的 backendId
 	CascadeBackendID string `json:"cascadeBackendId"`
 	// CascadeRoomCode 本后端对 Cascade 暴露的唯一房间码; 空回落 ConfigServer.ServerID
 	CascadeRoomCode string `json:"cascadeRoomCode"`
-	// CascadeTLSCert / CascadeTLSKey 服务端证书/私钥 (PEM), 游戏口与控制面共用
+
+	// ---- 信任三档 (有意修正, 作者已批准, 2026-11-04; DECISIONS D-24) ----
+	// 作者定稿: "默认就是裸奔". 对端身份不再靠 mTLS 强校验与 JWT 验签,
+	// 而是三档可选约束:
+	//   open   (默认, 留空同义): 接受任何来源, 不校验客户端证书与 JWT 签名,
+	//          仅记录来源 IP 并告警; 游戏端口严禁暴露公网.
+	//   ip     : 只接受 trustedCascadeIPs 内的来源, 仍不校验 JWT 签名.
+	//   pinned : 在 IP 约束之上校验 TLS 客户端证书指纹 (SHA-256 证书 DER),
+	//          拒绝不匹配的连接.
+
+	// CascadeTrustMode 信任档位: "" 或 "open" / "ip" / "pinned"
+	CascadeTrustMode string `json:"cascadeTrustMode"`
+	// TrustedCascadeIPs ip/pinned 档的来源白名单 (精确 IP 或 CIDR);
+	// ip 档必填 (空名单 = 启动报错, 不静默锁死也不静默放行)
+	TrustedCascadeIPs []string `json:"trustedCascadeIPs"`
+	// CascadePinnedFingerprints pinned 档的客户端证书指纹列表
+	// (SHA-256(证书 DER) 十六进制); 列表用于轮换重叠期新旧并存.
+	// 指纹方案选型评估见 DECISIONS D-24 (选 TLS 客户端证书指纹,
+	// Ed25519 公钥指纹列后续项).
+	CascadePinnedFingerprints []string `json:"cascadePinnedFingerprints"`
+
+	// CascadeTLSCert / CascadeTLSKey 服务端证书/私钥 (PEM), 游戏口与控制面共用.
+	// 配置后传输走 TLS (open/ip 档不索取客户端证书, pinned 档索取并验指纹);
+	// 留空即明文 (裸奔). 路径按 "cwd 优先、再可执行文件目录" 回退解析.
 	CascadeTLSCert string `json:"cascadeTlsCert"`
 	CascadeTLSKey  string `json:"cascadeTlsKey"`
-	// CascadeClientCA 校验 Cascade 代理客户端证书的 CA (PEM)
-	CascadeClientCA string `json:"cascadeClientCa"`
 	// CascadeControlAddr /v1 控制面监听地址, 例如 ":5125"
 	CascadeControlAddr string `json:"cascadeControlAddr"`
-	// CascadeProxyIssuer 期望的 JWT iss
-	CascadeProxyIssuer string `json:"cascadeProxyIssuer"`
-	// CascadeProxyKeyID 期望的 JWT kid
-	CascadeProxyKeyID string `json:"cascadeProxyKeyId"`
-	// CascadeProxyPublicKeyPath 代理 Ed25519 公钥的 PEM (PKIX) 文件路径
-	CascadeProxyPublicKeyPath string `json:"cascadeProxyPublicKeyPath"`
 	// CascadePendingTimeoutSec 会话 pending 绑定超时秒数, 0 用默认 5 (契约 :58)
 	CascadePendingTimeoutSec int `json:"cascadePendingTimeoutSec"`
 }
@@ -123,34 +124,22 @@ func NewCoreConfig() CoreConfig {
 		NoteEnglish: "Different protocols use different configuration files, please go to the corresponding file ConfigServer/ConfigRelay",
 		NoteChina:   "不同协议使用的配置文件不同, 请自行前往对应文件 ConfigServer/ConfigRelay",
 
-		DefStartCommand:   "start",
-		Log:               "WARN",
-		CmdTitle:          "",
-		FollowBetaVersion: false,
-		Port:              5123,
-		ServerName:        "RW-HPS",
-		Subtitle:          "",
-		AutoUpList:        false,
-		UplistEnable:      true,
+		DefStartCommand: "start",
+		Log:             "WARN",
 
-		IpCheckMultiLanguageSupport: true,
-
-		SingleUserRelay:    false,
-		SingleUserRelayMod: false,
+		Port:       5123,
+		ServerName: "RW-HPS",
+		Subtitle:   "",
+		AutoUpList: false,
+		UplistEnable: true,
 
 		MixProtocolEnable: false,
 		RconMixEnable:     false,
 		WebMixEnable:      false,
 
-		RconPort:   0,
-		RconPasswd: mathutil.GetRandomLetterString(10),
-
-		WebPort:      0,
-		WebToken:     mathutil.GetRandomLetterString(10),
-		WebHOST:      "",
-		SslEnable:    false,
-		SslMixEnable: false,
-		SslPasswd:    "RW-HPS",
+		WebPort:  0,
+		WebToken: mathutil.GetRandomLetterString(10),
+		WebHOST:  "",
 
 		RunPid: 0,
 
@@ -161,13 +150,12 @@ func NewCoreConfig() CoreConfig {
 		CascadeEnable:             false,
 		CascadeBackendID:          "rwhps-backend",
 		CascadeRoomCode:           "",
+		CascadeTrustMode:          "open",
+		TrustedCascadeIPs:         nil,
+		CascadePinnedFingerprints: nil,
 		CascadeTLSCert:            "",
 		CascadeTLSKey:             "",
-		CascadeClientCA:           "",
 		CascadeControlAddr:        ":5125",
-		CascadeProxyIssuer:        "cascade",
-		CascadeProxyKeyID:         "",
-		CascadeProxyPublicKeyPath: "",
 		CascadePendingTimeoutSec:  0,
 	}
 }
@@ -195,10 +183,12 @@ type ServerConfig struct {
 	// ServerID 服务器ID
 	ServerID string `json:"serverID"`
 
-	EnterAd           string `json:"enterAd"`
-	StartAd           string `json:"startAd"`
-	MaxPlayerJoinAd   string `json:"maxPlayerJoinAd"`
-	StartPlayerJoinAd string `json:"startPlayerJoinAd"`
+	EnterAd string `json:"enterAd"`
+	StartAd string `json:"startAd"`
+
+	// 已删除的死配置 (2026-11-04): maxPlayerJoinAd / startPlayerJoinAd
+	// (广告位无运行时引用), defIncome (收入命令不读配置),
+	// modsLoadErrorPrint (mod 加载错误打印未移植).
 
 	// Passwd 密码
 	Passwd string `json:"passwd"`
@@ -223,17 +213,12 @@ type ServerConfig struct {
 	MaxMessageLen int `json:"maxMessageLen"`
 	// MaxUnit 最大单位数
 	MaxUnit int `json:"maxUnit"`
-	// DefIncome 默认倍率
-	DefIncome float32 `json:"defIncome"`
 
 	IsAfk   bool `json:"isAfk"`
 	MuteAll bool `json:"muteAll"`
 
 	// TurnStoneIntoGold 点石成金
 	TurnStoneIntoGold bool `json:"turnStoneIntoGold"`
-
-	// ModsLoadErrorPrint Mod 加载错误信息
-	ModsLoadErrorPrint bool `json:"modsLoadErrorPrint"`
 
 	// SaveRePlayFile 是否保存 RePlay
 	SaveRePlayFile bool `json:"saveRePlayFile"`
@@ -244,10 +229,8 @@ func NewServerConfig() ServerConfig {
 	return ServerConfig{
 		ServerID: mathutil.GetRandomLetterString(5),
 
-		EnterAd:           "",
-		StartAd:           "",
-		MaxPlayerJoinAd:   "",
-		StartPlayerJoinAd: "",
+		EnterAd: "",
+		StartAd: "",
 
 		Passwd: "",
 
@@ -263,14 +246,11 @@ func NewServerConfig() ServerConfig {
 
 		MaxMessageLen: 40,
 		MaxUnit:       200,
-		DefIncome:     1.0,
 
 		IsAfk:   true,
 		MuteAll: false,
 
 		TurnStoneIntoGold: false,
-
-		ModsLoadErrorPrint: false,
 
 		SaveRePlayFile: true,
 	}
@@ -297,22 +277,21 @@ func (c *ServerConfig) checkValue() {
 }
 
 // RelayConfig 对应 BeanRelayConfig
+//
+// 已删除的死配置 (2026-11-04): mainServerIP / mainServerPort
+// (relay 主服地址无运行时引用).
 type RelayConfig struct {
-	MainID         string `json:"mainID"`
-	MainServer     bool   `json:"mainServer"`
-	UpList         bool   `json:"upList"`
-	MainServerIP   string `json:"mainServerIP"`
-	MainServerPort int    `json:"mainServerPort"`
+	MainID     string `json:"mainID"`
+	MainServer bool   `json:"mainServer"`
+	UpList     bool   `json:"upList"`
 }
 
 // NewRelayConfig 创建带默认值的 Relay 配置
 func NewRelayConfig() RelayConfig {
 	return RelayConfig{
-		MainID:         "R",
-		MainServer:     true,
-		UpList:         true,
-		MainServerIP:   "relay.der.kim",
-		MainServerPort: 4993,
+		MainID:     "R",
+		MainServer: true,
+		UpList:     true,
 	}
 }
 

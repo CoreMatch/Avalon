@@ -126,27 +126,25 @@ func ed25519Fixture(t *testing.T) (pubPath string, priv ed25519.PrivateKey) {
 	return pubPath, priv
 }
 
-// controlFixture 装配完整网关 + 控制面监听 + 带客户端证书的 http 客户端
+// controlFixture 装配完整网关 + 控制面监听 + 带客户端证书的 http 客户端.
+// 信任三档下默认 open (DECISIONS D-24): TLS 传输 (配了证书), 不索客户端证书,
+// 令牌不验签 —— 客户端证书仍带着, 服务端不索取即不发送, 与现网行为一致.
 func controlFixture(t *testing.T) (*Gateway, string, *http.Client, *testSigner) {
 	t.Helper()
-	certPath, keyPath, caPath, clientCert, clientPool := tlsFixture(t)
-	pubPath, priv := ed25519Fixture(t)
+	certPath, keyPath, _, _, clientPool := tlsFixture(t)
+	_, priv := ed25519Fixture(t)
 
 	store, err := plugindata.Open(&file.FileUtils{Path: filepath.Join(t.TempDir(), "jti.bin")})
 	if err != nil {
 		t.Fatal(err)
 	}
 	gw, err := New(Config{
-		BackendID:          "backend-t",
-		RoomCode:           "GW01",
-		TLSCert:            certPath,
-		TLSKey:             keyPath,
-		ClientCA:           caPath,
-		ControlAddr:        "127.0.0.1:0",
-		ProxyIssuer:        "cascade",
-		ProxyKeyID:         "kid-t",
-		ProxyPublicKeyPath: pubPath,
-		PendingTimeout:     5 * time.Second,
+		BackendID:      "backend-t",
+		RoomCode:       "GW01",
+		TLSCert:        certPath,
+		TLSKey:         keyPath,
+		ControlAddr:    "127.0.0.1:0",
+		PendingTimeout: 5 * time.Second,
 	}, NewJtiStore(store))
 	if err != nil {
 		t.Fatalf("gateway.New: %v", err)
@@ -162,9 +160,8 @@ func controlFixture(t *testing.T) (*Gateway, string, *http.Client, *testSigner) 
 	base := "https://" + ln.Addr().String() + "/v1"
 	client := &http.Client{
 		Transport: &http.Transport{TLSClientConfig: &tls.Config{
-			Certificates: []tls.Certificate{clientCert},
-			RootCAs:      clientPool,
-			ServerName:   "127.0.0.1",
+			RootCAs:    clientPool,
+			ServerName: "127.0.0.1",
 		}},
 		Timeout: 10 * time.Second,
 	}
@@ -302,23 +299,30 @@ func TestControlIdentityRejects(t *testing.T) {
 		t.Fatalf("未知会话应 404 %s, got %d %v", CodeSessionNotFound, resp.StatusCode, body)
 	}
 
-	// 非法签名: 400
-	sess := gw.Registry().Register("33333333-3333-4333-8333-333333333333", nil)
-	bad := signer.sign(t, "backend-t", sess.ID, "p", "jti-v", now.Unix(), now.Add(30*time.Second).Unix())
+	// 签名篡改仍接受 (信任三档不验签, DECISIONS D-24): 声明合法即绑定
+	sessTampered := gw.Registry().Register("55555555-5555-4555-8555-555555555555", nil)
+	bad := signer.sign(t, "backend-t", sessTampered.ID, "p", "jti-v", now.Unix(), now.Add(30*time.Second).Unix())
 	bad = bad[:len(bad)-4] + "AAAA"
-	resp, body = doJSON(t, client, http.MethodPut, base+"/sessions/"+sess.ID+"/identity", map[string]string{"token": bad})
+	resp, body = doJSON(t, client, http.MethodPut, base+"/sessions/"+sessTampered.ID+"/identity", map[string]string{"token": bad})
+	if resp.StatusCode != http.StatusNoContent {
+		t.Fatalf("不验签: 签名篡改但声明合法应 204, got %d %v", resp.StatusCode, body)
+	}
+
+	// 结构非法 (声明无法解析): 400 SESSION_IDENTITY_INVALID
+	resp, body = doJSON(t, client, http.MethodPut, base+"/sessions/"+sessTampered.ID+"/identity", map[string]string{"token": "not-a-jwt"})
 	if resp.StatusCode != http.StatusBadRequest || body["code"] != CodeSessionIdentityInvalid {
-		t.Fatalf("非法签名应 400 %s, got %d %v", CodeSessionIdentityInvalid, resp.StatusCode, body)
+		t.Fatalf("结构非法应 400 %s, got %d %v", CodeSessionIdentityInvalid, resp.StatusCode, body)
 	}
 
 	// sid 与路径不符: 400
+	sess := gw.Registry().Register("33333333-3333-4333-8333-333333333333", nil)
 	tokenOther := signer.sign(t, "backend-t", "44444444-4444-4444-8444-444444444444", "p", "jti-w", now.Unix(), now.Add(30*time.Second).Unix())
 	resp, body = doJSON(t, client, http.MethodPut, base+"/sessions/"+sess.ID+"/identity", map[string]string{"token": tokenOther})
 	if resp.StatusCode != http.StatusBadRequest || body["code"] != CodeInvalidRequest {
 		t.Fatalf("sid 不符应 400 %s, got %d %v", CodeInvalidRequest, resp.StatusCode, body)
 	}
 
-	// jti 重放 (另一会话消费过): 400
+	// jti 重放 (另一会话消费过): 400 —— 不验签不影响一次性账本
 	gw.Registry().Register("44444444-4444-4444-8444-444444444444", nil)
 	if err := gw.jti.Consume("jti-replay", now.Add(30*time.Second).Unix()); err != nil {
 		t.Fatal(err)
