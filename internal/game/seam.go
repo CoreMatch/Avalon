@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"rwhps/internal/data/global"
+	"rwhps/internal/game/event"
 	"rwhps/internal/util/timeutil"
 )
 
@@ -18,6 +19,13 @@ import (
 // 与 core.ErrNotImplemented (对应 ImplementedException) 区分: 后者是"这个方法永远不该被调用",
 // 这里是"这个方法该被调用, 但 Go 版还没有实现它的后端".
 var ErrNotImplemented = errors.New("game: no simulation backend available")
+
+// ErrUnsupported 表示模拟后端不支持某个扩展操作.
+//
+// 有意修正（作者已批准，2026-11-04）: 对应 helper 协议 v2-ext 的向后兼容约定 ——
+// 只实现了 v2 的 helper 对扩展操作回 "unsupported", Go 侧把它归一成本错误,
+// 调用方降级为空操作并记日志, 不得 panic 或断开连接 (DECISIONS D-9).
+var ErrUnsupported = errors.New("game: operation unsupported by simulation backend")
 
 // Simulation 对应 rusted-warfare.jar 里的游戏内核
 //
@@ -41,6 +49,31 @@ type Simulation interface {
 	Running() bool
 	// PlayerCount 对应 room.playerManage.playerGroup.size
 	PlayerCount() int
+}
+
+// RoomControl 是房间层对模拟内核的扩展操作接缝 (helper 协议 v2-ext).
+//
+// 有意修正（作者已批准，2026-11-04）: 上游这些操作直接调用进程内的引擎对象
+// (gameScriptMultiPlayer.addAi / gameLinkFunction.allPlayerSync /
+// gameHessData.getGameOverData 等); Go 版引擎在 helper 内, 经 v2-ext 扩展操作
+// 完成 (DECISIONS D-9). 与 Simulation 分开声明:
+//
+//   - 不改动 v2 已有的四个操作, 既有实现与测试不受影响;
+//   - 后端未实现本接口 (如 Unimplemented) 时, 调用方按类型断言失败降级 ——
+//     与"无 helper"时的既有行为一致.
+//
+// 实现方返回 ErrUnsupported 表示 helper 只支持 v2; 调用方降级为空操作并记日志.
+type RoomControl interface {
+	// AddAI 对应 gameScriptMultiPlayer.addAi(): 让引擎生成一个 AI
+	AddAI() error
+	// SyncAllPlayer 对应 gameLinkFunction.allPlayerSync(): 引擎全量同步
+	SyncAllPlayer() error
+	// RemovePlayer 对应引擎侧玩家移除 (AiPlayer.kickPlayer 里的
+	// playerPrivateData.removePlayer()): 按位置移除引擎内的玩家
+	RemovePlayer(position int) error
+	// GameResult 对应 gameHessData.getGameOverData(): 取结算数据.
+	// ok=false 对应上游返回 null (尚未分出胜负); 非 nil 错误才是查询失败.
+	GameResult() (data *event.GameOverData, ok bool, err error)
 }
 
 // MatchConfig 一局游戏的可移植启动参数

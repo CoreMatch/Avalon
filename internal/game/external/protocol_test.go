@@ -2,8 +2,11 @@ package external
 
 import (
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
+
+	"rwhps/internal/game"
 )
 
 func TestRequestRoundTrip(t *testing.T) {
@@ -208,5 +211,127 @@ func TestErrorf(t *testing.T) {
 	err := errorf(&Response{OK: false, Error: "map file missing"})
 	if err == nil || !strings.Contains(err.Error(), "map file missing") {
 		t.Errorf("失败原因未原样透传: %v", err)
+	}
+}
+
+// --- v2-ext (DECISIONS D-9, 有意修正, 作者已批准, 2026-11-04) ---
+
+// TestValidateRequestExt 扩展操作的字段校验
+func TestValidateRequestExt(t *testing.T) {
+	pos0 := 0
+	pos3 := 3
+	neg := -1
+
+	cases := []struct {
+		name    string
+		req     *Request
+		wantErr string // 空表示应通过
+	}{
+		{"addai 带房间", &Request{V: ProtocolVersion, ID: 1, Op: OpRoomAddAI, Gen: 1, Room: "r1"}, ""},
+		{"addai 缺房间", &Request{V: ProtocolVersion, ID: 1, Op: OpRoomAddAI, Gen: 1}, "without room"},
+		{"sync 带房间", &Request{V: ProtocolVersion, ID: 1, Op: OpRoomSync, Gen: 1, Room: "r1"}, ""},
+		{"sync 缺房间", &Request{V: ProtocolVersion, ID: 1, Op: OpRoomSync, Gen: 1}, "without room"},
+		{"result 带房间", &Request{V: ProtocolVersion, ID: 1, Op: OpGameResult, Gen: 1, Room: "r1"}, ""},
+		{"result 缺房间", &Request{V: ProtocolVersion, ID: 1, Op: OpGameResult, Gen: 1}, "without room"},
+		{"removeplayer 完整", &Request{V: ProtocolVersion, ID: 1, Op: OpRoomRemovePlayer, Gen: 1, Room: "r1", Position: &pos3}, ""},
+		{"removeplayer 位置0合法", &Request{V: ProtocolVersion, ID: 1, Op: OpRoomRemovePlayer, Gen: 1, Room: "r1", Position: &pos0}, ""},
+		{"removeplayer 缺房间", &Request{V: ProtocolVersion, ID: 1, Op: OpRoomRemovePlayer, Gen: 1, Position: &pos3}, "without room"},
+		{"removeplayer 缺位置", &Request{V: ProtocolVersion, ID: 1, Op: OpRoomRemovePlayer, Gen: 1, Room: "r1"}, "without valid position"},
+		{"removeplayer 负位置", &Request{V: ProtocolVersion, ID: 1, Op: OpRoomRemovePlayer, Gen: 1, Room: "r1", Position: &neg}, "without valid position"},
+	}
+	for _, c := range cases {
+		err := validateRequest(c.req)
+		if c.wantErr == "" {
+			if err != nil {
+				t.Errorf("%s: 应通过校验, 得到 %v", c.name, err)
+			}
+			continue
+		}
+		if err == nil {
+			t.Errorf("%s: 应报错", c.name)
+			continue
+		}
+		if !strings.Contains(err.Error(), c.wantErr) {
+			t.Errorf("%s: 错误 = %v, 期望包含 %q", c.name, err, c.wantErr)
+		}
+	}
+}
+
+// TestEncodeRequestExtPosition position 字段编码: 0 不能被 omitempty 吞掉
+func TestEncodeRequestExtPosition(t *testing.T) {
+	pos0 := 0
+	line, err := encodeRequest(&Request{
+		V: ProtocolVersion, ID: 1, Op: OpRoomRemovePlayer, Gen: 1,
+		Room: "r1", Position: &pos0,
+	})
+	if err != nil {
+		t.Fatalf("encodeRequest: %v", err)
+	}
+	if !strings.Contains(line, `"position":0`) {
+		t.Fatalf("position=0 应原样编码: %s", line)
+	}
+
+	// 未提供 position 时不出现该字段
+	line, err = encodeRequest(&Request{
+		V: ProtocolVersion, ID: 1, Op: OpRoomAddAI, Gen: 1, Room: "r1",
+	})
+	if err != nil {
+		t.Fatalf("encodeRequest: %v", err)
+	}
+	if strings.Contains(line, "position") {
+		t.Fatalf("未提供 position 时不应出现该字段: %s", line)
+	}
+}
+
+// TestDecodeResponseGameResult game.result 应答的 result 负载解码
+func TestDecodeResponseGameResult(t *testing.T) {
+	line := `{"v":2,"type":"response","id":9,"gen":1,"ok":true,"result":{"gameTime":600,"allPlayerList":["a","b"],"winPlayerList":["a"],"mapName":"m1","playerData":{"a":{"unitsKilled":1,"buildingsKilled":2,"experimentalsKilled":3,"unitsLost":4,"buildingsLost":5,"experimentalsLost":6}},"replayName":"rep1"}}`
+	resp, err := decodeResponse(line)
+	if err != nil {
+		t.Fatalf("decodeResponse: %v", err)
+	}
+	if resp.Result == nil {
+		t.Fatal("result 应被解码")
+	}
+	r := resp.Result
+	if r.GameTime != 600 || r.MapName != "m1" || r.ReplayName != "rep1" {
+		t.Fatalf("标量字段 = %+v", r)
+	}
+	if len(r.AllPlayerList) != 2 || r.AllPlayerList[0] != "a" {
+		t.Fatalf("allPlayerList = %v", r.AllPlayerList)
+	}
+	if len(r.WinPlayerList) != 1 || r.WinPlayerList[0] != "a" {
+		t.Fatalf("winPlayerList = %v", r.WinPlayerList)
+	}
+	pd := r.PlayerData["a"]
+	for k, want := range map[string]int{
+		"unitsKilled": 1, "buildingsKilled": 2, "experimentalsKilled": 3,
+		"unitsLost": 4, "buildingsLost": 5, "experimentalsLost": 6,
+	} {
+		if pd[k] != want {
+			t.Fatalf("playerData[a][%s] = %d, want %d", k, pd[k], want)
+		}
+	}
+
+	// result 缺失 (尚未分出胜负) 时 Result 为 nil
+	resp, err = decodeResponse(`{"v":2,"type":"response","id":9,"gen":1,"ok":true}`)
+	if err != nil {
+		t.Fatalf("decodeResponse: %v", err)
+	}
+	if resp.Result != nil {
+		t.Fatalf("无 result 时应为 nil, 得到 %+v", resp.Result)
+	}
+}
+
+// TestErrorfUnsupported v2-only helper 对扩展操作回 "unsupported",
+// 归一成 game.ErrUnsupported 供调用方降级.
+func TestErrorfUnsupported(t *testing.T) {
+	err := errorf(&Response{OK: false, Error: "unsupported"})
+	if !errors.Is(err, game.ErrUnsupported) {
+		t.Fatalf("unsupported 应归一为 game.ErrUnsupported, 得到 %v", err)
+	}
+	// 大小写不敏感
+	if err := errorf(&Response{OK: false, Error: "Unsupported"}); !errors.Is(err, game.ErrUnsupported) {
+		t.Fatalf("大小写变体也应归一, 得到 %v", err)
 	}
 }
