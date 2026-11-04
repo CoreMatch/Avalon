@@ -8,6 +8,9 @@ import (
 	"rwhps/internal/core/thread"
 	"rwhps/internal/data/global"
 	"rwhps/internal/game"
+	"rwhps/internal/game/event"
+	"rwhps/internal/game/manage"
+	"rwhps/internal/game/player"
 )
 
 // fakeSim 记录调用并按需返回错误
@@ -228,5 +231,185 @@ func TestDefaultSlot(t *testing.T) {
 	SetDefault(r)
 	if Default() != r {
 		t.Fatal("Default 应返回已设置的房间")
+	}
+}
+
+// --- v2-ext 扩展操作 (DECISIONS D-9, 有意修正, 作者已批准, 2026-11-04) ---
+
+// fakeRoomControl 在 fakeSim 基础上实现 game.RoomControl
+type fakeRoomControl struct {
+	fakeSim
+
+	addAIErr  error
+	addAICnt  int
+	syncErr   error
+	syncCnt   int
+	removeErr error
+	removed   []int
+
+	result    *event.GameOverData
+	resultOK  bool
+	resultErr error
+}
+
+func (f *fakeRoomControl) AddAI() error {
+	f.addAICnt++
+	return f.addAIErr
+}
+
+func (f *fakeRoomControl) SyncAllPlayer() error {
+	f.syncCnt++
+	return f.syncErr
+}
+
+func (f *fakeRoomControl) RemovePlayer(position int) error {
+	f.removed = append(f.removed, position)
+	return f.removeErr
+}
+
+func (f *fakeRoomControl) GameResult() (*event.GameOverData, bool, error) {
+	return f.result, f.resultOK, f.resultErr
+}
+
+// TestRoomExtAddAI AddAI 经 RoomControl 转发; 降级路径返回 ErrNotPortable
+func TestRoomExtAddAI(t *testing.T) {
+	rc := &fakeRoomControl{}
+	r := newTestRoom(t, rc)
+
+	if err := r.AddAI(); err != nil {
+		t.Fatalf("AddAI: %v", err)
+	}
+	if rc.addAICnt != 1 {
+		t.Fatalf("AddAI 应转发到内核, cnt = %d", rc.addAICnt)
+	}
+
+	// helper 只支持 v2: 降级为 ErrNotPortable (与既有行为一致)
+	rc.addAIErr = game.ErrUnsupported
+	if err := r.AddAI(); err != manage.ErrNotPortable {
+		t.Fatalf("unsupported 应降级为 ErrNotPortable, 得到 %v", err)
+	}
+
+	// 无扩展后端 (Unimplemented): 同样降级
+	r2 := newTestRoom(t, nil)
+	if err := r2.AddAI(); err != manage.ErrNotPortable {
+		t.Fatalf("无后端应降级为 ErrNotPortable, 得到 %v", err)
+	}
+}
+
+// TestRoomExtSyncAllPlayer SyncAllPlayer 转发; 降级为空操作
+func TestRoomExtSyncAllPlayer(t *testing.T) {
+	rc := &fakeRoomControl{}
+	r := newTestRoom(t, rc)
+
+	if err := r.SyncAllPlayer(); err != nil {
+		t.Fatalf("SyncAllPlayer: %v", err)
+	}
+	if rc.syncCnt != 1 {
+		t.Fatalf("SyncAllPlayer 应转发到内核, cnt = %d", rc.syncCnt)
+	}
+
+	rc.syncErr = game.ErrUnsupported
+	if err := r.SyncAllPlayer(); err != nil {
+		t.Fatalf("unsupported 应降级为空操作, 得到 %v", err)
+	}
+
+	r2 := newTestRoom(t, nil)
+	if err := r2.SyncAllPlayer(); err != nil {
+		t.Fatalf("无后端应降级为空操作, 得到 %v", err)
+	}
+}
+
+// TestRoomExtRemovePlayer RemovePlayer: 引擎移除成功后清房间列表
+//
+// 位置语义与上游一致: 0 基 (getPlayer(index)), SetPosition 是 1 基入口.
+func TestRoomExtRemovePlayer(t *testing.T) {
+	rc := &fakeRoomControl{}
+	r := newTestRoom(t, rc)
+
+	data := player.NewData()
+	data.Apply(func(d *player.Data) {
+		d.Name = "ai1"
+		d.ConnectHexID = "aihex1"
+	})
+	p := r.PlayerManage.AddAbstractPlayer(nil, data, nil)
+	p.SetPosition(4) // Index() == 3
+
+	if err := r.RemovePlayer(3); err != nil {
+		t.Fatalf("RemovePlayer: %v", err)
+	}
+	if len(rc.removed) != 1 || rc.removed[0] != 3 {
+		t.Fatalf("应按位置转发到内核, removed = %v", rc.removed)
+	}
+	if r.PlayerManage.GetPlayer(3) != nil {
+		t.Fatal("引擎移除成功后应清掉房间列表里的玩家")
+	}
+
+	// 引擎侧失败时不动房间列表
+	rc.removeErr = errors.New("boom")
+	data2 := player.NewData()
+	data2.Apply(func(d *player.Data) {
+		d.Name = "ai2"
+		d.ConnectHexID = "aihex2"
+	})
+	p2 := r.PlayerManage.AddAbstractPlayer(nil, data2, nil)
+	p2.SetPosition(5) // Index() == 4
+	if err := r.RemovePlayer(4); err == nil {
+		t.Fatal("引擎移除失败应报错")
+	}
+	if r.PlayerManage.GetPlayer(4) == nil {
+		t.Fatal("引擎移除失败时不应动房间列表")
+	}
+
+	// 降级路径
+	rc.removeErr = game.ErrUnsupported
+	if err := r.RemovePlayer(4); err != manage.ErrNotPortable {
+		t.Fatalf("unsupported 应降级为 ErrNotPortable, 得到 %v", err)
+	}
+}
+
+// TestRoomExtGameResult GameResult 转发; 降级为"无数据"
+func TestRoomExtGameResult(t *testing.T) {
+	want := &event.GameOverData{GameTime: 42, WinPlayerList: []string{"a"}}
+	rc := &fakeRoomControl{result: want, resultOK: true}
+	r := newTestRoom(t, rc)
+
+	data, ok, err := r.GameResult()
+	if err != nil || !ok || data != want {
+		t.Fatalf("GameResult = %v/%v/%v", data, ok, err)
+	}
+
+	rc.resultErr = game.ErrUnsupported
+	if data, ok, err := r.GameResult(); err != nil || ok || data != nil {
+		t.Fatalf("unsupported 应降级为无数据, 得到 %v/%v/%v", data, ok, err)
+	}
+
+	r2 := newTestRoom(t, nil)
+	if data, ok, err := r2.GameResult(); err != nil || ok || data != nil {
+		t.Fatalf("无后端应降级为无数据, 得到 %v/%v/%v", data, ok, err)
+	}
+}
+
+// TestGrFiresGameOverWithData cleanData 把暂存的结算数据随事件发出并清空
+func TestGrFiresGameOverWithData(t *testing.T) {
+	r := newTestRoom(t, &fakeSim{})
+	want := &event.GameOverData{GameTime: 42}
+
+	var got *event.GameOverData
+	event.Register(r.EventManage, func(ev *event.ServerGameOverEvent) { got = ev.GameOverData })
+
+	r.SetGameOverData(want)
+	r.Gr()
+
+	if got != want {
+		t.Fatalf("ServerGameOverEvent 应携带结算数据, 得到 %v", got)
+	}
+	// 上游 fire 之后 gameOverData = null: 再次 gr 不应带旧数据
+	r.mu.Lock()
+	r.forcedReturn = false
+	r.mu.Unlock()
+	got = nil
+	r.Gr()
+	if got != nil {
+		t.Fatalf("结算数据只应发出一次, 得到 %v", got)
 	}
 }

@@ -334,7 +334,10 @@ func registerServerPlayerCustomEx(h *cmd.Handler, d *Deps) {
 		if p := d.Session.PlayerManage.GetPlayer(site); p != nil {
 			p.SetCredits(p.Credits() + atoiOr(arg[1], 0))
 		}
-		// 上游: gameModule.gameLinkFunction.allPlayerSync() —— 引擎全量同步 (D-9)
+		// 上游: gameModule.gameLinkFunction.allPlayerSync() —— 引擎全量同步.
+		// 有意修正（作者已批准，2026-11-04）: 经 v2-ext room.sync 完成
+		// (DECISIONS D-9); 无 helper 时降级为空操作.
+		d.Session.Call.SyncAllPlayer()
 	})
 
 	h.RegisterWith("textbuild", "<UnitName> <Text> [index(NeutralByDefault)]", "serverCommands.textbuild", func(_ []string, _ any) {

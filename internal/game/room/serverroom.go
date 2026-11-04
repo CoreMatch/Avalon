@@ -1,6 +1,7 @@
 package room
 
 import (
+	"errors"
 	"sync"
 
 	"rwhps/internal/core/thread"
@@ -55,6 +56,12 @@ type ServerRoom struct {
 	mu sync.Mutex
 	// forcedReturn 对应 forcedReturn: gr() 的重入守卫
 	forcedReturn bool
+	// gameOverData 对应 gameOverData: 引擎结算数据.
+	//
+	// 有意修正（作者已批准，2026-11-04）: 上游由 CallManage 的检查线程经
+	// gameHessData.getGameOverData() 写入; Go 版经 helper 协议 v2-ext 的
+	// game.result 操作获取 (DECISIONS D-9), cleanData 随 ServerGameOverEvent 发出.
+	gameOverData *event.GameOverData
 }
 
 // NewServerRoom 对应 ServerRoom(gameModule)
@@ -89,6 +96,96 @@ func (r *ServerRoom) GetEndTime() int64 { return r.GameSession.GetEndTime() }
 
 // GetFlagData 对应 flagData 读
 func (r *ServerRoom) GetFlagData() *temp.ServerCacheFlag { return r.FlagData }
+
+// --- RoomHooks v2-ext 扩展组 (DECISIONS D-9) ---
+//
+// 有意修正（作者已批准，2026-11-04）: 上游这些能力直接调用进程内的引擎对象,
+// Go 版引擎在 helper 内, 统一经 game.RoomControl (helper 协议 v2-ext) 转发.
+// 后端未实现 RoomControl (如 Unimplemented) 或 helper 只支持 v2
+// (game.ErrUnsupported) 时降级: 行为与既有"无协议通道"时一致 ——
+// 返回 ErrNotPortable 或空操作 + 日志, 不 panic 不断连.
+
+// roomControl 取扩展操作接缝; 后端不支持时返回 nil
+func (r *ServerRoom) roomControl() game.RoomControl {
+	rc, _ := r.GameSession.Simulation.(game.RoomControl)
+	return rc
+}
+
+// AddAI 对应 gameScriptMultiPlayer.addAi(): 让引擎生成一个 AI
+func (r *ServerRoom) AddAI() error {
+	rc := r.roomControl()
+	if rc == nil {
+		return manage.ErrNotPortable
+	}
+	if err := rc.AddAI(); err != nil {
+		if errors.Is(err, game.ErrUnsupported) {
+			log.Warnf("[Room]", "helper unsupported room.addai (v2-ext), degraded to no-op")
+			return manage.ErrNotPortable
+		}
+		return err
+	}
+	return nil
+}
+
+// SyncAllPlayer 对应 gameLinkFunction.allPlayerSync(): 引擎全量同步
+func (r *ServerRoom) SyncAllPlayer() error {
+	rc := r.roomControl()
+	if rc == nil {
+		return nil // 与既有空操作降级一致
+	}
+	if err := rc.SyncAllPlayer(); err != nil {
+		if errors.Is(err, game.ErrUnsupported) {
+			log.Warnf("[Room]", "helper unsupported room.sync (v2-ext), degraded to no-op")
+			return nil
+		}
+		return err
+	}
+	return nil
+}
+
+// RemovePlayer 对应引擎侧玩家移除 (AiPlayer.kickPlayer 里的
+// playerPrivateData.removePlayer()): 引擎移除成功后同步清理房间列表
+func (r *ServerRoom) RemovePlayer(position int) error {
+	rc := r.roomControl()
+	if rc == nil {
+		return manage.ErrNotPortable
+	}
+	if err := rc.RemovePlayer(position); err != nil {
+		if errors.Is(err, game.ErrUnsupported) {
+			log.Warnf("[Room]", "helper unsupported room.removeplayer (v2-ext), degraded to no-op")
+			return manage.ErrNotPortable
+		}
+		return err
+	}
+	// 上游移除动作同时作用于引擎与房间列表; 引擎侧成功后清 Go 侧
+	if p := r.PlayerManage.GetPlayer(position); p != nil {
+		r.PlayerManage.RemovePlayer(p)
+	}
+	return nil
+}
+
+// GameResult 对应 gameHessData.getGameOverData(): 取结算数据
+//
+// 后端不支持时返回 (nil, false, nil), 与上游返回 null 的语义一致.
+func (r *ServerRoom) GameResult() (*event.GameOverData, bool, error) {
+	rc := r.roomControl()
+	if rc == nil {
+		return nil, false, nil
+	}
+	data, ok, err := rc.GameResult()
+	if errors.Is(err, game.ErrUnsupported) {
+		log.Warnf("[Room]", "helper unsupported game.result (v2-ext), degraded to no-op")
+		return nil, false, nil
+	}
+	return data, ok, err
+}
+
+// SetGameOverData 对应 room.gameOverData 写
+func (r *ServerRoom) SetGameOverData(data *event.GameOverData) {
+	r.mu.Lock()
+	r.gameOverData = data
+	r.mu.Unlock()
+}
 
 // --- 状态机 ---
 
@@ -197,11 +294,13 @@ func (r *ServerRoom) cleanData() {
 
 	r.mu.Lock()
 	r.forcedReturn = false
+	// 上游 gameOverData 由引擎结算产出 (Go 版经 game.result, DECISIONS D-9);
+	// 随事件发出后置空, 与上游 `fire(...); gameOverData = null` 一致.
+	gameOverData := r.gameOverData
+	r.gameOverData = nil
 	r.mu.Unlock()
 
-	// 上游 gameOverData 由引擎结算产出; Go 版引擎在 helper 内, 结算数据尚无
-	// 协议通道 (DECISIONS D-9), 与上游字段为 null 的声明一致, 以 nil 触发.
-	r.EventManage.Fire(&event.ServerGameOverEvent{GameOverData: nil})
+	r.EventManage.Fire(&event.ServerGameOverEvent{GameOverData: gameOverData})
 
 	if manage.Maps.MapData != nil {
 		manage.Maps.MapData.Clean()

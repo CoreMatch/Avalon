@@ -1,11 +1,13 @@
 package manage
 
 import (
+	"strings"
 	"time"
 
 	"rwhps/internal/core/thread"
 	"rwhps/internal/data/global"
 	"rwhps/internal/data/temp"
+	"rwhps/internal/game/event"
 	"rwhps/internal/game/player"
 	"rwhps/internal/util/log"
 	"rwhps/internal/util/timeutil"
@@ -17,11 +19,29 @@ import (
 // 由房间在装配时把自己传进来. 对应上游 CallManage 读到的房间成员:
 // roomID / endTime / flagData / gr(). 方法名带 Get 前缀是为了避免与
 // 实现方 (嵌入了 GameSession 的 ServerRoom) 的推广字段重名.
+//
+// v2-ext 扩展组 (AddAI/SyncAllPlayer/RemovePlayer/GameResult/SetGameOverData)
+// 为有意修正（作者已批准，2026-11-04）: 上游这些能力直接调用进程内引擎,
+// Go 版经房间转发到 helper 协议扩展操作; 无后端时房间侧降级,
+// 行为与既有降级路径一致 (DECISIONS D-9).
 type RoomHooks interface {
 	GetRoomID() string
 	GetEndTime() int64
 	GetFlagData() *temp.ServerCacheFlag
 	Gr()
+
+	// AddAI 让引擎生成一个 AI (对应 gameScriptMultiPlayer.addAi)
+	AddAI() error
+	// SyncAllPlayer 引擎全量同步 (对应 gameLinkFunction.allPlayerSync)
+	SyncAllPlayer() error
+	// RemovePlayer 引擎侧按位置移除玩家 (AI 移除)
+	RemovePlayer(position int) error
+	// GameResult 取结算数据 (对应 gameHessData.getGameOverData);
+	// ok=false 对应上游返回 null
+	GameResult() (data *event.GameOverData, ok bool, err error)
+	// SetGameOverData 暂存结算数据, 供 gr() 的 cleanData 随
+	// ServerGameOverEvent 发出 (对应上游 room.gameOverData 字段)
+	SetGameOverData(data *event.GameOverData)
 }
 
 // CallManage 对应 CallManage: 房间的广播与自动检查
@@ -74,8 +94,14 @@ func (c *CallManage) SendSystemTeamMessageLocal(team int, key string, obj ...any
 // SyncAllPlayer 对应 syncAllPlayer
 //
 // 上游: gameModule.gameLinkFunction.allPlayerSync() —— 引擎级全量同步.
-// Go 版需要 helper 协议操作支持, 当前未定义 (DECISIONS D-9), 先留空操作.
-func (c *CallManage) SyncAllPlayer() {}
+// 有意修正（作者已批准，2026-11-04）: Go 版引擎在 helper 内, 经房间转发到
+// helper 协议 v2-ext 的 room.sync 操作 (DECISIONS D-9); 无后端或不支持时
+// 房间侧降级为空操作, 这里只记日志.
+func (c *CallManage) SyncAllPlayer() {
+	if err := c.room.SyncAllPlayer(); err != nil {
+		log.Warnf("[Call]", "sync all player: {0}", err)
+	}
+}
 
 // KillAllPlayer 对应 killAllPlayer(msg)
 //
@@ -155,8 +181,25 @@ func (c *CallManage) StartCheckThread() {
 
 		if c.room.GetFlagData().SendGameStatusFlag() {
 			// 上游: gameOverData = gameHessData.getGameOverData() ?: return
-			// Go 侧拿不到引擎结算数据, 等价于上游拿到 nil 后直接返回.
-			return
+			// 有意修正（作者已批准，2026-11-04）: Go 版结算数据经 helper 协议
+			// v2-ext 的 game.result 操作获取 (DECISIONS D-9). 无数据 (未分胜负 /
+			// 无后端 / helper 不支持) 等价于上游拿到 null 后直接返回.
+			data, ok, err := c.room.GameResult()
+			if err != nil {
+				log.Warnf("[Call]", "game result: {0}", err)
+				return
+			}
+			if !ok {
+				return
+			}
+
+			c.room.SetGameOverData(data)
+			c.room.GetFlagData().SetSendGameStatusFlag(false)
+
+			// 上游: winPlayerList.toArray(String).contentToString() -> "[a, b]"
+			last := "[" + strings.Join(data.WinPlayerList, ", ") + "]"
+			log.Clog("["+c.room.GetRoomID()+"] Last Win Player: {0}", last)
+			c.SendSystemMessageLocal("survive.player", last)
 		}
 	})
 }
