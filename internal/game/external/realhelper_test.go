@@ -16,8 +16,13 @@ package external
 // 单测耗时约 1-2 分钟 (JVM 冷启动 + 引擎载入 + 真实对局推进).
 
 import (
+	"bufio"
+	"bytes"
+	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -220,5 +225,132 @@ func TestRealHelperV2Ext(t *testing.T) {
 			t.Fatal("60 秒内未拿到引擎结算数据 (移除 AI 后应判定剩余方获胜)")
 		}
 		time.Sleep(2 * time.Second)
+	}
+}
+
+// TestRealHelperRobustness 真实 helper 的协议异常健壮性 (阶段三-3, 2026-11-05):
+// 畸形帧/未知 op/缺字段不应使 JVM 崩溃或主循环死亡; 异常后流程仍可推进;
+// 突然断开 stdin (模拟 Go 侧断连) helper 应自行干净退出, 不挂死.
+//
+// 不走 Backend (其写入口是私有的), 直接拉起 helper 进程注入原始行.
+func TestRealHelperRobustness(t *testing.T) {
+	java, jar, dataDir := realHelperPrereqs(t)
+
+	cmd := exec.Command(java,
+		"-Drwhps.helper.dataPath="+dataDir,
+		"-Xmx512m",
+		"-jar", jar)
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		t.Fatalf("StdinPipe: %v", err)
+	}
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		t.Fatalf("StdoutPipe: %v", err)
+	}
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr // exec 内部协程持续排空, 不会阻塞 helper
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("拉起 helper: %v", err)
+	}
+	var waitErr error
+	procDone := make(chan struct{})
+	go func() { waitErr = cmd.Wait(); close(procDone) }()
+	defer func() {
+		_ = stdin.Close()
+		select {
+		case <-procDone:
+		case <-time.After(30 * time.Second):
+			_ = cmd.Process.Kill()
+			t.Error("helper 在 stdin 关闭后 30 秒内未退出 (疑似挂死/线程泄漏)")
+		}
+	}()
+
+	reader := bufio.NewReader(stdout)
+
+	// 单一读取协程: 所有响应行进同一 channel, 避免多 goroutine 竞读
+	lines := make(chan string, 64)
+	go func() {
+		for {
+			line, err := reader.ReadString('\n')
+			if line != "" {
+				lines <- line
+			}
+			if err != nil {
+				close(lines)
+				return
+			}
+		}
+	}()
+
+	// 读到包含 wantID 的响应行; 超时返回 ""
+	readResp := func(wantID string, timeout time.Duration) string {
+		deadline := time.After(timeout)
+		for {
+			select {
+			case line, ok := <-lines:
+				if !ok {
+					return ""
+				}
+				if strings.Contains(line, wantID) && strings.Contains(line, `"type":"response"`) {
+					return line
+				}
+			case <-deadline:
+				return ""
+			}
+		}
+	}
+
+	send := func(line string) {
+		if _, err := io.WriteString(stdin, line+"\n"); err != nil {
+			t.Fatalf("写入 %q: %v", line, err)
+		}
+	}
+
+	// 1. 正常握手 (确认进程可用)
+	send(`{"v":2,"id":1,"op":"hello","gen":1}`)
+	if resp := readResp(`"id":1`, 90*time.Second); !strings.Contains(resp, `"ok":true`) {
+		t.Fatalf("初始 hello 失败: %q stderr=%s", resp, stderr.String())
+	}
+
+	// 2. 畸形帧注入: 非 JSON 垃圾 / 截断 JSON / 空行 —— helper 应全部吞掉不死
+	send(`this is not json at all`)
+	send(`{"v":2,"id":2,"op":`)
+	send(``)
+
+	// 3. 未知 op -> 应得到 ok:false 的 unsupported 应答, 进程继续存活
+	send(`{"v":2,"id":3,"op":"no.such.op","gen":1}`)
+	if resp := readResp(`"id":3`, 30*time.Second); !strings.Contains(resp, `"ok":false`) {
+		t.Fatalf("未知 op 应返回 ok:false: %q", resp)
+	}
+
+	// 4. 缺字段帧 (room.create 无 room) -> 缺省空串, ok:true
+	send(`{"v":2,"id":4,"op":"room.create","gen":1}`)
+	if resp := readResp(`"id":4`, 30*time.Second); !strings.Contains(resp, `"ok":true`) {
+		t.Fatalf("缺字段 room.create 应 ok:true: %q", resp)
+	}
+
+	// 5. 异常注入后流程仍可推进: hello + room.status (等引擎就绪)
+	send(`{"v":2,"id":5,"op":"hello","gen":1}`)
+	if resp := readResp(`"id":5`, 30*time.Second); !strings.Contains(resp, `"ok":true`) {
+		t.Fatalf("异常后 hello 失败 (主循环已死?): %q stderr=%s", resp, stderr.String())
+	}
+	send(`{"v":2,"id":6,"op":"room.status","gen":1}`)
+	if resp := readResp(`"id":6`, 150*time.Second); !strings.Contains(resp, `"ok":true`) {
+		t.Fatalf("异常后 room.status 失败: %q stderr=%s", resp, stderr.String())
+	}
+
+	// 6. 突然断连: 关闭 stdin, helper 应在时限内自行退出
+	if err := stdin.Close(); err != nil {
+		t.Fatalf("关闭 stdin: %v", err)
+	}
+	select {
+	case <-procDone:
+		if waitErr != nil {
+			t.Errorf("stdin 关闭后 helper 退出码异常: %v stderr=%s", waitErr, stderr.String())
+		}
+	case <-time.After(30 * time.Second):
+		_ = cmd.Process.Kill()
+		t.Fatal("stdin 关闭后 helper 30 秒未退出 (主循环未感知 EOF, 疑似挂死)")
 	}
 }
