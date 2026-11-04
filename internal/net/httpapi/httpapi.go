@@ -26,8 +26,10 @@ const (
 //
 // 上游注册点: Main.kt 插件阶段的 runOnEnable. Go 版由启动链在插件接线块调用.
 //
-// 未注册 WebSocket 路由 (/WebSocket/HttpApi/api/Console): Go 的 StartHttp 对
-// "GET /WebSocket" 只回 404 (升级握手未实现), 注册了也不可达, 见包注释与 DECISIONS.
+// 有意修正（作者已批准，2026-11-04）: 控制台 WebSocket 端点
+// (/WebSocket/HttpApi/api/Console) 随 internal/net/http 补齐升级握手后移回
+// 正式移植范围 (DECISIONS D-14); 控制台输出转发经 log.ConsoleHook 接入,
+// 对应上游 registerGlobalEvents 的 ServerConsolePrintEvent 监听.
 func Register(webData *nethttp.WebData) {
 	if webData == nil {
 		return
@@ -55,6 +57,10 @@ func Register(webData *nethttp.WebData) {
 			log.Errorf("[HttpApi]", "{0}", err)
 		}
 	}
+
+	// 控制台 WebSocket (D-14)
+	auth.registerConsoleWebSocket(webData)
+	installConsoleHook()
 }
 
 // RegisterRoomEvents 对应 RwHpsWebApiMain.registerEvents -> HttpApiEvent:

@@ -218,6 +218,22 @@ func (r *ServerRoom) registerDefaultEvents() {
 		r.Call.SendSystemMessageLocal("ban.yes", p.Name())
 	})
 
+	// --- registerPlayerUnBanEvent ---
+	//
+	// 有意修正（作者已批准，2026-11-04）: 上游没有 PlayerUnBanEvent 的默认监听,
+	// 且 unban 命令误发 PlayerBanEvent (ServerCommands.kt:131-135, DECISIONS D-10).
+	// 按作者决定补齐解封语义: 清除该玩家的封禁记录并播报.
+	event.Register(em, func(ev *event.PlayerUnBanEvent) {
+		p := ev.Player
+		if global.Core != nil {
+			global.Core.Admin.UnBanUUID(p.ConnectHexID())
+			if con := p.Con(); con != nil {
+				global.Core.Admin.UnBanIP(con.IP())
+			}
+		}
+		r.Call.SendSystemMessageLocal("unban.yes", p.Name())
+	})
+
 	// --- registerPlayerIpBanEvent ---
 	event.Register(em, func(ev *event.PlayerIpBanEvent) {
 		p := ev.Player

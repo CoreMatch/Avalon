@@ -147,14 +147,15 @@ func registerServerPlayerCommand(h *cmd.Handler, d *Deps) {
 		d.Session.Call.SendSystemMessage(tr("map.to", "Admin", maps.MapName))
 	})
 
-	// 上游 unban 与 ban 一样 fire PlayerBanEvent (上游原样如此, 疑似笔误); 照搬.
-	// 若后续要真正解禁, 应改为 PlayerUnBanEvent 并补默认监听 (见 DECISIONS).
+	// 有意修正（作者已批准，2026-11-04）: 上游 unban 与 ban 一样 fire PlayerBanEvent
+	// (ServerCommands.kt:131-135, 上游笔误). 按作者决定改为真正的解封语义:
+	// 触发 PlayerUnBanEvent, 由房间默认监听清除封禁记录 (DECISIONS D-10).
 	h.RegisterWith("unban", "<PlayerPositionNoAI>", "serverCommands.ban", func(arg []string, _ any) {
 		if d.Session == nil {
 			return
 		}
 		if p := playerPosition(d.Session, arg[0], d.print); p != nil {
-			d.Session.EventManage.Fire(&event.PlayerBanEvent{Player: p})
+			d.Session.EventManage.Fire(&event.PlayerUnBanEvent{Player: p})
 		}
 	})
 
@@ -333,7 +334,10 @@ func registerServerPlayerCustomEx(h *cmd.Handler, d *Deps) {
 		if p := d.Session.PlayerManage.GetPlayer(site); p != nil {
 			p.SetCredits(p.Credits() + atoiOr(arg[1], 0))
 		}
-		// 上游: gameModule.gameLinkFunction.allPlayerSync() —— 引擎全量同步 (D-9)
+		// 上游: gameModule.gameLinkFunction.allPlayerSync() —— 引擎全量同步.
+		// 有意修正（作者已批准，2026-11-04）: 经 v2-ext room.sync 完成
+		// (DECISIONS D-9); 无 helper 时降级为空操作.
+		d.Session.Call.SyncAllPlayer()
 	})
 
 	h.RegisterWith("textbuild", "<UnitName> <Text> [index(NeutralByDefault)]", "serverCommands.textbuild", func(_ []string, _ any) {

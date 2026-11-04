@@ -205,10 +205,33 @@ func TestCleanPlayerAllData(t *testing.T) {
 	}
 }
 
-// TestAddAINotPortable addAI 需要协议扩展, 当前明确报错而不是假装成功
+// TestAddAINotPortable 未装配房间时 addAI 走既有降级路径 (DECISIONS D-9)
 func TestAddAINotPortable(t *testing.T) {
 	m := NewPlayerManage()
 	if err := m.AddAI(); err != ErrNotPortable {
 		t.Fatalf("AddAI err = %v, 期望 ErrNotPortable", err)
+	}
+}
+
+// TestAddAIDelegatesToRoom 装配房间后 addAI 经 RoomHooks 转发 (v2-ext).
+//
+// 有意修正（作者已批准，2026-11-04）: 上游直接调用进程内引擎, Go 版经
+// helper 协议扩展操作完成 (DECISIONS D-9).
+func TestAddAIDelegatesToRoom(t *testing.T) {
+	hooks := &fakeRoomHooks{}
+	pm := NewPlayerManage()
+	NewCallManage(pm, hooks)
+
+	if err := pm.AddAI(); err != nil {
+		t.Fatalf("AddAI: %v", err)
+	}
+	if hooks.addAICalls != 1 {
+		t.Fatalf("AddAI 应经房间转发, calls = %d", hooks.addAICalls)
+	}
+
+	hooks.addAICalls = 0
+	hooks.addAIErr = ErrNotPortable
+	if err := pm.AddAI(); err != ErrNotPortable {
+		t.Fatalf("房间降级时 AddAI err = %v, 期望 ErrNotPortable", err)
 	}
 }

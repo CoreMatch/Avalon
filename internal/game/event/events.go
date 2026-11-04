@@ -42,8 +42,9 @@ type PlayerBanEvent struct {
 
 // PlayerUnBanEvent 对应 PlayerUnBanEvent: 玩家被服务区解禁事件
 //
-// 上游核心代码没有触发点 (unban 命令误发 PlayerBanEvent, 见命令移植处注释),
-// 事件类本身保留, 供插件与后续修正使用.
+// 有意修正（作者已批准，2026-11-04）: 上游核心代码没有触发点也没有默认监听
+// (unban 命令误发 PlayerBanEvent, ServerCommands.kt:131-135). 按作者决定,
+// Go 版 unban 命令触发本事件, 房间默认监听清除封禁记录 (DECISIONS D-10).
 type PlayerUnBanEvent struct {
 	Player *player.Player
 }

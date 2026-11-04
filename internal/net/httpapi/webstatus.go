@@ -7,12 +7,14 @@
 //
 //	已移植:  WebStatus / Authentication (AuthCookie + get/post 鉴权分发) /
 //	         MessageForwardingCenter 的只读 GET 路由与 run/ServerCommand /
-//	         GetData 的 GameOver 缓存 + SystemInfo + GameInfo (Go 侧已有字段)
-//	未移植:  ConsoleWebSocket (Go 的 WS 升级握手未实现, StartHttp 对
-//	         "GET /WebSocket" 回 404) / run/ClientCommand (依赖上游 Cherry
-//	         假玩家) / info/ModsInfo (Go 无 Mod 系统) /
+//	         GetData 的 GameOver 缓存 + SystemInfo + GameInfo (Go 侧已有字段) /
+//	         ConsoleWebSocket (有意修正, 作者已批准, 2026-11-04: 升级握手补齐后
+//	         移回正式移植范围, 见 consolewebsocket.go) /
+//	         ServerConsolePrintEvent 控制台转发 (经 log.ConsoleHook)
+//	未移植:  run/ClientCommand (依赖上游 Cherry 假玩家, Go 无对应物, 保持
+//	         not-portable) / info/ModsInfo (Go 无 Mod 系统) /
 //	         GameInfo 的 income/noNukes/credits/sharedControl (引擎侧数据,
-//	         见 DECISIONS D-9) / ServerConsolePrintEvent 控制台转发
+//	         经 v2-ext 补齐前不包含, 见 DECISIONS D-9)
 package httpapi
 
 import (

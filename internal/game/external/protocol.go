@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+
+	"rwhps/internal/game"
 )
 
 // ProtocolVersion 线协议版本
@@ -80,6 +82,34 @@ const (
 	OpConnPacket = "conn.packet"
 )
 
+// 扩展操作名 (Go -> helper), v2-ext.
+//
+// 有意修正（作者已批准，2026-11-04）: 上游这些能力直接调用进程内的引擎对象,
+// Go 版引擎在 helper 内, 经本组扩展操作完成 (DECISIONS D-9).
+//
+// 向后兼容: 信封与线格式和 v2 完全一致 (ProtocolVersion 不变), 只是新增操作名
+// 与应答字段. 只实现 v2 的 helper 收到这些操作时应回
+// {"ok":false,"error":"unsupported"}, Go 侧降级为空操作并记日志, 不 panic 不断连.
+const (
+	// OpRoomAddAI 让引擎生成一个 AI (对应 gameScriptMultiPlayer.addAi)
+	OpRoomAddAI = "room.addai"
+	// OpRoomSync 引擎全量同步 (对应 gameLinkFunction.allPlayerSync)
+	OpRoomSync = "room.sync"
+	// OpRoomRemovePlayer 按位置移除引擎内的玩家 (AI 移除,
+	// 对应 AiPlayer.kickPlayer 里的 playerPrivateData.removePlayer)
+	OpRoomRemovePlayer = "room.removeplayer"
+	// OpGameResult 查询结算数据 (对应 gameHessData.getGameOverData);
+	// 应答的 result 字段缺失表示尚未分出胜负 (上游返回 null)
+	OpGameResult = "game.result"
+)
+
+// UnsupportedError 是 v2-only helper 对扩展操作的标准拒绝文案.
+//
+// 协议约定 (见 docs/HELPER-PROTOCOL.md 扩展章节): helper 不支持某个扩展操作时,
+// 应答 {"ok":false,"error":"unsupported"}; Go 侧在 errorf 里把它归一成
+// game.ErrUnsupported, 调用方据此降级.
+const UnsupportedError = "unsupported"
+
 // 事件名 (helper -> Go, 出现在 MsgEvent 的 event 字段)
 const (
 	// EventPlayerJoin 玩家进入房间
@@ -139,6 +169,12 @@ type Request struct {
 	PType int `json:"ptype,omitempty"`
 	// Data 游戏包负载, 标准 Base64 (OpConnPacket 用)
 	Data string `json:"data,omitempty"`
+
+	// Position 玩家在引擎内的位置 (OpRoomRemovePlayer 用, v2-ext).
+	//
+	// 用指针区分"未提供"与"位置 0": 位置从 0 开始, 0 是合法值,
+	// 普通 int + omitempty 会把 0 吞掉.
+	Position *int `json:"position,omitempty"`
 }
 
 // Response 是 helper 对一次请求的应答 (一行 JSON)
@@ -165,6 +201,34 @@ type Response struct {
 	Players int `json:"players,omitempty"`
 	// Rooms 仅 hello 有效: helper 当前持有的房间数
 	Rooms int `json:"rooms,omitempty"`
+
+	// Result 仅 game.result 有效 (v2-ext): 结算数据.
+	// 缺失表示尚未分出胜负 (对应上游 getGameOverData 返回 null).
+	Result *GameResult `json:"result,omitempty"`
+}
+
+// GameResult 是 game.result 应答的结算数据负载 (v2-ext).
+//
+// 有意修正（作者已批准，2026-11-04）: 字段与上游
+// gameHessData.getGameOverData() 返回的 GameOverData 一一对应
+// (DECISIONS D-9); playerData 每个玩家的键值表固定六项, 与上游
+// PrivateClassLinkPlayer 取的六个统计一致:
+//
+//	unitsKilled / buildingsKilled / experimentalsKilled
+//	unitsLost / buildingsLost / experimentalsLost
+type GameResult struct {
+	// GameTime 对局时长 (秒), 对应 concurrentSecond - startTime
+	GameTime int `json:"gameTime"`
+	// AllPlayerList 全部玩家名, 对应 allPlayerList
+	AllPlayerList []string `json:"allPlayerList"`
+	// WinPlayerList 获胜方玩家名, 对应 winPlayerList
+	WinPlayerList []string `json:"winPlayerList"`
+	// MapName 地图名, 对应 mapName
+	MapName string `json:"mapName"`
+	// PlayerData 玩家名 -> 战绩键值表 (上列六项), 对应 playerData
+	PlayerData map[string]map[string]int `json:"playerData"`
+	// ReplayName 回放文件名, 对应 replayName
+	ReplayName string `json:"replayName"`
 }
 
 // PacketMessage 是 helper 主动发来的游戏包 (一行 JSON)
@@ -317,6 +381,21 @@ func validateRequest(req *Request) error {
 	case OpRoomCreate, OpRoomDestroy, OpRoomStart, OpRoomStop, OpRoomStatus:
 		if req.Room == "" {
 			return fmt.Errorf("%w: %s without room", ErrProtocol, req.Op)
+		}
+		return nil
+	case OpRoomAddAI, OpRoomSync, OpGameResult:
+		// v2-ext 扩展操作: 与 room.* 同样必须带 room
+		if req.Room == "" {
+			return fmt.Errorf("%w: %s without room", ErrProtocol, req.Op)
+		}
+		return nil
+	case OpRoomRemovePlayer:
+		// v2-ext: room + position 缺一不可; 位置从 0 开始, 0 合法
+		if req.Room == "" {
+			return fmt.Errorf("%w: %s without room", ErrProtocol, req.Op)
+		}
+		if req.Position == nil || *req.Position < 0 {
+			return fmt.Errorf("%w: %s without valid position", ErrProtocol, req.Op)
 		}
 		return nil
 	case OpConnOpen, OpConnClose:
@@ -507,12 +586,19 @@ func decodeBase64(s string) ([]byte, error) {
 // errorf 把 helper 返回的失败原因包装成 error
 //
 // helper 的 Error 字段原样保留, 不做任何加工 —— 它比 Go 侧更能说清发生了什么.
+//
+// 唯一例外是 v2-ext 的向后兼容约定: helper 对不支持的扩展操作回
+// "unsupported", 归一成 game.ErrUnsupported, 让调用方与普通失败区分开并降级
+// (有意修正, 作者已批准, 2026-11-04; DECISIONS D-9).
 func errorf(resp *Response) error {
 	if resp == nil || resp.OK {
 		return nil
 	}
 	if resp.Error == "" {
 		return errors.New("external: helper reported failure without a reason")
+	}
+	if strings.EqualFold(resp.Error, UnsupportedError) {
+		return game.ErrUnsupported
 	}
 	return errors.New("external: helper reported failure: " + resp.Error)
 }

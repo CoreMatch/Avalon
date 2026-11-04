@@ -176,6 +176,30 @@ func TestServerBanKickMute(t *testing.T) {
 	}
 }
 
+// TestServerUnbanClearsBanRecord unban 触发 PlayerUnBanEvent 并清除封禁记录.
+//
+// 有意修正（作者已批准，2026-11-04）: 上游 unban 误发 PlayerBanEvent
+// (ServerCommands.kt:131-135), 本测试断言修正后的解封语义 (DECISIONS D-10).
+func TestServerUnbanClearsBanRecord(t *testing.T) {
+	h, _, r, ps := setupServerCommands(t, 1)
+	p := ps[0]
+
+	// 预置封禁记录 (模拟此前被 ban)
+	global.Core.Admin.BanUUID(p.ConnectHexID())
+
+	var unbanned *player.Player
+	event.Register(r.EventManage, func(ev *event.PlayerUnBanEvent) { unbanned = ev.Player })
+
+	h.HandleMessageWith("unban 1", nil)
+	if unbanned != p {
+		t.Fatal("unban 应触发 PlayerUnBanEvent 且落在目标玩家上")
+	}
+	// 默认监听应已清除封禁记录
+	if global.Core.Admin.IsUUIDBanned(p.ConnectHexID()) {
+		t.Fatal("unban 后 UUID 封禁记录应被清除")
+	}
+}
+
 // TestServerClearCommands clearbanall / clearmuteall
 func TestServerClearCommands(t *testing.T) {
 	h, _, _, ps := setupServerCommands(t, 1)

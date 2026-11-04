@@ -616,15 +616,16 @@ func (c *clientCommands) registerGameCustomCommand(h *cmd.Handler) {
 		_ = p.SendSystemMessage(p.GetInput("myid", id))
 	})
 
-	// 上游 client ban: findPlayer 找到目标后, fire 的却是发起者 player (上游原样,
-	// 疑似笔误, 实际会封禁执行命令的管理员自己). 照搬并在此标注, 待人工定夺.
+	// 有意修正（作者已批准，2026-11-04）: 上游 client ban 在 findPlayer 找到目标后,
+	// fire 的却是发起者 player (ClientCommands.kt:603-611, 上游笔误, 实际会封禁执行
+	// 命令的管理员自己). 按作者决定改为对被 ban 的目标玩家触发 (DECISIONS D-10).
 	h.RegisterWith("ban", "<Name/Position>", "serverCommands.ban", func(args []string, param any) {
 		p := asPlayer(param)
 		if !c.isAdmin(p) {
 			return
 		}
 		if conTg := c.findPlayer(p, args[0]); conTg != nil {
-			c.room.EventManage.Fire(&event.PlayerBanEvent{Player: p})
+			c.room.EventManage.Fire(&event.PlayerBanEvent{Player: conTg})
 			_ = p.SendSystemMessage("Ban : " + args[0] + " OK")
 		}
 	})

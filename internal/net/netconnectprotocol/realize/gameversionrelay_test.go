@@ -19,6 +19,7 @@ import (
 	"rwhps/internal/io/packettype"
 	"rwhps/internal/net/core"
 	netpacket "rwhps/internal/net/core/server/netpacket"
+	"rwhps/internal/util/timeutil"
 )
 
 // --- 测试基建 ---
@@ -500,6 +501,62 @@ func TestRelayRegisterUUIDDuplicateKick(t *testing.T) {
 	}
 	if !p2.IsDis {
 		t.Fatal("重复 UUID 的连接应被断开")
+	}
+}
+
+// TestRelayRegisterUUIDKickWait 对应踢出等待检查: KICK$uuid 命中且未过期时,
+// 重连被踢.
+//
+// 有意修正（作者已批准，2026-11-04）: 上游 ifNullResult 的 blockNotNull 恒返回
+// null, KICK$uuid 命中时 time 反而为 null, UUID 踢出记录被吞掉
+// (GameVersionRelay.kt relayRegisterConnection). 修正为两级取值后,
+// KICK$uuid 命中应真正触发踢出等待 (DECISIONS D-12).
+func TestRelayRegisterUUIDKickWait(t *testing.T) {
+	host, _ := makeHost(t, "alice", "aabbcc")
+	p, w := joinRoom(t, host.room, "bob", "ddeeff", "127.0.0.2")
+
+	// 模拟 kickx 留下的记录: KICK$uuid 未过期 (now+60)
+	host.room.RelayKickData.Put("KICK"+p.registerPlayerId, timeutil.ConcurrentSecond()+60)
+
+	// 重连: 再发 REGISTER_PLAYER 触发踢出检查
+	o := gameio.NewGameOutputStream()
+	o.WriteString("x")
+	p.RelayRegisterConnection(o.CreatePacket(packettype.REGISTER_PLAYER))
+
+	k := w.lastOfType(packettype.KICK)
+	if k == nil {
+		t.Fatal("KICK$uuid 命中应发 KICK 包")
+	}
+	in := gameio.NewGameInputStreamFromPacket(k, 0)
+	if msg := in.ReadString(); !strings.Contains(msg, "踢出等待") {
+		t.Fatalf("KICK 消息 = %q, 应含踢出等待", msg)
+	}
+	if !p.IsDis {
+		t.Fatal("应被断开")
+	}
+}
+
+// TestRelayRegisterKickExpiredCleansUp 对应踢出记录过期分支: 过期后放行并
+// 清理 KICK$uuid 与 KICK$ipLong24 两条记录 (上游意图).
+func TestRelayRegisterKickExpiredCleansUp(t *testing.T) {
+	host, _ := makeHost(t, "alice", "aabbcc")
+	p, _ := joinRoom(t, host.room, "bob", "ddeeff", "127.0.0.2")
+
+	host.room.RelayKickData.Put("KICK"+p.registerPlayerId, timeutil.ConcurrentSecond()-1)
+	host.room.RelayKickData.Put("KICK"+p.IPLong24(), timeutil.ConcurrentSecond()-1)
+
+	o := gameio.NewGameOutputStream()
+	o.WriteString("x")
+	p.RelayRegisterConnection(o.CreatePacket(packettype.REGISTER_PLAYER))
+
+	if p.IsDis {
+		t.Fatal("踢出记录过期不应断开")
+	}
+	if host.room.RelayKickData.ContainsKey("KICK" + p.registerPlayerId) {
+		t.Fatal("过期的 KICK$uuid 记录应被清理")
+	}
+	if host.room.RelayKickData.ContainsKey("KICK" + p.IPLong24()) {
+		t.Fatal("过期的 KICK$ip 记录应被清理")
 	}
 }
 
