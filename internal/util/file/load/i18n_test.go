@@ -15,9 +15,13 @@ func TestI18NBundleLoad(t *testing.T) {
 	}
 	bundle := NewI18NBundleFromBytes(b)
 
-	// HPS_en_US.properties 去掉注释与续行后正好 204 个 key; 数量变化说明解析器漂移了
-	if bundle.Size() != 204 {
-		t.Fatalf("bundle size = %d, want 204", bundle.Size())
+	// HPS_en_US.properties 去掉注释与续行后正好 205 个 key; 数量变化说明解析器漂移了
+	// (204 + 稳定壳收尾新增的控制台 addai 命令键 serverCommands.addai)
+	if bundle.Size() != 205 {
+		t.Fatalf("bundle size = %d, want 205", bundle.Size())
+	}
+	if !bundle.Contains("serverCommands.addai") {
+		t.Fatal("missing serverCommands.addai")
 	}
 	if !bundle.Contains("server.login") {
 		t.Fatal("missing server.login")

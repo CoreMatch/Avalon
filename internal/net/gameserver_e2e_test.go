@@ -232,6 +232,10 @@ func TestE2ERealGameToSettlement(t *testing.T) {
 	t.Logf("[E2E] 移除 AI position=%d, 等待引擎结算", lobby[0])
 
 	// --- 10. 轮询真实结算数据 ---
+	// 注意时序: 胜负判定后 getGameOverData 即返回非空, 但 ReplayName 来自
+	// room.replayFileName, 由引擎 game-over 流程中 "Recording replay to:"
+	// 重定向 (GameMainRedirections) 异步写入, 晚于胜负判定 —— 首个非空结果
+	// 可能尚未带回放名, 需继续等待 (干净克隆复跑实证, 2026-11-05).
 	deadline := time.Now().Add(60 * time.Second)
 	for {
 		result, ok, err := backend.GameResult()
@@ -242,30 +246,32 @@ func TestE2ERealGameToSettlement(t *testing.T) {
 			if len(result.WinPlayerList) == 0 {
 				t.Fatalf("结算数据缺获胜方: %+v", result)
 			}
-			if result.MapName == "" || result.ReplayName == "" {
-				t.Fatalf("结算数据缺地图/回放字段: %+v", result)
+			if result.MapName == "" {
+				t.Fatalf("结算数据缺地图字段: %+v", result)
 			}
-			// gameTime 是"对局时长秒"(concurrentSecond - startTime), 不是时间戳;
-			// 本局只跑了几秒到几十秒, 超过 1 小时即说明 startTime 未被设置.
-			if result.GameTime < 0 || result.GameTime > 3600 {
-				t.Fatalf("gameTime = %d, 不像对局时长 (startTime 未设置?)", result.GameTime)
-			}
-			for name, stats := range result.PlayerData {
-				for _, key := range []string{
-					"unitsKilled", "buildingsKilled", "experimentalsKilled",
-					"unitsLost", "buildingsLost", "experimentalsLost",
-				} {
-					if _, has := stats[key]; !has {
-						t.Fatalf("玩家 %s 战绩缺 %s: %v", name, key, stats)
+			if result.ReplayName != "" {
+				// gameTime 是"对局时长秒"(concurrentSecond - startTime), 不是时间戳;
+				// 本局只跑了几秒到几十秒, 超过 1 小时即说明 startTime 未被设置.
+				if result.GameTime < 0 || result.GameTime > 3600 {
+					t.Fatalf("gameTime = %d, 不像对局时长 (startTime 未设置?)", result.GameTime)
+				}
+				for name, stats := range result.PlayerData {
+					for _, key := range []string{
+						"unitsKilled", "buildingsKilled", "experimentalsKilled",
+						"unitsLost", "buildingsLost", "experimentalsLost",
+					} {
+						if _, has := stats[key]; !has {
+							t.Fatalf("玩家 %s 战绩缺 %s: %v", name, key, stats)
+						}
 					}
 				}
+				t.Logf("[E2E] 结算: 获胜=%v 地图=%q 回放=%q 时长=%ds",
+					result.WinPlayerList, result.MapName, result.ReplayName, result.GameTime)
+				return
 			}
-			t.Logf("[E2E] 结算: 获胜=%v 地图=%q 回放=%q 时长=%ds",
-				result.WinPlayerList, result.MapName, result.ReplayName, result.GameTime)
-			return
 		}
 		if time.Now().After(deadline) {
-			t.Fatal("60 秒内未拿到引擎结算数据")
+			t.Fatal("60 秒内未拿到含回放名的引擎结算数据")
 		}
 		time.Sleep(2 * time.Second)
 	}

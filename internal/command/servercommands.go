@@ -66,6 +66,25 @@ func registerServerPlayerCommand(h *cmd.Handler, d *Deps) {
 		}
 	})
 
+	// addai 对应客户端命令 addai 的控制台镜像 (稳定壳收尾, 2026-11-05):
+	// 无头形态下没有客户端可发 addai, 控制台需要这条驱动引擎生成 AI,
+	// 否则分发包无法独立开局. 语义与客户端版一致: 需 enableAI 配置.
+	h.Register("addai", "serverCommands.addai", func(_ []string, _ any) {
+		if d.Session == nil {
+			d.print("No room available")
+			return
+		}
+		if !global.ConfigServer.EnableAI {
+			d.print("Please enable AI in the config file (enableAI)")
+			return
+		}
+		if err := d.Session.PlayerManage.AddAI(); err != nil {
+			d.printf("Add AI failed: {0}", err)
+			return
+		}
+		d.print("Added 1 AI")
+	})
+
 	h.Register("save", "serverCommands.save", func(_ []string, _ any) {
 		if d.Session == nil {
 			return

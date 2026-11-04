@@ -171,6 +171,15 @@ func SaveCoreConfig(c CoreConfig) {
 	Save(c, CoreConfigFile())
 }
 
+// SaveServerConfig 保存 ConfigServer.json
+//
+// 与 SaveCoreConfig 配套: helper (JVM) 退出时会按 Java 侧 BeanServerConfig
+// 的字段集整文件重写 ConfigServer.json, Go 必须在 helper 退出后再写一次,
+// 保证两侧字段集的并集不丢 (见 bootstrap 的 CloseServerHook 包装).
+func SaveServerConfig(c ServerConfig) {
+	Save(c, ServerConfigFile())
+}
+
 // StringToCoreConfig 对应 BeanCoreConfig.stringToClass()
 func StringToCoreConfig() CoreConfig {
 	c := LoadOrInit(CoreConfigFile(), NewCoreConfig())

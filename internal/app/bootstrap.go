@@ -68,6 +68,20 @@ func (r *Runtime) Start() error {
 	// 后端必须在建房间之前装好: 房间在构造时就把 game.Backend 取走了.
 	// 对应原版的哪一行: 没有 —— 原版的内核在进程内, 见 loadSimulation 的说明.
 	game.SetBackend(loadSimulation())
+
+	// helper (JVM) 退出时其 Administration 保存池会按 Java 侧 Bean 字段集
+	// 整文件重写 Config.json / ConfigServer.json —— Java Bean 没有
+	// gameHelperPath/javaPath/gameHelperArgs 等 Go 独有键, 重写即丢键,
+	// 下次启动将装不上游戏内核. loadSimulation 已把 backend.Close 挂进
+	// CloseServerHook (terminate 会等待 helper 进程退出), 这里再包一层:
+	// 钩子末尾 (helper 已退出) 由 Go 最后写回配置, 保住两侧字段集并集.
+	prevHook := global.CloseServerHook
+	global.CloseServerHook = func() {
+		prevHook()
+		bean.SaveCoreConfig(global.Config)
+		bean.SaveServerConfig(global.ConfigServer)
+	}
+
 	// ServerRoom 在 GameSession 状态壳之上装配玩家/广播/命令实体链 (里程碑 2).
 	r.Session = room.NewServerRoom(game.NewGameSession(global.ConfigServer.ServerID, game.Backend))
 	// 连接层经 room.Default() 取单例房间, 对应上游
