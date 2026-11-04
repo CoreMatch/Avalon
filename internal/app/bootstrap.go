@@ -110,6 +110,11 @@ func (r *Runtime) Start() error {
 	uplist.RegisterCommands(global.ServerCommand)
 	uplist.RegisterClientCommands(r.Session.ClientHandler)
 	uplist.RegisterRoomEvents(r.Session)
+	// 有意修正（作者已批准，2026-11-04, DECISIONS D-22）: uplistEnable=false
+	// 时在启动日志明确说明自报已关闭及原因. 默认 true 时不打印, 行为与现网一致.
+	if !global.Config.UplistEnable {
+		log.Clog("UPLIST 自报已按配置关闭 (uplistEnable=false); RW 官方服务器列表上报待 Cascade 侧以公网地址接管 (DECISIONS D-22)")
+	}
 	httpapi.Register(nethttp.DefaultWebData)
 	httpapi.RegisterRoomEvents(r.Session)
 

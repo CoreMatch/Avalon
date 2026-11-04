@@ -271,8 +271,15 @@ backend_ca_pool: "/run/secrets/ca.pem"
 ```
 
 > 契约歧义处以 Go 侧实现行为为准（`internal/net/gateway`），本表即行为清单；
-> 已知差异均记录于 DECISIONS D-17~D-21。uplist 在 Cascade 模式下暂不改动
-> （待决策保留）。端到端联调测试：`go test ./internal/net/gateway/ -run
+> 已知差异均记录于 DECISIONS D-17~D-21。
+>
+> **UPLIST 自报**（DECISIONS D-22）：由 `Config.json` 的 `uplistEnable` 独立控制，
+> 默认 `true` = 保持自报，**与 `cascadeEnable` 无关**。核实（2026-11-04，Cascade
+> `f94f511`）：Cascade 向 HRPAuth 注册的是 HA presence（服务发现/转发，与玩家
+> 服务器列表无关），且没有向 RW 官方列表服（gs1/gs4 masterserver）上报的能力；
+> 在有人以 Cascade 公网地址接管这条上报链路之前，关闭自报会让玩家在游戏内
+> 服务器列表看不到本服。设 `uplistEnable=false` 会停用 `uplist` 命令、`toup`/`tonp`
+> 与 `autoUpList`，并在启动日志说明原因。端到端联调测试：`go test ./internal/net/gateway/ -run
 > TestCascadeRealProxyE2E`（需本机有 Cascade 源码，`RWHPS_CASCADE_SRC` 可指定）。
 
 ---
