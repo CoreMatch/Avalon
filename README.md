@@ -295,7 +295,8 @@ backend_ca_pool: "/run/secrets/ca.pem"                 # 校验 Go 服务端证�
 
 > 契约歧义处以 Go 侧实现行为为准（`internal/net/gateway`），本表即行为清单；
 > 已知差异均记录于 DECISIONS D-17~D-21；信任三档与"health 等 helper"为
-> D-24/D-21 修订（契约 "Transport and trust" 的 mTLS+验签叙述待升版）。
+> D-24/D-21 修订。契约已同步升版 **v1.1**（HA-Contract 收录信任三档、
+> health 判据与 `FORBIDDEN` 错误码，端点路径与字段语义不变）。
 >
 > **UPLIST 自报**（DECISIONS D-22）：由 `Config.json` 的 `uplistEnable` 独立控制，
 > 默认 `true` = 保持自报，**与 `cascadeEnable` 无关**。核实（2026-11-04，Cascade
