@@ -256,6 +256,27 @@ func (b *Backend) Generation() uint64 {
 	return b.gen
 }
 
+// Ready 报告是否有一个活着的 helper 进程 (非阻塞, 不拉起进程).
+//
+// 供 /v1/health 的 ready 判据使用 (DECISIONS D-21 修订): 配置了 helper
+// 时, 就绪必须等 helper 活着. 健康检查不得触发 JVM 启动, 所以这里
+// 只看现状, 不 EnsureRunning.
+func (b *Backend) Ready() bool {
+	b.mu.Lock()
+	s := b.session
+	closed := b.closed
+	b.mu.Unlock()
+	if closed || s == nil {
+		return false
+	}
+	select {
+	case <-s.proc.Done():
+		return false
+	default:
+		return true
+	}
+}
+
 // EnsureRunning 保证有一个活着的 helper, 没有就拉起
 //
 // 惰性: 第一次真正用到 helper 时才启动 JVM. helper 崩溃后也会自动补一个,

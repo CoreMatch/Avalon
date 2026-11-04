@@ -93,26 +93,41 @@ type CoreConfig struct {
 	// (CoreMatch/Cascade, 契约 Cascade-Backend-v1) 的后端, 方案 B 单房间合规体
 	// (DECISIONS D-17~D-21). 全部留空/关闭 = 不启用, 行为与现网完全一致.
 
-	// CascadeEnable 启用 Cascade 网关模式: 游戏端口改为 mTLS + 24 字节 CASC
-	// 前导 + 身份门控, 并另起 /v1 控制面. 关闭时保持明文 TCP 直连.
+	// CascadeEnable 启用 Cascade 网关模式: 游戏端口改为 CASC 前导 + 会话门控,
+	// 并另起 /v1 控制面. 关闭时保持明文 TCP 直连.
 	CascadeEnable bool `json:"cascadeEnable"`
 	// CascadeBackendID 后端 ID: JWT 的 aud, health/rooms 应答的 backendId
 	CascadeBackendID string `json:"cascadeBackendId"`
 	// CascadeRoomCode 本后端对 Cascade 暴露的唯一房间码; 空回落 ConfigServer.ServerID
 	CascadeRoomCode string `json:"cascadeRoomCode"`
-	// CascadeTLSCert / CascadeTLSKey 服务端证书/私钥 (PEM), 游戏口与控制面共用
+
+	// ---- 信任三档 (有意修正, 作者已批准, 2026-11-04; DECISIONS D-24) ----
+	// 作者定稿: "默认就是裸奔". 对端身份不再靠 mTLS 强校验与 JWT 验签,
+	// 而是三档可选约束:
+	//   open   (默认, 留空同义): 接受任何来源, 不校验客户端证书与 JWT 签名,
+	//          仅记录来源 IP 并告警; 游戏端口严禁暴露公网.
+	//   ip     : 只接受 trustedCascadeIPs 内的来源, 仍不校验 JWT 签名.
+	//   pinned : 在 IP 约束之上校验 TLS 客户端证书指纹 (SHA-256 证书 DER),
+	//          拒绝不匹配的连接.
+
+	// CascadeTrustMode 信任档位: "" 或 "open" / "ip" / "pinned"
+	CascadeTrustMode string `json:"cascadeTrustMode"`
+	// TrustedCascadeIPs ip/pinned 档的来源白名单 (精确 IP 或 CIDR);
+	// ip 档必填 (空名单 = 启动报错, 不静默锁死也不静默放行)
+	TrustedCascadeIPs []string `json:"trustedCascadeIPs"`
+	// CascadePinnedFingerprints pinned 档的客户端证书指纹列表
+	// (SHA-256(证书 DER) 十六进制); 列表用于轮换重叠期新旧并存.
+	// 指纹方案选型评估见 DECISIONS D-24 (选 TLS 客户端证书指纹,
+	// Ed25519 公钥指纹列后续项).
+	CascadePinnedFingerprints []string `json:"cascadePinnedFingerprints"`
+
+	// CascadeTLSCert / CascadeTLSKey 服务端证书/私钥 (PEM), 游戏口与控制面共用.
+	// 配置后传输走 TLS (open/ip 档不索取客户端证书, pinned 档索取并验指纹);
+	// 留空即明文 (裸奔). 路径按 "cwd 优先、再可执行文件目录" 回退解析.
 	CascadeTLSCert string `json:"cascadeTlsCert"`
 	CascadeTLSKey  string `json:"cascadeTlsKey"`
-	// CascadeClientCA 校验 Cascade 代理客户端证书的 CA (PEM)
-	CascadeClientCA string `json:"cascadeClientCa"`
 	// CascadeControlAddr /v1 控制面监听地址, 例如 ":5125"
 	CascadeControlAddr string `json:"cascadeControlAddr"`
-	// CascadeProxyIssuer 期望的 JWT iss
-	CascadeProxyIssuer string `json:"cascadeProxyIssuer"`
-	// CascadeProxyKeyID 期望的 JWT kid
-	CascadeProxyKeyID string `json:"cascadeProxyKeyId"`
-	// CascadeProxyPublicKeyPath 代理 Ed25519 公钥的 PEM (PKIX) 文件路径
-	CascadeProxyPublicKeyPath string `json:"cascadeProxyPublicKeyPath"`
 	// CascadePendingTimeoutSec 会话 pending 绑定超时秒数, 0 用默认 5 (契约 :58)
 	CascadePendingTimeoutSec int `json:"cascadePendingTimeoutSec"`
 }
@@ -161,13 +176,12 @@ func NewCoreConfig() CoreConfig {
 		CascadeEnable:             false,
 		CascadeBackendID:          "rwhps-backend",
 		CascadeRoomCode:           "",
+		CascadeTrustMode:          "open",
+		TrustedCascadeIPs:         nil,
+		CascadePinnedFingerprints: nil,
 		CascadeTLSCert:            "",
 		CascadeTLSKey:             "",
-		CascadeClientCA:           "",
 		CascadeControlAddr:        ":5125",
-		CascadeProxyIssuer:        "cascade",
-		CascadeProxyKeyID:         "",
-		CascadeProxyPublicKeyPath: "",
 		CascadePendingTimeoutSec:  0,
 	}
 }

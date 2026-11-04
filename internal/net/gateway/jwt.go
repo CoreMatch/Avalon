@@ -1,40 +1,38 @@
 package gateway
 
 import (
-	"crypto/ed25519"
-	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
-	"encoding/pem"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 )
 
-// 契约 "Identity JWT" (Cascade-Backend-v1.md :61-84):
-// 代理以 EdDSA(Ed25519) 签 compact JWS; 后端校验签名、kid、iss、aud、sid、
-// sub、iat/exp 与 jti 一次性. JWT 不携带 HA UUID/凭据/授权策略, 后端也不得
-// 信任客户端自报身份 (契约 :18-19).
+// 身份令牌处理 (有意修正, 作者已批准, 2026-11-04; DECISIONS D-24).
 //
-// 与 Cascade internal/proxy/token.go 的 Sign 逐字段对齐.
+// 契约原文 "Identity JWT" (Cascade-Backend-v1.md :61-84) 要求 Ed25519 验签 +
+// kid 精确匹配; 作者定稿的信任三档将其改为: **三档都不验签**, 令牌只做
+// 结构化声明校验 (形状/aud/sid/sub/jti/iat/exp), 对端身份由连接层信任承担
+// (open=无, ip=来源白名单, pinned=来源白名单+客户端证书指纹).
+// 契约升版前以本实现为准 (见 DECISIONS D-24 与 README).
+//
+// jti 一次性消费不受影响: 账本与签名无关, 重叠/裸奔下令牌重放仍被拦.
+//
+// 声明字段与 Cascade internal/proxy/token.go 的 Sign 逐字段对齐.
 
 // 令牌错误: 由控制面映射成契约错误码 (如 SESSION_IDENTITY_INVALID)
 var (
-	// ErrTokenMalformed 结构/编码/签名材料不合法
+	// ErrTokenMalformed 结构/编码不合法
 	ErrTokenMalformed = errors.New("gateway: malformed token")
-	// ErrTokenKid 头里 kid 与配置的期望 kid 不符
-	ErrTokenKid = errors.New("gateway: unknown key ID")
-	// ErrTokenSignature 签名校验失败
-	ErrTokenSignature = errors.New("gateway: bad signature")
 	// ErrTokenClaims 声明缺失或取值违反契约
 	ErrTokenClaims = errors.New("gateway: invalid claims")
 	// ErrTokenExpired 已过期
 	ErrTokenExpired = errors.New("gateway: token expired")
 )
 
-// jwtHeader compact JWS 受保护头 (契约 :64-68)
+// jwtHeader compact JWS 受保护头 (契约 :64-68). 信任三档下只校验其为合法
+// JSON 且 alg=EdDSA (Cascade 恒定签 EdDSA; 不是则视为形状错误), 不再用 kid.
 type jwtHeader struct {
 	Alg string `json:"alg"`
 	Kid string `json:"kid"`
@@ -43,7 +41,7 @@ type jwtHeader struct {
 
 // TokenClaims 身份令牌声明 (契约 :70-81)
 type TokenClaims struct {
-	// Iss 代理发行方 (配置项 cascadeProxyIssuer)
+	// Iss 代理发行方 (信任三档下不再校验, 字段保留用于日志与诊断)
 	Iss string `json:"iss"`
 	// Aud 接收该会话的后端 ID (必须等于本后端 ID)
 	Aud string `json:"aud"`
@@ -59,15 +57,9 @@ type TokenClaims struct {
 	Jti string `json:"jti"`
 }
 
-// TokenVerifier 用一把带外分发的 Ed25519 公钥校验代理令牌
-//
-// 契约允许 kid 轮换与多公钥重叠 (:15-17); 临时只支持单钥单 kid
-// (DECISIONS D-17), 期望 kid 不匹配直接拒绝.
+// TokenVerifier 对代理令牌做结构化声明校验 (不验签, DECISIONS D-24)
 type TokenVerifier struct {
-	issuer    string
-	keyID     string
 	backendID string
-	publicKey ed25519.PublicKey
 
 	// maxLifetime exp-iat 的契约上限 (30 秒)
 	maxLifetime int64
@@ -75,44 +67,18 @@ type TokenVerifier struct {
 	clockSkew int64
 }
 
-// NewTokenVerifier 构造校验器; publicKeyPEM 为 PKIX ("PUBLIC KEY") Ed25519 公钥.
-// backendID 用于校验 aud (契约 :83-84 后端必须校验 audience).
-func NewTokenVerifier(issuer, keyID, backendID string, publicKeyPEM []byte) (*TokenVerifier, error) {
-	if issuer == "" || keyID == "" || backendID == "" {
-		return nil, errors.New("gateway: token issuer, key ID and backend ID are required")
-	}
-	block, _ := pem.Decode(publicKeyPEM)
-	if block == nil {
-		return nil, errors.New("gateway: proxy public key is not PEM encoded")
-	}
-	parsed, err := x509.ParsePKIXPublicKey(block.Bytes)
-	if err != nil {
-		return nil, fmt.Errorf("gateway: parse proxy public key: %w", err)
-	}
-	key, ok := parsed.(ed25519.PublicKey)
-	if !ok {
-		return nil, errors.New("gateway: proxy public key must be Ed25519")
-	}
+// NewTokenVerifier 构造校验器; backendID 用于校验 aud (契约 :83-84
+// 后端必须校验 audience).
+func NewTokenVerifier(backendID string) *TokenVerifier {
 	return &TokenVerifier{
-		issuer:      issuer,
-		keyID:       keyID,
 		backendID:   backendID,
-		publicKey:   key,
 		maxLifetime: 30,
 		clockSkew:   5,
-	}, nil
-}
-
-// LoadTokenVerifier 从文件读公钥并构造校验器
-func LoadTokenVerifier(issuer, keyID, backendID, path string) (*TokenVerifier, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("gateway: read proxy public key: %w", err)
 	}
-	return NewTokenVerifier(issuer, keyID, backendID, data)
 }
 
-// Verify 校验一条 compact JWS, 返回声明.
+// Verify 解析并结构化校验一条 compact JWS, 返回声明.
+// **不校验签名**: 对端身份由连接层信任档位承担 (DECISIONS D-24).
 //
 // sid 的"与本连接会话一致"由调用方在会话上下文里比对
 // (同一令牌文本可能合法但属于别的会话).
@@ -129,8 +95,7 @@ func (v *TokenVerifier) Verify(token string, now time.Time) (*TokenClaims, error
 	if err != nil {
 		return nil, ErrTokenMalformed
 	}
-	signature, err := base64.RawURLEncoding.DecodeString(parts[2])
-	if err != nil {
+	if _, err := base64.RawURLEncoding.DecodeString(parts[2]); err != nil {
 		return nil, ErrTokenMalformed
 	}
 
@@ -140,14 +105,6 @@ func (v *TokenVerifier) Verify(token string, now time.Time) (*TokenClaims, error
 	}
 	if header.Alg != "EdDSA" {
 		return nil, fmt.Errorf("%w: alg %q", ErrTokenMalformed, header.Alg)
-	}
-	if header.Kid != v.keyID {
-		return nil, fmt.Errorf("%w: %q", ErrTokenKid, header.Kid)
-	}
-
-	signingInput := parts[0] + "." + parts[1]
-	if !ed25519.Verify(v.publicKey, []byte(signingInput), signature) {
-		return nil, ErrTokenSignature
 	}
 
 	var claims TokenClaims
@@ -160,11 +117,9 @@ func (v *TokenVerifier) Verify(token string, now time.Time) (*TokenClaims, error
 	return &claims, nil
 }
 
-// checkClaims 契约 :70-84 的逐条校验
+// checkClaims 契约 :70-84 的逐条校验 (信任三档下去掉签名/iss/kid,
+// 其余照搬; DECISIONS D-24)
 func (v *TokenVerifier) checkClaims(c *TokenClaims, now time.Time) error {
-	if c.Iss != v.issuer {
-		return fmt.Errorf("%w: iss %q", ErrTokenClaims, c.Iss)
-	}
 	if c.Aud != v.backendID {
 		return fmt.Errorf("%w: aud %q", ErrTokenClaims, c.Aud)
 	}
@@ -176,9 +131,9 @@ func (v *TokenVerifier) checkClaims(c *TokenClaims, now time.Time) error {
 	}
 	nowUnix := now.Unix()
 	if c.Iat > nowUnix+v.clockSkew {
-		return fmt.Errorf("%w: iat in the future", ErrTokenClaims)
+		return fmt.Errorf("%w: iat %d in the future", ErrTokenClaims, c.Iat)
 	}
-	if c.Exp <= nowUnix-v.clockSkew {
+	if c.Exp+v.clockSkew < nowUnix {
 		return ErrTokenExpired
 	}
 	return nil
