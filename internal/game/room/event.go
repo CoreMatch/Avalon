@@ -118,7 +118,7 @@ func (r *ServerRoom) registerDefaultEvents() {
 		// (上游触发时玩家已移出 playerGroup, 遍历的是剩余玩家, Go 侧同序)
 		if cfg.OneAdmin && p.IsAdmin && p.AutoAdmin && r.PlayerManage.PlayerGroup.Size() > 0 {
 			if np, ok := r.PlayerManage.PlayerGroup.Find(func(x *player.Player) bool {
-				return !x.IsAdmin && !x.IsAi() && !global.NeverEnd
+				return !x.IsAdmin && !x.IsAi() && !global.NeverEnd.Load()
 			}); ok {
 				np.IsAdmin = true
 				np.AutoAdmin = true

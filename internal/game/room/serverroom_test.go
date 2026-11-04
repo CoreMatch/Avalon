@@ -65,9 +65,9 @@ func newTestRoom(t *testing.T, sim game.Simulation) *ServerRoom {
 // (TestAutoCheckEndsEmptyRoom 等) 不调用本函数.
 func quietCheckThread(t *testing.T) {
 	t.Helper()
-	old := global.NeverEnd
-	global.NeverEnd = true
-	t.Cleanup(func() { global.NeverEnd = old })
+	old := global.NeverEnd.Load()
+	global.NeverEnd.Store(true)
+	t.Cleanup(func() { global.NeverEnd.Store(old) })
 }
 
 // TestRoomAssembly 实体链装配: 上游 ServerRoom 的成员一个不少

@@ -317,6 +317,7 @@ func TestStartEvent(t *testing.T) {
 // TestGameOverEventFired gr() 触发 ServerGameOverEvent (cleanData 链)
 func TestGameOverEventFired(t *testing.T) {
 	withTestGlobals(t)
+	quietCheckThread(t)
 	r := newTestRoom(t, &fakeSim{})
 
 	fired := false
@@ -335,6 +336,7 @@ func TestGameOverEventFired(t *testing.T) {
 // TestGameOverReplayZip saveRePlayFile 启用时, 结算事件把玩家档案打包成 zip
 func TestGameOverReplayZip(t *testing.T) {
 	withTestGlobals(t)
+	quietCheckThread(t)
 	global.ConfigServer.SaveRePlayFile = true
 	file.SetBasePath(t.TempDir())
 
