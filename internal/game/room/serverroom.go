@@ -183,7 +183,6 @@ func (aiConnect) SendPacket(*packet.Packet)                   {}
 func (aiConnect) SendJumpToAnotherServer(string)              {}
 func (aiConnect) IP() string                                  { return "127.0.0.1" }
 func (aiConnect) UseConnectionAgreement() string              { return "AI" }
-func (aiConnect) IPCountry() string                           { return "" }
 
 // aiI18nInput 对应 Data.i18NBundle.getinput (AI 与上游一致用全局语言包)
 func aiI18nInput(key string, params ...any) string {

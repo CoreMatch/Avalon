@@ -53,8 +53,6 @@ type RelayConnect interface {
 	Name() string
 	// IP 对应 ip
 	IP() string
-	// IPCountry 对应 ipCountry
-	IPCountry() string
 	// UseConnectionAgreement 对应 useConnectionAgreement
 	//
 	// 原版是 AbstractNetConnect.useConnectionAgreement(), 返回连接使用的协议名
@@ -731,20 +729,6 @@ func SendAllMsg(msg string) {
 			e.SendMsg(msg)
 		})
 	})
-}
-
-// GetAllRelayIpCountry 对应 getAllRelayIpCountry()
-func GetAllRelayIpCountry() map[string]int {
-	temp := map[string]int{}
-	bump := func(country string) { temp[country]++ }
-
-	serverRelayDataRoom.EachAll(func(_ int32, relay *RelayRoom) {
-		bump(relay.adminOrPanic().IPCountry())
-		relay.AbstractNetConnectIntMap.EachAll(func(_ int32, con RelayConnect) {
-			bump(con.IPCountry())
-		})
-	})
-	return temp
 }
 
 // GetAllRelayVersion 对应 getAllRelayVersion()

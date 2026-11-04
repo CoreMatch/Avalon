@@ -16,7 +16,6 @@ import (
 type fakeRelayConnect struct {
 	name         string
 	ip           string
-	ipCountry    string
 	useAgreement string
 	clientVer    int
 	site         int32
@@ -38,7 +37,6 @@ type fakeRelayConnect struct {
 
 func (f *fakeRelayConnect) Name() string                   { return f.name }
 func (f *fakeRelayConnect) IP() string                     { return f.ip }
-func (f *fakeRelayConnect) IPCountry() string              { return f.ipCountry }
 func (f *fakeRelayConnect) UseConnectionAgreement() string { return f.useAgreement }
 func (f *fakeRelayConnect) ClientVersion() int             { return f.clientVer }
 func (f *fakeRelayConnect) Site() int32                    { return f.site }
@@ -144,7 +142,6 @@ func newFakeCon(site int32, name string) *fakeRelayConnect {
 	return &fakeRelayConnect{
 		name:         name,
 		ip:           "127.0.0.1",
-		ipCountry:    "EN",
 		useAgreement: "UDP",
 		clientVer:    151,
 		site:         site,

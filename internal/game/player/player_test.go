@@ -45,7 +45,6 @@ func (m *mockConnect) SendJumpToAnotherServer(ipport string) {
 
 func (m *mockConnect) IP() string                     { return "127.0.0.1" }
 func (m *mockConnect) UseConnectionAgreement() string { return "TCP-NIO" }
-func (m *mockConnect) IPCountry() string              { return "LAN" }
 
 func testProfile() *Data {
 	d := NewData()

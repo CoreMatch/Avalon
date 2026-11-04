@@ -42,7 +42,6 @@ func (f *fakeConn) SendPacket(*packet.Packet)                {}
 func (f *fakeConn) SendJumpToAnotherServer(string)           {}
 func (f *fakeConn) IP() string                               { return f.ip }
 func (f *fakeConn) UseConnectionAgreement() string           { return "TCP" }
-func (f *fakeConn) IPCountry() string                        { return "0" }
 
 // messages 返回系统消息快照
 func (f *fakeConn) messages() []string {

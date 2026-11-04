@@ -1,4 +1,4 @@
-// Package ip 对应 net.rwhps.server.util.IpUtils / IPCountry
+// Package ip 对应 net.rwhps.server.util.IpUtils
 package ip
 
 import (

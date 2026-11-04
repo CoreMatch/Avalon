@@ -33,7 +33,6 @@ func (c *recConn) SendPacket(*packet.Packet)                {}
 func (c *recConn) SendJumpToAnotherServer(string)           {}
 func (c *recConn) IP() string                               { return "127.0.0.1" }
 func (c *recConn) UseConnectionAgreement() string           { return "TCP" }
-func (c *recConn) IPCountry() string                        { return "0" }
 
 func (c *recConn) messages() []string {
 	c.mu.Lock()
