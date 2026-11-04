@@ -86,12 +86,6 @@ func (a *AbstractNetConnect) IP() string { return a.ConnectionAgreement.IP }
 // IPLong24 获取连接 IP 长整型
 func (a *AbstractNetConnect) IPLong24() string { return a.ConnectionAgreement.IPLong24 }
 
-// IPCountry 获取连接 IP 归属地
-func (a *AbstractNetConnect) IPCountry() string { return a.ConnectionAgreement.IPCountry }
-
-// IPCountryAll 获取连接 IP 完整归属地
-func (a *AbstractNetConnect) IPCountryAll() string { return a.ConnectionAgreement.IPCountryAll }
-
 // Port 获取使用的本地端口
 func (a *AbstractNetConnect) Port() int { return a.ConnectionAgreement.LocalPort }
 

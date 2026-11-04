@@ -40,10 +40,9 @@ type PlayerConnect interface {
 	// 跳转包 (fromRelayJumpsToAnotherServerInternalPacket) 的构造在 net 层
 	// (依赖 internal/relay), player 包不能反向导入, 故委托给连接实现.
 	SendJumpToAnotherServer(ipport string)
-	// IP / UseConnectionAgreement / IPCountry 供 playerInfo / infoObject 展示
+	// IP / UseConnectionAgreement 供 playerInfo / infoObject 展示
 	IP() string
 	UseConnectionAgreement() string
-	IPCountry() string
 }
 
 // Player 对应 PlayerHess: 服务端模式下的玩家实体
@@ -216,7 +215,6 @@ func (p *Player) InfoObject() map[string]any {
 	}
 	if con != nil {
 		m["IP"] = con.IP()
-		m["IPCount"] = con.IPCountry()
 		m["TCP/UDP"] = con.UseConnectionAgreement()
 	}
 	return m

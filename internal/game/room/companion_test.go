@@ -235,33 +235,25 @@ func TestRelayAllIPAndCounters(t *testing.T) {
 	}
 }
 
-func TestGetAllRelayIpCountryAndVersion(t *testing.T) {
+func TestGetAllRelayVersion(t *testing.T) {
 	resetForTest()
 
 	r := newRelayRoom(31, "31", "h", false, false, 151, 10)
 	admin := newFakeCon(0, "host")
-	admin.ipCountry = "CN"
 	admin.clientVer = 151
 	r.SetAdmin(admin)
 
 	for _, c := range []struct {
 		site    int32
-		country string
 		version int
 	}{
-		{0, "CN", 152},
-		{1, "US", 151},
-		{2, "US", 152},
+		{0, 152},
+		{1, 151},
+		{2, 152},
 	} {
 		con := newFakeCon(c.site, "p")
-		con.ipCountry = c.country
 		con.clientVer = c.version
 		r.SetAbstractNetConnect(con)
-	}
-
-	countries := GetAllRelayIpCountry()
-	if countries["CN"] != 2 || countries["US"] != 2 {
-		t.Fatalf("GetAllRelayIpCountry() = %v, want CN=2 US=2", countries)
 	}
 
 	// admin 151 + 成员 152/151/152 => 151:2, 152:2

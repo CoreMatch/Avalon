@@ -19,7 +19,6 @@ func (m *pmMockConnect) SendPacket(*packet.Packet)                 {}
 func (m *pmMockConnect) SendJumpToAnotherServer(string)            {}
 func (m *pmMockConnect) IP() string                                { return "127.0.0.1" }
 func (m *pmMockConnect) UseConnectionAgreement() string            { return "TCP" }
-func (m *pmMockConnect) IPCountry() string                         { return "LAN" }
 
 func profileData(hexID, name string, index, team int) *player.Data {
 	d := player.NewData()

@@ -613,7 +613,6 @@ func (c *uplistConn) SendPacket(*packet.Packet)                {}
 func (c *uplistConn) SendJumpToAnotherServer(string)           {}
 func (c *uplistConn) IP() string                               { return "127.0.0.1" }
 func (c *uplistConn) UseConnectionAgreement() string           { return "TCP" }
-func (c *uplistConn) IPCountry() string                        { return "0" }
 
 func (c *uplistConn) text() string {
 	c.mu.Lock()

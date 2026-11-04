@@ -34,7 +34,6 @@ func (c *clientConn) SendPacket(*packet.Packet)                {}
 func (c *clientConn) SendJumpToAnotherServer(string)           {}
 func (c *clientConn) IP() string                               { return "127.0.0.1" }
 func (c *clientConn) UseConnectionAgreement() string           { return "TCP" }
-func (c *clientConn) IPCountry() string                        { return "0" }
 
 func (c *clientConn) text() string {
 	c.mu.Lock()

@@ -500,7 +500,6 @@ func (c *cmdTestConnect) SendPacket(*packet.Packet)                 {}
 func (c *cmdTestConnect) SendJumpToAnotherServer(string)            {}
 func (c *cmdTestConnect) IP() string                                { return "127.0.0.1" }
 func (c *cmdTestConnect) UseConnectionAgreement() string            { return "TCP" }
-func (c *cmdTestConnect) IPCountry() string                         { return "LAN" }
 
 // playerDataForTest 构造测试玩家档案
 func playerDataForTest(hexID, name string, index int) *player.Data {

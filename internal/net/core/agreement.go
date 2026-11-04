@@ -35,8 +35,6 @@ type ConnectionAgreement struct {
 
 	IP            string
 	IPLong24      string
-	IPCountry     string
-	IPCountryAll  string
 	LocalPort     int
 
 	writeMu sync.Mutex
@@ -61,8 +59,6 @@ func NewTCPConnectionAgreement(ch *Channel, rwHps IRwHps) *ConnectionAgreement {
 		isClosed:        ch.IsClosedChannel,
 		IP:              host,
 		IPLong24:        ip.IpToLong24NoError(host),
-		IPCountry:       ip.GetIpCountry(host),
-		IPCountryAll:    ip.GetIpCountryAll(host),
 		LocalPort:       ch.LocalPort,
 	}
 	c.closeClean = func() { ch.SetTypeConnect(nil) }
@@ -80,8 +76,6 @@ func NewUDPConnectionAgreement(out UDPWriter, rwHps IRwHps, remote string, local
 		isClosed:        out.IsClosedUDP,
 		IP:              host,
 		IPLong24:        ip.IpToLong24NoError(host),
-		IPCountry:       ip.GetIpCountry(host),
-		IPCountryAll:    ip.GetIpCountryAll(host),
 		LocalPort:       localPort,
 	}
 	c.closeClean = func() {}
@@ -98,8 +92,6 @@ func NewHeadlessConnectionAgreement(rwHps IRwHps) *ConnectionAgreement {
 		isClosed:        func() bool { return false },
 		IP:              host,
 		IPLong24:        ip.IpToLong24NoError(host),
-		IPCountry:       ip.GetIpCountry(host),
-		IPCountryAll:    ip.GetIpCountryAll(host),
 	}
 }
 
