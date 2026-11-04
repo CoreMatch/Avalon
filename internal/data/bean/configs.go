@@ -31,6 +31,15 @@ type CoreConfig struct {
 	// AutoUpList 启动后自动 UPLIST
 	AutoUpList bool `json:"autoUpList"`
 
+	// UplistEnable UPLIST 自报总开关 (Go 版新增, 上游没有; DECISIONS D-22).
+	// false 时 uplist 控制台命令 / toup,tonp 客户端命令 / AutoUpList 全部停用.
+	// 默认 true = 保持自报, 且与 CascadeEnable 无关: 核实 (2026-11-04,
+	// /tmp/cascade-ro @ f94f511) Cascade 只实现了向 HRPAuth 的 HA presence
+	// 服务注册 (服务发现/转发, 与玩家服务器列表无关), 没有向 RW 官方列表服
+	// (gs1/gs4 masterserver) 上报的能力; 在有人以 Cascade 公网地址接管这条
+	// 上报链路之前, 关闭自报会让玩家在游戏内服务器列表看不到本服.
+	UplistEnable bool `json:"uplistEnable"`
+
 	// IpCheckMultiLanguageSupport ip多语言支持
 	IpCheckMultiLanguageSupport bool `json:"ipCheckMultiLanguageSupport"`
 
@@ -122,6 +131,7 @@ func NewCoreConfig() CoreConfig {
 		ServerName:        "RW-HPS",
 		Subtitle:          "",
 		AutoUpList:        false,
+		UplistEnable:      true,
 
 		IpCheckMultiLanguageSupport: true,
 

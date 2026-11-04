@@ -141,6 +141,23 @@ func NewUpList() *UpList {
 
 // --- 注册入口 ---
 
+// 有意修正（作者已批准，2026-11-04, DECISIONS D-22）: 自报总开关.
+//
+// 背景: Cascade 边缘代理模式下曾提议"启用 Cascade 即自动关停自报, presence
+// 由 Cascade 统一向 HRPAuth 注册". 核实 (/tmp/cascade-ro @ f94f511) 后作者
+// 改判: (1) Cascade 的 HA presence 注册的是服务发现/转发信息, 与玩家在
+// 游戏内看到的服务器列表无关; (2) Cascade 没有向 RW 官方列表服
+// (gs1/gs4 masterserver) 上报的能力. 因此本开关与 cascadeEnable 解耦,
+// 默认保持自报; 关闭后端自报的前提是有人以 Cascade 公网地址向 RW 官方
+// 列表接管上报, 届时再由作者决定改默认值.
+
+// disabledMsg 自报被关闭时各入口 (控制台命令/客户端命令) 的统一提示
+const disabledMsg = "UPLIST 自报已按配置关闭 (uplistEnable=false); RW 官方列表上报由 Cascade 侧以公网地址接管后才会改默认值 (DECISIONS D-22)"
+
+// enabled 报告 UPLIST 自报是否启用 (config uplistEnable, 默认 true).
+// 运行时读取, 与 cascadeEnable 无关.
+func enabled() bool { return global.Config.UplistEnable }
+
 // RegisterCommands 对应上游 registerCoreCommands(handler):
 // 移除旧命令 upserverlist/upserverlistnew 后注册 uplist 命令.
 //
@@ -157,6 +174,14 @@ func RegisterCommands(h *cmd.Handler) {
 		print, _ := param.(func(string))
 		if print == nil {
 			print = global.DefPrint
+		}
+
+		// 自报总开关 (DECISIONS D-22): 关闭时拦截 add/update/remove;
+		// help 与未知子命令提示不受影响. AutoUpList 的自动上架经
+		// "uplist add" 命令进入, 同样在此被拦下.
+		if len(args) > 0 && args[0] != "help" && !enabled() {
+			print(disabledMsg)
+			return
 		}
 
 		if len(args) > 0 {
@@ -195,6 +220,10 @@ func RegisterClientCommands(h *cmd.Handler) {
 		if !isAdmin(p) {
 			return
 		}
+		if !enabled() { // DECISIONS D-22 自报总开关
+			_ = p.SendSystemMessage(disabledMsg)
+			return
+		}
 		u := Default()
 		switch u.getUplistFlag() {
 		case 0:
@@ -219,6 +248,10 @@ func RegisterClientCommands(h *cmd.Handler) {
 	h.Register("tonp", "#up", func(_ []string, param any) {
 		p := asPlayer(param)
 		if !isAdmin(p) {
+			return
+		}
+		if !enabled() { // DECISIONS D-22 自报总开关
+			_ = p.SendSystemMessage(disabledMsg)
 			return
 		}
 		u := Default()

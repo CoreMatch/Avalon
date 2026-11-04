@@ -69,6 +69,9 @@ func setup(t *testing.T) (*UpList, *fakeHTTP, *fakeHTTP) {
 	global.Config.ServerName = "RW-HPS Test Server Long Name"
 	global.Config.Subtitle = ""
 	global.Config.AutoUpList = false
+	// 测试基线 = 默认配置: 自报开启 (DECISIONS D-22; 零值为 false, 显式置真)
+	global.Config.UplistEnable = true
+	global.Config.CascadeEnable = false
 	global.ConfigServer.Passwd = ""
 	global.ConfigServer.MaxPlayer = 10
 
@@ -679,4 +682,150 @@ func TestClientCommandsToupTonp(t *testing.T) {
 	// 未上架再 tonp: no uplist
 	h.HandleMessageWith("/tonp", p1)
 	waitFor(t, "重复 tonp 提示", func() bool { return strings.Contains(con1.text(), "no uplist") })
+}
+
+// --- uplistEnable 总开关 (有意修正, 作者已批准, 2026-11-04, DECISIONS D-22) ---
+
+// TestUplistDisabledGate uplistEnable=false: 控制台命令 add/update/remove 与
+// 客户端命令 toup/tonp 全部被拦, 不发起任何 HTTP; help 与未知子命令提示不受影响.
+func TestUplistDisabledGate(t *testing.T) {
+	u, coreHTTP, rwHTTP := setup(t)
+	r := newRoom(t)
+	global.Config.UplistEnable = false
+
+	// 即使列表服可达, 被门控拦下后也不应触碰
+	global.URLData = load.NewIniFromBytes([]byte("Get.Api.UpListData.Bak = http://bak.example/uplist"))
+	coreHTTP.respond = func(string, string) string { return upListJSON() }
+	rwHTTP.respond = func(_, param string) string {
+		if strings.Contains(param, "open") {
+			return "true"
+		}
+		return "ok sid-1"
+	}
+
+	defaultMu.Lock()
+	defaultInst = u
+	defaultMu.Unlock()
+
+	h := cmd.NewHandler("")
+	RegisterCommands(h)
+
+	run := func(line string) string {
+		var out []string
+		h.HandleMessageWith(line, func(s string) { out = append(out, s) })
+		return strings.Join(out, "|")
+	}
+
+	for _, line := range []string{"uplist add", "uplist add 5124", "uplist update", "uplist remove"} {
+		if got := run(line); !strings.Contains(got, "uplistEnable=false") {
+			t.Fatalf("%s 应给出关闭提示: %q", line, got)
+		}
+	}
+	if got := run("uplist help"); !strings.Contains(got, "[uplist add]") {
+		t.Fatalf("关闭自报不应影响 help: %q", got)
+	}
+	if n := len(coreHTTP.recorded()) + len(rwHTTP.recorded()); n != 0 {
+		t.Fatalf("关闭自报时不应发起 HTTP, got %d", n)
+	}
+	if u.getUplistFlag() != 0 {
+		t.Fatal("关闭自报时上架标志应保持 0")
+	}
+
+	// 客户端命令同样被拦 (管理员身份先行通过)
+	hc := cmd.NewHandler("/")
+	RegisterClientCommands(hc)
+	con := &uplistConn{}
+	data := player.NewData()
+	data.Apply(func(d *player.Data) { d.Name = "adm"; d.ConnectHexID = "hx-adm" })
+	p := r.PlayerManage.AddAbstractPlayer(con, data, nil)
+	p.IsAdmin = true
+
+	hc.HandleMessageWith("/toup", p)
+	if !strings.Contains(con.text(), "uplistEnable=false") {
+		t.Fatalf("toup 应收到关闭提示: %q", con.text())
+	}
+	hc.HandleMessageWith("/tonp", p)
+	if strings.Count(con.text(), "uplistEnable=false") != 2 {
+		t.Fatalf("tonp 应收到关闭提示: %q", con.text())
+	}
+	if u.getUplistFlag() != 0 || u.isUpServerList() {
+		t.Fatal("关闭自报时客户端命令不得改变上架状态")
+	}
+	if n := len(coreHTTP.recorded()) + len(rwHTTP.recorded()); n != 0 {
+		t.Fatalf("客户端命令被拦后不应发起 HTTP, got %d", n)
+	}
+}
+
+// TestUplistEnabledKeepsSelfReport uplistEnable=true 时, cascadeEnable 任一取值
+// 下自报照常工作 (开关与 Cascade 模式解耦, 默认保持自报; DECISIONS D-22).
+// 走 toup 客户端命令的完整链路: init -> 上架 -> 定时任务排程.
+func TestUplistEnabledKeepsSelfReport(t *testing.T) {
+	for _, cascade := range []bool{false, true} {
+		name := "cascadeEnable=false"
+		if cascade {
+			name = "cascadeEnable=true"
+		}
+		t.Run(name, func(t *testing.T) {
+			u, coreHTTP, rwHTTP := setup(t)
+			r := newRoom(t)
+			global.Config.UplistEnable = true
+			global.Config.CascadeEnable = cascade
+
+			global.URLData = load.NewIniFromBytes([]byte("Get.Api.UpListData.Bak = http://bak.example/uplist"))
+			coreHTTP.respond = func(string, string) string { return upListJSON() }
+			rwHTTP.respond = func(_, param string) string {
+				if strings.Contains(param, "open") {
+					return "true"
+				}
+				return "ok sid-1"
+			}
+
+			defaultMu.Lock()
+			defaultInst = u
+			defaultMu.Unlock()
+
+			hc := cmd.NewHandler("/")
+			RegisterClientCommands(hc)
+			con := &uplistConn{}
+			data := player.NewData()
+			data.Apply(func(d *player.Data) { d.Name = "adm"; d.ConnectHexID = "hx-adm" })
+			p := r.PlayerManage.AddAbstractPlayer(con, data, nil)
+			p.IsAdmin = true
+
+			hc.HandleMessageWith("/toup", p)
+			waitFor(t, "自报上架", func() bool { return u.getUplistFlag() == 1 })
+			waitFor(t, "上架玩家消息", func() bool {
+				return strings.Contains(con.text(), "OK-LIST") && strings.Contains(con.text(), "OK-OPEN")
+			})
+		})
+	}
+}
+
+// TestUplistConsoleAddEnabled 控制台 "uplist add" 在开关开启且服务端协议已就绪时
+// 照常上架 (AutoUpList 的自动上架同样经此命令进入, 等价覆盖).
+func TestUplistConsoleAddEnabled(t *testing.T) {
+	u, coreHTTP, rwHTTP := setup(t)
+	newRoom(t)
+	global.Config.UplistEnable = true
+
+	registerFakeRwHps(t, core.ServerProtocol, &fakeTypeConnect{beta: false, game: "1.15", gameInt: 176})
+
+	global.URLData = load.NewIniFromBytes([]byte("Get.Api.UpListData.Bak = http://bak.example/uplist"))
+	coreHTTP.respond = func(string, string) string { return upListJSON() }
+	rwHTTP.respond = func(_, param string) string {
+		if strings.Contains(param, "open") {
+			return "true"
+		}
+		return "ok sid-1"
+	}
+
+	defaultMu.Lock()
+	defaultInst = u
+	defaultMu.Unlock()
+
+	h := cmd.NewHandler("")
+	RegisterCommands(h)
+	h.HandleMessageWith("uplist add", func(string) {})
+
+	waitFor(t, "控制台 add 上架", func() bool { return u.getUplistFlag() == 1 })
 }
