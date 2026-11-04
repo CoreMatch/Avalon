@@ -155,6 +155,13 @@ func NewServerHandler(ch *core.Channel, abstractNet *AbstractNet) func(*packet.P
 		if msg == nil {
 			return nil
 		}
+		// 网关模式门控 (Cascade 身份绑定前不得接受注册/游戏流量,
+		// DECISIONS D-18); 明文直连模式 Gate 恒为 nil, 行为不变.
+		if ch.Gate != nil && msg.Type != nil && !ch.Gate.AllowPacket(msg.Type.TypeInt()) {
+			log.Warnf("[GamePacketDecoder]", "packet {0} rejected by gateway before identity binding, closing", msg.Type.TypeInt())
+			_ = ch.Close()
+			return nil
+		}
 		tc := ch.GetTypeConnect()
 		if tc == nil {
 			ca, created := newTypeConnect(ch, abstractNet)

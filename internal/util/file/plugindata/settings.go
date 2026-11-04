@@ -193,6 +193,13 @@ func (s *Settings) SetRaw(key, class string, bytes []byte) {
 	s.Set(key, &Value{Kind: KindRaw, Raw: Raw{Class: class, Bytes: bytes}})
 }
 
+// Remove 删除一个 key (不存在时静默)
+func (s *Settings) Remove(key string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.data.Remove(key)
+}
+
 // Save 写回文件, 对应 pluginData.save()
 func (s *Settings) Save() error {
 	s.mu.Lock()
