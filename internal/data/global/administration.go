@@ -224,6 +224,25 @@ func (a *Administration) IsUUIDBanned(uuid string) bool {
 	return containsString(a.BannedUUIDs, uuid)
 }
 
+// UnBanUUID 从 UUID 黑名单移除.
+//
+// 有意修正（作者已批准，2026-11-04）: 上游没有单条解封接口 (只有 clearbanall
+// 全清), 为支撑 unban 命令的解封语义 (DECISIONS D-10) 新增.
+func (a *Administration) UnBanUUID(uuid string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.BannedUUIDs.Remove(uuid, strings.EqualFold)
+}
+
+// UnBanIP 从 IP 黑名单移除.
+//
+// 有意修正（作者已批准，2026-11-04）: 同 UnBanUUID, 为 unban 解封语义新增.
+func (a *Administration) UnBanIP(ip string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.BannedIPs.Remove(ip, strings.EqualFold)
+}
+
 // ClearBanAll 对应 clearbanall
 func (a *Administration) ClearBanAll() {
 	a.mu.Lock()

@@ -262,8 +262,11 @@ func TestClientHelp(t *testing.T) {
 	}
 }
 
-// TestClientBanFiresEventOnCaller 客户端 ban 照搬上游: 对发起者触发事件 (上游疑似笔误)
-func TestClientBanFiresEventOnCaller(t *testing.T) {
+// TestClientBanFiresEventOnTarget 客户端 ban 对被 ban 的目标玩家触发事件.
+//
+// 有意修正（作者已批准，2026-11-04）: 上游对发起者触发 (ClientCommands.kt:603-611
+// 笔误, 会封禁执行命令的管理员自己), 本测试断言修正后的行为 (DECISIONS D-10).
+func TestClientBanFiresEventOnTarget(t *testing.T) {
 	h, r, ps, cs := setupClientCommands(t, 2)
 	ps[0].IsAdmin = true
 
@@ -274,9 +277,8 @@ func TestClientBanFiresEventOnCaller(t *testing.T) {
 	if firedOn == nil {
 		t.Fatal("ban 应触发 PlayerBanEvent")
 	}
-	// 上游现状: 事件的 player 是发起者 ps[0], 不是被查找到的目标
-	if firedOn != ps[0] {
-		t.Fatalf("上游行为: 事件应落在发起者上, got %v", firedOn)
+	if firedOn != ps[1] {
+		t.Fatalf("事件应落在被 ban 的目标上, got %v", firedOn)
 	}
 	if !strings.Contains(cs[0].text(), "Ban :") {
 		t.Fatalf("应有确认: %q", cs[0].text())
