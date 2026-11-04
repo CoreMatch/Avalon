@@ -4,6 +4,9 @@ Go 服务端与外部游戏内核（helper，一个 Java 进程）之间的通�
 
 - **权威实现**：`internal/game/external/protocol.go`（Go 侧编解码与校验）。本文档与之
   一一对应；若两者不一致，以 `protocol.go` 为准。
+- **helper 侧参考实现**：仓库根目录 `Helper/` 模块（`HelperMain.kt` 协议主循环 +
+  `GoBridge.kt` 引擎桥接，v2 与 v2-ext 全部操作）。构建与部署见
+  `Go-Server/README.md`「安装并接入外部游戏内核」。
 - **协议版本**：`ProtocolVersion = 2`。握手时版本不一致直接失败，不做尽力兼容。
   升级协议时递增该值。
 
