@@ -80,6 +80,35 @@ type RoomControl interface {
 	// GameResult 对应 gameHessData.getGameOverData(): 取结算数据.
 	// ok=false 对应上游返回 null (尚未分出胜负); 非 nil 错误才是查询失败.
 	GameResult() (data *event.GameOverData, ok bool, err error)
+
+	// ApplySettings 对应 Cascade 房间门面的引擎侧设置写入 (v2-ext
+	// room.settings): 把 credits/fog/income/nukes/sharedcontrol/
+	// startingunits/maxunits 写进引擎 gameLinkServerData.
+	// 有意修正（作者已批准，2026-11-04）: 上游这些字段由客户端命令直接写
+	// 进程内引擎对象; Go 版引擎在 helper 内, 经扩展操作完成 (DECISIONS D-20).
+	ApplySettings(s RoomSettings) error
+}
+
+// RoomSettings 是房间设置里"引擎侧"字段的可移植载体 (v2-ext room.settings).
+//
+// 全部为指针: 只更新提供的字段, 未提供的保持引擎现值. 字段对应上游
+// AbstractLinkGameServerData 与 ClientCommands 的 credits/nukes/fog/
+// sharedcontrol/startingunits/income/maxunits 命令.
+type RoomSettings struct {
+	// Credits 开局资金 (金额档, 由后端按上游映射表转引擎档位)
+	Credits *int32
+	// Fog 战争迷雾: 0=off 1=basic 2=full
+	Fog *int32
+	// Income 收入倍率
+	Income *float32
+	// DisableNuke 是否禁用核弹 (上游 gameLinkServerData.nukes 的否定语义)
+	DisableNuke *bool
+	// SharedControl 共享控制
+	SharedControl *bool
+	// StartingUnits 起始单位档
+	StartingUnits *int32
+	// MaxUnits 单位上限
+	MaxUnits *int
 }
 
 // MatchConfig 一局游戏的可移植启动参数

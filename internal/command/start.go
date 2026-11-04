@@ -61,6 +61,12 @@ func registerStart(h *cmd.Handler, d *Deps) {
 		if strings.EqualFold(args[1], "true") {
 			ns := net.NewNetService(args[0], proto)
 
+			// Cascade 网关 (DECISIONS D-17): 仅游戏协议监听器挂接;
+			// 未启用时 global.CascadeGateway 为 nil, 行为不变.
+			if gw, ok := global.CascadeGateway.(net.GameGateway); ok && core.CheckProtocolIsServer(proto.NetType()) {
+				ns.SetGateway(gw)
+			}
+
 			// 原版对 Relay 协议设置 workThreadCount = 3000; Go 版按连接起 goroutine,
 			// 没有等价的工作线程数配置, 故不设置.
 

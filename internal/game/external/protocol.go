@@ -101,6 +101,10 @@ const (
 	// OpGameResult 查询结算数据 (对应 gameHessData.getGameOverData);
 	// 应答的 result 字段缺失表示尚未分出胜负 (上游返回 null)
 	OpGameResult = "game.result"
+	// OpRoomSettings 把房间设置写入引擎 gameLinkServerData (Cascade 门面,
+	// 对应上游 ClientCommands 的 credits/nukes/fog/sharedcontrol/
+	// startingunits/income/maxunits; DECISIONS D-20)
+	OpRoomSettings = "room.settings"
 )
 
 // UnsupportedError 是 v2-only helper 对扩展操作的标准拒绝文案.
@@ -175,6 +179,25 @@ type Request struct {
 	// 用指针区分"未提供"与"位置 0": 位置从 0 开始, 0 是合法值,
 	// 普通 int + omitempty 会把 0 吞掉.
 	Position *int `json:"position,omitempty"`
+
+	// Settings 引擎侧房间设置负载 (OpRoomSettings 用, v2-ext, D-20).
+	Settings *SettingsPayload `json:"settings,omitempty"`
+}
+
+// SettingsPayload 是 room.settings 的线上负载.
+//
+// 有意修正（作者已批准，2026-11-04）: 字段对应上游
+// AbstractLinkGameServerData 的可写项 (DECISIONS D-20). 全部指针,
+// 只写提供的字段; credits 传金额档, 由 helper 按上游映射表转引擎档位,
+// disableNuke 为 nukes 的否定语义 (与契约字段名一致).
+type SettingsPayload struct {
+	Credits       *int32   `json:"credits,omitempty"`
+	Fog           *int32   `json:"fog,omitempty"`
+	Income        *float32 `json:"income,omitempty"`
+	DisableNuke   *bool    `json:"disableNuke,omitempty"`
+	SharedControl *bool    `json:"sharedControl,omitempty"`
+	StartingUnits *int32   `json:"startingUnits,omitempty"`
+	MaxUnits      *int     `json:"maxUnits,omitempty"`
 }
 
 // Response 是 helper 对一次请求的应答 (一行 JSON)
@@ -399,7 +422,7 @@ func validateRequest(req *Request) error {
 			return fmt.Errorf("%w: %s without room", ErrProtocol, req.Op)
 		}
 		return nil
-	case OpRoomAddAI, OpRoomSync, OpGameResult:
+	case OpRoomAddAI, OpRoomSync, OpGameResult, OpRoomSettings:
 		// v2-ext 扩展操作: 与 room.* 同样必须带 room
 		if req.Room == "" {
 			return fmt.Errorf("%w: %s without room", ErrProtocol, req.Op)

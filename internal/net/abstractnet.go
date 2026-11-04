@@ -80,10 +80,27 @@ type AbstractNet struct {
 
 	IdleTrigger *AcceptorIdleStateTrigger
 
+	// gateway Cascade 网关 (可选): 非 nil 时每条新连接先走
+	// mTLS 握手 + CASC 前导 + 会话登记, 再进入常规协议处理
+	// (有意修正, 作者已批准, 2026-11-04; DECISIONS D-17/D-18)
+	gateway GameGateway
+
 	// channels 记录本监听器上的存活连接, 供 Close 时统一断开
 	channelsMu sync.Mutex
 	channels   map[*core.Channel]struct{}
 }
+
+// GameGateway 是游戏端口网关的接缝 (实现方: net/gateway.Gateway).
+// 放在消费方定义, 避免 net 反向依赖 gateway 包.
+type GameGateway interface {
+	// AcceptGame 接管已接受的连接 (TLS+前导+会话); 失败时自行断开并返回 false
+	AcceptGame(ch *core.Channel) bool
+	// SetReady 标记游戏监听就绪 (health 判据)
+	SetReady(v bool)
+}
+
+// SetGateway 装配网关 (仅游戏协议监听器使用)
+func (n *AbstractNet) SetGateway(gw GameGateway) { n.gateway = gw }
 
 // NewAbstractNet 对应 AbstractNet(rwHps).init()
 func NewAbstractNet(rwHps core.IRwHps) *AbstractNet {
@@ -115,7 +132,13 @@ func (n *AbstractNet) RwHps() core.IRwHps { return n.rwHps }
 func (n *AbstractNet) GetConnectSize() int { return n.IdleTrigger.GetConnectSize() }
 
 // HandleChannel 接受一个新连接, 注册并启动 read 协程
+//
+// 网关模式 (Cascade 后端契约): 连接先经 mTLS 握手 + CASC 前导 +
+// 会话登记, 通过后才进入常规协议处理; 任一步失败由网关断开.
 func (n *AbstractNet) HandleChannel(ch *core.Channel) {
+	if n.gateway != nil && !n.gateway.AcceptGame(ch) {
+		return
+	}
 	n.serveChannel(ch, nil)
 }
 

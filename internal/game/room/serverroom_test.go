@@ -267,11 +267,21 @@ type fakeRoomControl struct {
 	result    *event.GameOverData
 	resultOK  bool
 	resultErr error
+
+	settingsErr error
+	settingsCnt int
+	lastSettings game.RoomSettings
 }
 
 func (f *fakeRoomControl) AddAI() (*game.AIProfile, error) {
 	f.addAICnt++
 	return f.addAIProfile, f.addAIErr
+}
+
+func (f *fakeRoomControl) ApplySettings(s game.RoomSettings) error {
+	f.settingsCnt++
+	f.lastSettings = s
+	return f.settingsErr
 }
 
 func (f *fakeRoomControl) SyncAllPlayer() error {

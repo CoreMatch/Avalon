@@ -74,6 +74,12 @@ func (r *Runtime) Start() error {
 	// HeadlessModuleManage.hessLoaderMap[classLoader].room 的取用路径.
 	room.SetDefault(r.Session)
 
+	// Cascade 后端契约装配 (方案 B, DECISIONS D-17~D-21): 启用时建网关并
+	// 起 /v1 控制面; 未启用时无操作. 材料缺失会使启动失败 (显式配置不降级).
+	if err := loadCascadeGateway(); err != nil {
+		return err
+	}
+
 	// startInit() + loadLib()
 	startInit(r.Core.Settings)
 	loadLib()

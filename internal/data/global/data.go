@@ -84,6 +84,12 @@ var (
 	ServerCountry = "EN"
 
 	NeverEnd = false
+
+	// CascadeGateway 持有 *net/gateway.Gateway (启用 Cascade 后端契约时).
+	// 有意修正（作者已批准，2026-11-04）: DECISIONS D-17. 用 any 避免
+	// global 反向依赖 net/gateway; 由 app 启动链装配, 命令层按接口断言取用.
+	// 未启用时为 nil, 一切行为与现网一致.
+	CascadeGateway any
 )
 
 // MainParameters 对应 BeanMainParameters

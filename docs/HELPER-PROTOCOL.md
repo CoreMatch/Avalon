@@ -151,9 +151,11 @@ v2-ext 扩展：`room.addai` 应答里的 AI 档案额外携带 **`position`** �
 ### 版本与向后兼容
 
 - **扩展版本记为 v2-ext**：它不是新的线协议版本——`ProtocolVersion` 仍为 `2`，信封、
-  世代号、传输格式与 v2 完全一致，只是**新增**了四个操作名、一个请求字段（`position`）
-  与一个应答字段（`result`）。v2 现有操作不受任何影响。
-- **只实现了 v2 的 helper**（未声明支持 v2-ext）收到这四个操作时，应应答：
+  世代号、传输格式与 v2 完全一致，只是**新增**了五个操作名、两个请求字段（`position`、
+  `settings`）与两个应答字段（`result`、`ai`）。v2 现有操作不受任何影响。
+  （前四项为 D-9 扩展；`room.settings` 与 `ai` 应答字段为 Cascade 对接期补充，
+  DECISIONS D-15/D-20。）
+- **只实现了 v2 的 helper**（未声明支持 v2-ext）收到这五个操作时，应应答：
 
   ```json
   {"v":2,"type":"response","gen":1,"id":1,"ok":false,"error":"unsupported"}
@@ -172,9 +174,11 @@ v2-ext 扩展：`room.addai` 应答里的 AI 档案额外携带 **`position`** �
 | `room.sync` | room | 引擎全量同步（对应 `gameLinkFunction.allPlayerSync`） |
 | `room.removeplayer` | room, position | 按位置移除引擎内的玩家（AI 移除，对应 `playerPrivateData.removePlayer`） |
 | `game.result` | room | 查询结算数据（对应 `gameHessData.getGameOverData`） |
+| `room.settings` | room, settings | 把房间设置写入引擎 `gameLinkServerData`（Cascade 后端契约的房间门面，DECISIONS D-20） |
 
-校验规则（Go 侧发送前拦截）：四个操作都必须带 `room`；`room.removeplayer` 另需
-`position`（**0 基**，0 合法；上游位置即 0..maxPlayer-1）。
+校验规则（Go 侧发送前拦截）：五个操作都必须带 `room`；`room.removeplayer` 另需
+`position`（**0 基**，0 合法；上游位置即 0..maxPlayer-1）；`room.settings` 的
+`settings` 负载至少含一个字段（全空时 Go 侧不发请求）。
 
 ### 请求字段扩展
 
@@ -184,6 +188,27 @@ v2-ext 扩展：`room.addai` 应答里的 AI 档案额外携带 **`position`** �
 
 ```json
 {"v":2,"id":4,"gen":1,"op":"room.removeplayer","room":"r1","position":3}
+```
+
+| 字段 | 说明 |
+| --- | --- |
+| `settings` | 仅 `room.settings`：对象负载，字段全为可选，只写提供的项 |
+
+`settings` 负载字段与引擎 `gameLinkServerData` 的对应（helper 侧映射照搬上游
+`ClientCommands` 的 credits/nukes/fog/sharedcontrol/startingunits/income 命令）：
+
+| 字段 | 类型 | 引擎字段 | 映射 |
+| --- | --- | --- | --- |
+| `credits` | int | `credits` | 金额档照上游映射表转引擎档位（0→1、1000→2、2000→3、5000→4、10000→5、50000→6、100000→7、200000→8、4000→0、其余→0） |
+| `fog` | int | `fog` | 0=off 1=basic 2=full，原样写入 |
+| `income` | float | `income` | 原样写入 |
+| `disableNuke` | bool | `nukes` | 否定语义：`nukes = !disableNuke` |
+| `sharedControl` | bool | `sharedcontrol` | 原样写入 |
+| `startingUnits` | int | `startingunits` | 原样写入 |
+| `maxUnits` | int | `maxUnit` | 原样写入 |
+
+```json
+{"v":2,"id":5,"gen":1,"op":"room.settings","room":"r1","settings":{"credits":5000,"fog":1,"disableNuke":true}}
 ```
 
 ### 应答字段扩展：`ai`
@@ -244,3 +269,4 @@ Go 侧据此登记入房（DECISIONS D-9）。
 | `room.sync` | `CallManage.SyncAllPlayer`（`addmoney` 等命令收尾的全量同步） |
 | `room.removeplayer` | `ServerRoom.RemovePlayer`（AI 移除：引擎侧成功后清房间列表） |
 | `game.result` | `CallManage` 检查线程结算播报（`survive.player`），数据暂存房间后随 `ServerGameOverEvent` 发出 |
+| `room.settings` | Cascade 后端契约房间门面 `PUT /v1/rooms/{code}/settings` → `ServerRoom.ApplySettings`（`net/gateway`） |

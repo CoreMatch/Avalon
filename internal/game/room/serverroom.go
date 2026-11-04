@@ -3,6 +3,7 @@ package room
 import (
 	"errors"
 	"sync"
+	"time"
 
 	"rwhps/internal/core/thread"
 	"rwhps/internal/data/global"
@@ -54,6 +55,10 @@ type ServerRoom struct {
 	// IsMixPlayer 对应 isMixPlayer
 	IsMixPlayer bool
 
+	// CreatedAt 房间装配时间 (Go 版新增): 上游无此字段; Cascade 后端契约的
+	// 房间快照需要 createdAt (DECISIONS D-20), 以装配时间代之.
+	CreatedAt time.Time
+
 	mu sync.Mutex
 	// forcedReturn 对应 forcedReturn: gr() 的重入守卫
 	forcedReturn bool
@@ -76,6 +81,7 @@ func NewServerRoom(session *game.GameSession) *ServerRoom {
 		EventManage:   event.NewManage(),
 		BanUnit:       list.NewSeq[string](),
 		FlagData:      temp.NewServerCacheFlag(),
+		CreatedAt:     time.Now(),
 	}
 	r.PlayerManage = manage.NewPlayerManage()
 	r.TeamManage = manage.NewTeamManage()
@@ -238,6 +244,25 @@ func (r *ServerRoom) GameResult() (*event.GameOverData, bool, error) {
 		return nil, false, nil
 	}
 	return data, ok, err
+}
+
+// ApplySettings 对应 Cascade 门面的引擎侧设置写入 (v2-ext room.settings).
+//
+// 后端不支持 (Unimplemented / helper 只支持 v2) 时降级为空操作 + 日志,
+// 与其余 v2-ext 扩展一致 (DECISIONS D-20).
+func (r *ServerRoom) ApplySettings(s game.RoomSettings) error {
+	rc := r.roomControl()
+	if rc == nil {
+		return manage.ErrNotPortable
+	}
+	if err := rc.ApplySettings(s); err != nil {
+		if errors.Is(err, game.ErrUnsupported) {
+			log.Warnf("[Room]", "helper unsupported room.settings (v2-ext), degraded to no-op")
+			return manage.ErrNotPortable
+		}
+		return err
+	}
+	return nil
 }
 
 // SetGameOverData 对应 room.gameOverData 写
