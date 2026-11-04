@@ -111,9 +111,11 @@ type identityRequest struct {
 // 注册与游戏流量一直被 Session.AllowPacket 拦在引擎之外.
 func (g *Gateway) handleIdentity(w http.ResponseWriter, r *http.Request) {
 	sessionID := r.PathValue("sessionID")
+	log.Debugf("[Cascade]", "identity bind request for session {0}", sessionID)
 
 	var req identityRequest
 	if err := decodeBody(w, r, &req); err != nil {
+		log.Warnf("[Cascade]", "identity for {0}: bad body: {1}", sessionID, err)
 		return
 	}
 	if req.Token == "" {
@@ -123,16 +125,19 @@ func (g *Gateway) handleIdentity(w http.ResponseWriter, r *http.Request) {
 
 	claims, err := g.verifier.Verify(req.Token, time.Now())
 	if err != nil {
+		log.Warnf("[Cascade]", "identity for {0}: token rejected: {1}", sessionID, err)
 		writeErr(w, http.StatusBadRequest, CodeSessionIdentityInvalid, err.Error())
 		return
 	}
 	if claims.Sid != sessionID {
+		log.Warnf("[Cascade]", "identity for {0}: token sid mismatch {1}", sessionID, claims.Sid)
 		writeErr(w, http.StatusBadRequest, CodeInvalidRequest, "token sid does not match the session path")
 		return
 	}
 
 	s := g.registry.Get(sessionID)
 	if s == nil {
+		log.Warnf("[Cascade]", "identity for {0}: session not found", sessionID)
 		writeErr(w, http.StatusNotFound, CodeSessionNotFound, "session is not pending")
 		return
 	}
@@ -144,9 +149,11 @@ func (g *Gateway) handleIdentity(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
+		log.Warnf("[Cascade]", "identity for {0}: conflict (already bound)", sessionID)
 		writeErr(w, http.StatusConflict, CodeSessionIdentityConflict, "session already bound to a different identity")
 		return
 	case StateClosed:
+		log.Warnf("[Cascade]", "identity for {0}: session closed", sessionID)
 		writeErr(w, http.StatusGone, CodeSessionExpired, "session is closed")
 		return
 	}
@@ -154,6 +161,7 @@ func (g *Gateway) handleIdentity(w http.ResponseWriter, r *http.Request) {
 	// PENDING: 先消费 jti (一次性, 持久化), 再迁移状态
 	if err := g.jti.Consume(claims.Jti, claims.Exp); err != nil {
 		if errors.Is(err, ErrJtiReplayed) {
+			log.Warnf("[Cascade]", "identity for {0}: jti replayed", sessionID)
 			writeErr(w, http.StatusBadRequest, CodeSessionIdentityReplayed, "token ID already consumed")
 			return
 		}
@@ -161,6 +169,7 @@ func (g *Gateway) handleIdentity(w http.ResponseWriter, r *http.Request) {
 		log.Warnf("[Cascade]", "jti store save failed: {0}", err)
 	}
 	if err := s.bind(claims.Sub, claims.Jti); err != nil {
+		log.Warnf("[Cascade]", "identity for {0}: bind failed: {1}", sessionID, err)
 		if errors.Is(err, ErrSessionConflict) {
 			writeErr(w, http.StatusConflict, CodeSessionIdentityConflict, err.Error())
 			return

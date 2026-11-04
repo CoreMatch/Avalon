@@ -76,6 +76,13 @@ func (s *Session) PlayerID() string {
 	return s.playerID
 }
 
+// Matches 已绑定会话的幂等重试判定: 身份与 jti 完全一致 (契约 :99-101)
+func (s *Session) Matches(playerID, jti string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.state == StateBound && s.playerID == playerID && s.jti == jti
+}
+
 // AllowPacket 实现 core.PacketGate: 绑定前的包放行裁决
 //
 // PENDING 只放行 Preregister(160): 引擎照常应答 161, 客户端随后才会发
@@ -241,4 +248,15 @@ func (r *Registry) Size() int {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return len(r.sessions)
+}
+
+// IDs 当前全部会话 ID (诊断/测试)
+func (r *Registry) IDs() []string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	ids := make([]string, 0, len(r.sessions))
+	for id := range r.sessions {
+		ids = append(ids, id)
+	}
+	return ids
 }
