@@ -29,7 +29,8 @@ type addrConn interface {
 
 // StartHttp 对应 net.rwhps.server.net.handler.tcp.StartHttp
 // 嗅探首字节: "GET "/POST "/"DELETE "/"HEAD "/"PUT " 即视为 HTTP, 接管该连接.
-// WebSocket (以 "GET /WebSocket" 开头) 升级为 ws:// 协议, 本实现维持最小占位 (走 gorilla websocket 与本项目之外的依赖, 当前 TODO).
+// WebSocket (以 "GET /WebSocket" 开头) 升级为 ws:// 协议: 握手与帧编解码见
+// websocket.go (有意修正, 作者已批准, 2026-11-04; DECISIONS D-14).
 type StartHttp struct {
 	rwHps   core.IRwHps
 	webData *WebData
@@ -121,31 +122,36 @@ func (s *StartHttp) HandleConn(conn ConnIO) {
 		if req == nil {
 			return
 		}
-		s.dispatch(conn, req)
+		if s.dispatch(conn, reader, req) {
+			// 连接已被 WebSocket 会话接管并走到结束, 不能再回 HTTP 请求循环
+			return
+		}
 		if !req.KeepAlive() {
 			return
 		}
 	}
 }
 
-// dispatch 派发请求到 WebData; WebSocket 占位 (升级握手暂不实现).
-func (s *StartHttp) dispatch(conn io.WriteCloser, req *HttpRequestLite) {
+// dispatch 派发请求到 WebData.
+//
+// 返回 true 表示连接已升级为 WebSocket 并被接管到会话结束 (有意修正,
+// 作者已批准, 2026-11-04; 此前 "GET /WebSocket" 只回 404, DECISIONS D-14).
+func (s *StartHttp) dispatch(conn ConnIO, reader *bufio.Reader, req *HttpRequestLite) bool {
 	if s.webData == nil {
 		// 与原版一致: webData 未注入时静默返回
-		return
+		return false
 	}
-	// WebSocket 升级路径 (占位): "GET /WebSocket" 开头, 真正握手交给未来扩展
+	// WebSocket 升级路径: 握手与帧循环见 websocket.go
 	if req.Method == "GET" && startsWith(req.URL, WSUri) {
-		// 此处应完成 101 Switching Protocols 升级. 当前实现回 404 以保持兼容.
-		writeNotFound(conn, req, keepAlive(req))
-		return
+		s.handleWebSocket(conn, reader, req)
+		return true
 	}
 
 	// 校验 WebHOST
 	if wh := strings.TrimSpace(global.Config.WebHOST); wh != "" {
 		if host := req.GetHeader("Host"); host != wh {
 			sendBadRequest(conn, req, keepAlive(req))
-			return
+			return false
 		}
 	}
 
@@ -173,6 +179,7 @@ func (s *StartHttp) dispatch(conn io.WriteCloser, req *HttpRequestLite) {
 
 	// handler 只设置数据而未显式 Send 时补发响应
 	_ = send.Flush()
+	return false
 }
 
 // keepAlive 对应 HttpUtil.isKeepAlive: 没显式 Connection: close 则视为 true (HTTP/1.1 默认持久连接)
