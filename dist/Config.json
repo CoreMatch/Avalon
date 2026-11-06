@@ -2,6 +2,6 @@
   "port": 5123,
   "log": "WARN",
   "serverName": "RW-HPS",
-  "gameHelperPath": "./Helper.jar",
+  "gameHelperPath": "./avalon-helper.jar",
   "gameHelperArgs": ["-Xmx512m"]
 }

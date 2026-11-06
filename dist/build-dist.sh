@@ -2,12 +2,12 @@
 # build-dist.sh —— 构建可独立运行的分发包 (Linux 优先)
 #
 # 产物: dist/out/rwhps-<git短hash>-linux-<arch>.tar.gz
-# 内容: rwhps 二进制 + Helper.jar + data/gameData + 默认配置 + 启动脚本
+# 内容: rwhps 二进制 + avalon-helper.jar + data/gameData + 默认配置 + 启动脚本
 #
 # 前置:
 #   - 本仓 (Avalon): Go 二进制
-#   - RW-HPS 检出 (环境变量 RW_HPS_REPO 指向): Helper.jar 与 data/gameData,
-#     且已构建 Helper.jar: cd $RW_HPS_REPO && JAVA_HOME=<jdk17> ./gradlew :Helper:jar
+#   - Avalon-Helper 检出 (环境变量 AVALON_HELPER_REPO 指向): avalon-helper.jar 与 data/gameData,
+#     且已构建 avalon-helper.jar: cd $AVALON_HELPER_REPO && JAVA_HOME=<jdk17> ./gradlew :Helper:jar
 set -e
 
 REPO=$(cd "$(dirname "$0")/.." && pwd)
@@ -27,20 +27,20 @@ mkdir -p "$STAGE/data"
 # 1. Go 二进制 (运行时主体)
 (cd "$REPO" && go build -trimpath -o "$STAGE/rwhps" ./cmd/rwhps)
 
-# 2. Helper.jar (Java 引擎壳, 来自 RW-HPS 仓, 需预先 ./gradlew :Helper:jar)
-if [ -z "$RW_HPS_REPO" ]; then
-    echo "缺少环境变量 RW_HPS_REPO —— 请指向 RW-HPS 检出 (含 Helper/ 与 data/gameData)" >&2
+# 2. avalon-helper.jar (Java 引擎壳, 来自 Avalon-Helper 仓, 需预先 ./gradlew :Helper:jar)
+if [ -z "$AVALON_HELPER_REPO" ]; then
+    echo "缺少环境变量 AVALON_HELPER_REPO —— 请指向 Avalon-Helper 检出 (含 Helper/ 与 data/gameData)" >&2
     exit 1
 fi
-JAR=$RW_HPS_REPO/Helper/build/libs/Helper.jar
+JAR=$AVALON_HELPER_REPO/Helper/build/libs/avalon-helper.jar
 if [ ! -f "$JAR" ]; then
     echo "缺少 $JAR —— 先在该检出根执行: JAVA_HOME=<jdk17> ./gradlew :Helper:jar" >&2
     exit 1
 fi
-cp "$JAR" "$STAGE/Helper.jar"
+cp "$JAR" "$STAGE/avalon-helper.jar"
 
-# 3. 游戏数据 (引擎必需, 来自 RW-HPS 仓)
-cp -r "$RW_HPS_REPO/data/gameData" "$STAGE/data/gameData"
+# 3. 游戏数据 (引擎必需, 来自 Avalon-Helper 仓)
+cp -r "$AVALON_HELPER_REPO/data/gameData" "$STAGE/data/gameData"
 
 # 4. 默认配置 / 启动脚本 / 文档
 #    端口与 JVM 参数按需改 data/Config.json; 详见 docs/DISTRIBUTION.md

@@ -2,7 +2,7 @@
 //
 // 与原版一致: 所有 "绝对" 路径 (以 / 开头) 都相对于程序所在目录 (BasePath),
 // 而不是文件系统根目录. BasePath 的解析顺序:
-//  1. -Drwhps.basePath=...
+//  1. -Davalonhelper.basePath=...
 //  2. 环境变量 RWHPS_BASE_PATH
 //  3. 可执行文件所在目录
 //  4. 当前工作目录
@@ -50,7 +50,7 @@ func SetBasePath(p string) {
 
 // resolveBasePath 按优先级解析根目录
 func resolveBasePath() string {
-	if v, ok := systemprops.GetOrEnv("rwhps.basePath"); ok && v != "" {
+	if v, ok := systemprops.GetOrEnv("avalonhelper.basePath"); ok && v != "" {
 		return v
 	}
 	if exe, err := os.Executable(); err == nil {

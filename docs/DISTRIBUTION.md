@@ -1,6 +1,6 @@
-# DISTRIBUTION —— RW-HPS 稳定壳分发指南
+# DISTRIBUTION —— Avalon 分发指南
 
-分发形态：**Go 二进制（运行时主体）+ Helper.jar（Java 引擎壳）+ 游戏数据**，
+分发形态：**Go 二进制（运行时主体）+ avalon-helper.jar（Java 引擎壳）+ 游戏数据**，
 一个目录即可独立运行，不依赖仓库环境。
 
 ## 包内容
@@ -8,7 +8,7 @@
 ```
 rwhps-<version>-linux-<arch>/
 ├── rwhps                  # Go 服务端二进制 (运行时主体: 网关/房间/协议/控制台)
-├── Helper.jar             # Java 引擎壳 (fat jar, 由 Go 侧按需自动拉起)
+├── avalon-helper.jar             # Java 引擎壳 (fat jar, 由 Go 侧按需自动拉起)
 ├── start.sh               # 启动脚本 (cd 到脚本目录并 exec ./rwhps)
 ├── DISTRIBUTION.md        # 本文档
 └── data/
@@ -36,7 +36,7 @@ cd rwhps-<version>-linux-<arch>
 ```
 
 首次启动会显示 EULA 确认（输入 `Yes` 同意）。随后自动执行默认启动命令
-（`defStartCommand`，默认 `start`）：加载游戏内核（拉起 Helper.jar）→
+（`defStartCommand`，默认 `start`）：加载游戏内核（拉起 avalon-helper.jar）→
 监听 `data/Config.json` 里的 `port`（默认 5123）。
 
 看到 `Start listening ...` 即就绪。控制台可用命令：`help` / `status` /
@@ -47,7 +47,7 @@ cd rwhps-<version>-linux-<arch>
 | 键 | 说明 |
 | --- | --- |
 | `port` | 游戏监听端口（默认 5123） |
-| `gameHelperPath` | Helper.jar 路径（相对包根目录，默认 `./Helper.jar`）。**勿删此键**，否则装不上游戏内核 |
+| `gameHelperPath` | avalon-helper.jar 路径（相对包根目录，默认 `./avalon-helper.jar`）。**勿删此键**，否则装不上游戏内核 |
 | `gameHelperArgs` | 追加给 JVM 的参数（默认 `["-Xmx512m"]`） |
 | `javaPath` | java 可执行文件路径（空 = 用 `PATH` 里的 `java`） |
 | `log` | 日志级别（默认 `WARN`） |
@@ -59,12 +59,12 @@ cd rwhps-<version>-linux-<arch>
 配置与游戏产物都在 `data/` 目录，升级只替换可执行物：
 
 1. 停服（控制台 `exit`，或 SIGTERM——**不要 SIGKILL**，退出路径含配置保存）；
-2. 用新包覆盖 `rwhps` 与 `Helper.jar` 两个文件；
+2. 用新包覆盖 `rwhps` 与 `avalon-helper.jar` 两个文件；
 3. **保留整个 `data/` 目录**（Config.json / ConfigServer.json / Settings.bin /
    replays 都在里面）；
 4. 重新启动。
 
-只升 Go 二进制或只升 Helper.jar 均可（两者经 stdin/stdout 线协议解耦，
+只升 Go 二进制或只升 avalon-helper.jar 均可（两者经 stdin/stdout 线协议解耦，
 协议版本 `v2`，见 `docs/HELPER-PROTOCOL.md`）。
 
 > 注：退出时 Go 与 helper 会先后写配置，Go 侧在 helper 退出后最后写回，
@@ -72,15 +72,15 @@ cd rwhps-<version>-linux-<arch>
 
 ## 构建分发包（开发者）
 
-分发包跨两个仓库组装：Go 二进制来自本仓（Avalon），Helper.jar 与
-`data/gameData` 来自 RW-HPS 检出（环境变量 `RW_HPS_REPO` 指向）。
+分发包跨两个仓库组装：Go 二进制来自本仓（Avalon），avalon-helper.jar 与
+`data/gameData` 来自 Avalon-Helper 检出（环境变量 `AVALON_HELPER_REPO` 指向）。
 
 ```sh
-# RW-HPS 检出根目录: 先构建引擎壳
+# Avalon-Helper 检出根目录: 先构建引擎壳
 JAVA_HOME=<jdk17> ./gradlew :Helper:jar
 
 # Avalon 仓库根目录
-RW_HPS_REPO=/path/to/RW-HPS ./dist/build-dist.sh   # 产出 dist/out/rwhps-*.tar.gz
+AVALON_HELPER_REPO=/path/to/Avalon-Helper ./dist/build-dist.sh   # 产出 dist/out/rwhps-*.tar.gz
 ```
 
 ## 验收记录

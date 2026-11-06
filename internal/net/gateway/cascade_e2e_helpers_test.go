@@ -46,9 +46,9 @@ func findJDK17Java(t *testing.T) string {
 // 返回后端、网关与停止函数.
 func startGoBackend(t *testing.T, java, jar string, km *keyMaterial, gamePort, controlPort int) (*external.Backend, *gateway.Gateway, func()) {
 	t.Helper()
-	// 含 data/gameData 的 RW-HPS 检出根: 环境变量 RWHPS_TEST_REPO_ROOT 指定;
+	// 含 data/gameData 的 Avalon-Helper 检出根: 环境变量 AVALON_HELPER_REPO_ROOT 指定;
 	// 未设置时回退本仓相对路径 (前置缺失时测试自动跳过).
-	root := os.Getenv("RWHPS_TEST_REPO_ROOT")
+	root := os.Getenv("AVALON_HELPER_REPO_ROOT")
 	if root == "" {
 		root = filepath.Join("..", "..", "..", "..")
 	}
@@ -69,7 +69,7 @@ func startGoBackend(t *testing.T, java, jar string, km *keyMaterial, gamePort, c
 	backend, err := external.New(external.Config{
 		JavaPath:     java,
 		HelperPath:   jar,
-		ExtraArgs:    []string{"-Drwhps.helper.dataPath=" + dataDir, "-Xmx512m"},
+		ExtraArgs:    []string{"-Davalonhelper.dataPath=" + dataDir, "-Xmx512m"},
 		HelloTimeout: 90 * time.Second,
 		OpTimeout:    120 * time.Second,
 	})
