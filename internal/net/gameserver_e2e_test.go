@@ -8,7 +8,7 @@ package net_test
 // 全程不经 Go 侧假实现: 握手包真实进引擎、开局/加 AI/结算全部引擎产出.
 //
 // 与 gameserver_wire_test.go 的区别: 那里用记录型假内核验证帧路由; 这里
-// 拉起真正的 Helper.jar, 验证"真实对局"这条验收线.
+// 拉起真正的 avalon-helper.jar, 验证"真实对局"这条验收线.
 //
 // 客户端只完成预注册握手 (160 -> 161): 引擎对 REGISTER_PLAYER 另有单位
 // checksum + 完整性应答 (g(conn.M)) 的反作弊校验 (见 DECISIONS D-15),
@@ -33,12 +33,12 @@ import (
 	"github.com/CoreMatch/Avalon/internal/net/gameserver"
 )
 
-// e2eRepoRoot 返回含 Helper/ 与 data/gameData 的 RW-HPS 检出根目录.
-// Avalon 独立后, helper 与游戏数据在 RW-HPS 仓库 (SamuelCheston/RW-HPS):
-// 用环境变量 RWHPS_TEST_REPO_ROOT 指向其检出; 未设置时回退本仓相对路径
+// e2eRepoRoot 返回含 Helper/ 与 data/gameData 的 Avalon-Helper 检出根目录.
+// Avalon 独立后, helper 与游戏数据在 Avalon-Helper 仓库 (SamuelCheston/Avalon-Helper):
+// 用环境变量 AVALON_HELPER_REPO_ROOT 指向其检出; 未设置时回退本仓相对路径
 // (前置缺失时测试自动跳过).
 func e2eRepoRoot() string {
-	if root := os.Getenv("RWHPS_TEST_REPO_ROOT"); root != "" {
+	if root := os.Getenv("AVALON_HELPER_REPO_ROOT"); root != "" {
 		return root
 	}
 	return filepath.Join("..", "..", "..")
@@ -50,9 +50,9 @@ func e2ePrereqs(t *testing.T) (java, jar, dataDir string) {
 	t.Helper()
 
 	root := e2eRepoRoot()
-	jar = filepath.Join(root, "Helper", "build", "libs", "Helper.jar")
+	jar = filepath.Join(root, "Helper", "build", "libs", "avalon-helper.jar")
 	if info, err := os.Stat(jar); err != nil || info.IsDir() {
-		t.Skipf("Helper.jar 未构建, 跳过端到端测试: %s (构建: ./gradlew :Helper:jar)", jar)
+		t.Skipf("avalon-helper.jar 未构建, 跳过端到端测试: %s (构建: ./gradlew :Helper:jar)", jar)
 	}
 
 	gameData, err := filepath.Abs(filepath.Join(root, "data", "gameData"))
@@ -141,7 +141,7 @@ func TestE2ERealGameToSettlement(t *testing.T) {
 		JavaPath:   java,
 		HelperPath: jar,
 		ExtraArgs: []string{
-			"-Drwhps.helper.dataPath=" + dataDir,
+			"-Davalonhelper.dataPath=" + dataDir,
 			"-Xmx512m",
 		},
 		HelloTimeout: 90 * time.Second,

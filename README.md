@@ -5,7 +5,7 @@
 目标客户端 **1.15 / 协议号 176**。
 
 Java 引擎壳（helper）与游戏数据由
-[RW-HPS 仓库](https://github.com/SamuelCheston/RW-HPS)提供（`Helper/` 模块与
+[Avalon-Helper 仓库](https://github.com/SamuelCheston/Avalon-Helper)提供（`Helper/` 模块与
 `data/gameData`）；Go 版与 Kotlin/Java 版功能对照见
 `/home/lnb/SamuelPortal-docs/RW-HPS-GO-PARITY.md`。
 
@@ -25,7 +25,7 @@ Go 服务端与它之间用一条文本协议（protocol v2，见 `docs/HELPER-P
 | **有 helper** | 配置 `gameHelperPath` 指向一个实现了 protocol v2 的 Java helper | 上述全部 + 真实开局/游戏模拟 |
 
 > 没有 helper 时服务器依然能完整启动（控制台、HTTP、Relay 都不依赖它），只是无法真正开局。
-> helper 本体在 RW-HPS 仓库的 `Helper/` 模块（薄封装：复用上游 Kotlin headless 内核，
+> helper 本体在 Avalon-Helper 仓库的 `Helper/` 模块（薄封装：复用上游 Kotlin headless 内核，
 > 把网络层换成 protocol v2/v2-ext 的 stdin/stdout 适配），构建方式见下文
 > 「安装并接入外部游戏内核」。协议合同见 `docs/HELPER-PROTOCOL.md`。
 
@@ -64,8 +64,8 @@ go test ./...          # 需要时追加 -race
 - `-Dkey=value`：覆盖配置项（见下文「配置覆盖」）。
 
 首次运行会在**数据根目录**生成 `data/` 及配置文件、语言包探测等。数据根目录默认是
-可执行文件所在目录，可用 `-Drwhps.basePath=/path/to/data-root` 或环境变量
-`rwhps.basePath` 指定。
+可执行文件所在目录，可用 `-Davalonhelper.basePath=/path/to/data-root` 或环境变量
+`avalonhelper.basePath` 指定。
 
 启动后进入控制台，直接输入命令（如 `help`）。默认启动命令由配置 `defStartCommand`
 决定（缺省 `start`，即自动以 Server 协议开局监听）。
@@ -78,18 +78,18 @@ go test ./...          # 需要时追加 -race
 
 | 文件 | 内容 | `-D` 覆盖前缀 |
 | --- | --- | --- |
-| `data/Config.json` | 核心配置（端口、日志、Web/RCON、**外部 helper 三项**等） | `rwhps.config.core` |
-| `data/ConfigServer.json` | Server 协议房间配置（人数、自动开局、禁言等） | `rwhps.config.server` |
-| `data/RelayConfig.json` | Relay 协议配置 | `rwhps.config.relay` |
+| `data/Config.json` | 核心配置（端口、日志、Web/RCON、**外部 helper 三项**等） | `avalonhelper.config.core` |
+| `data/ConfigServer.json` | Server 协议房间配置（人数、自动开局、禁言等） | `avalonhelper.config.server` |
+| `data/RelayConfig.json` | Relay 协议配置 | `avalonhelper.config.relay` |
 | `data/Settings.bin` | 身份/封禁等持久化（部分字段 Go 版暂只读内存，见代码注释） | — |
 
 ### 配置覆盖
 
 任何配置字段都可以用 `-D<前缀>.<字段名>=<值>` 在命令行覆盖（值若为 Base64 会自动解码）：
 
-- 核心配置前缀 `rwhps.config.core`，例如：
+- 核心配置前缀 `avalonhelper.config.core`，例如：
   ```bash
-  ./rwhps -Drwhps.config.core.port=5123 -Drwhps.config.core.log=INFO
+  ./rwhps -Davalonhelper.config.core.port=5123 -Davalonhelper.config.core.log=INFO
   ```
 - 也可用同名环境变量（命令行 `-D` 优先）。
 
@@ -111,24 +111,24 @@ go test ./...          # 需要时追加 -race
 
 ## 安装并接入外部游戏内核（helper）
 
-只有需要**真实开局**时才需要这一步。helper 在 RW-HPS 仓库
-（[SamuelCheston/RW-HPS](https://github.com/SamuelCheston/RW-HPS)）的 `Helper/`
+只有需要**真实开局**时才需要这一步。helper 在 Avalon-Helper 仓库
+（[SamuelCheston/Avalon-Helper](https://github.com/SamuelCheston/Avalon-Helper)）的 `Helper/`
 模块：薄封装上游 Kotlin headless 内核（引擎装载链、ASM 重定向、游戏 classloader
 全部复用上游），客户端网络层换成 protocol v2/v2-ext 的 stdin/stdout 适配。
 协议合同见 [`docs/HELPER-PROTOCOL.md`](docs/HELPER-PROTOCOL.md)。
 
 ### 前置环境
 
-- **RW-HPS 检出**（helper 与游戏数据都在该仓库）。
+- **Avalon-Helper 检出**（helper 与游戏数据都在该仓库）。
 - **JDK 17**（构建与运行都需要）。注意：过新的 JDK（如 25）会让该仓库使用的
   Kotlin 2.0.0 编译器崩溃，请用 Temurin 17 这类 17 线发行版。
   构建时用 `-Dorg.gradle.java.home` 指定，运行时把 `javaPath` 指向它。
-- **游戏数据**：RW-HPS 仓库根目录 `data/gameData`（随该仓库提供；helper 首次
+- **游戏数据**：Avalon-Helper 仓库根目录 `data/gameData`（随该仓库提供；helper 首次
   启动会校验 MD5，缺失才走下载）。
 
 ### 一条命令构建
 
-在 **RW-HPS 仓库根目录**执行（产物 `Helper/build/libs/Helper.jar`，不入库）：
+在 **Avalon-Helper 仓库根目录**执行（产物 `Helper/build/libs/avalon-helper.jar`，不入库）：
 
 ```bash
 ./gradlew :Helper:jar -Dorg.gradle.java.home=/path/to/jdk-17
@@ -143,20 +143,20 @@ go test ./...          # 需要时追加 -race
 ```json
 {
   "javaPath": "/path/to/jdk-17/bin/java",
-  "gameHelperPath": "/path/to/repo/Helper/build/libs/Helper.jar",
+  "gameHelperPath": "/path/to/repo/Helper/build/libs/avalon-helper.jar",
   "gameHelperArgs": [
-    "-Drwhps.helper.dataPath=/path/to/helper-data-root",
+    "-Davalonhelper.dataPath=/path/to/helper-data-root",
     "-Xmx512m"
   ]
 }
 ```
 
 - `gameHelperPath` 相对路径会锚定到数据根目录；绝对路径原样使用。
-- `-Drwhps.helper.dataPath` 指定 **helper 自己的数据目录**（配置、回放、
-  `data/gameData` 等）。该目录下的 `data/gameData` 可软链到 RW-HPS 仓库的
+- `-Davalonhelper.dataPath` 指定 **helper 自己的数据目录**（配置、回放、
+  `data/gameData` 等）。该目录下的 `data/gameData` 可软链到 Avalon-Helper 仓库的
   `data/gameData` 以免重复占用空间；缺省时 helper 以 jar 同级目录为数据根。
 - 集成测试用同样的方式拉起 helper（`RWHPS_TEST_JAVA` 环境变量可指定 JDK 17
-  的 java；`RWHPS_TEST_REPO_ROOT` 指向 RW-HPS 检出；jar 未构建/缺数据时测试
+  的 java；`AVALON_HELPER_REPO_ROOT` 指向 Avalon-Helper 检出；jar 未构建/缺数据时测试
   自动跳过）。
 
 ### 启动并确认
@@ -265,7 +265,7 @@ chmod 600 backend.key proxy-client.key
 {
   "port": 5124,
   "cascadeEnable": true,
-  "cascadeBackendId": "rwhps-backend-a",
+  "cascadeBackendId": "avalon-backend-a",
   "cascadeRoomCode": "GW01",
   "cascadeTrustMode": "pinned",
   "trustedCascadeIPs": ["203.0.113.7", "198.51.100.0/24"],
@@ -285,9 +285,9 @@ TLS 或指纹）时**启动直接失败**（显式配置不静默降级）。
 ### Cascade 侧对应配置（config.yaml 片段）
 
 ```yaml
-default_backend_id: "rwhps-backend-a"
+default_backend_id: "avalon-backend-a"
 backends:
-  - id: "rwhps-backend-a"            # 必须等于 Go 的 cascadeBackendId (JWT aud)
+  - id: "avalon-backend-a"            # 必须等于 Go 的 cascadeBackendId (JWT aud)
     control_url: "https://127.0.0.1:5125"   # Go 未配证书时用 http://
     game_address: "127.0.0.1:5124"
     prefixes: ["GW"]                 # 房间码前缀路由 (与 cascadeRoomCode 配合)

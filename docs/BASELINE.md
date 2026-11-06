@@ -38,14 +38,14 @@ OpenJDK 17.0.21（`/home/lnb/jdk-17.0.21+9`）。
 | 压缩体积 | 33,196,595 B（≈32 M） |
 | 解压体积 | 46 M（du） |
 | `rwhps` 二进制（go build -trimpath） | 12,775,204 B |
-| `Helper.jar` | 23,307,356 B |
+| `avalon-helper.jar` | 23,307,356 B |
 | `data/gameData` | 7,971,187 B（表观）/ ≈12 M（磁盘占用） |
 
 干净目录实跑（`/tmp/clean-run2`，解包 → 改端口/javaPath → `./start.sh`）：
 
 | 环节 | 证据 |
 | --- | --- |
-| 冷启动 → `Start listening` | **3.52 s**（05:27:21 `External game core attached: ./Helper.jar` → 05:27:24 监听） |
+| 冷启动 → `Start listening` | **3.52 s**（05:27:21 `External game core attached: ./avalon-helper.jar` → 05:27:24 监听） |
 | 无头开局 | 控制台 `addai`×2（`Added 1 AI`）→ `start` |
 | 结算 | `gameover` → 回放 `Crossing Large (10p) [v1.15] (5 Nov 2026 05.27.25).replay`（6,198 B） |
 | 优雅退出 | `exit` → **退出码 0** |
@@ -81,18 +81,18 @@ worktree 21.94 s，`-count=2` 稳定。
 ## 5. 复测方法
 
 ```bash
-# 干净克隆 + 引擎壳 (RW-HPS 仓: helper 与游戏数据)
-git clone https://github.com/SamuelCheston/RW-HPS /tmp/rwhps && cd /tmp/rwhps
+# 干净克隆 + 引擎壳 (Avalon-Helper 仓: helper 与游戏数据)
+git clone https://github.com/SamuelCheston/Avalon-Helper /tmp/avalon-helper && cd /tmp/avalon-helper
 JAVA_HOME=<jdk17> ./gradlew :Helper:jar
 
-# Go 三件套 (Avalon 仓; RWHPS_TEST_REPO_ROOT 指向 RW-HPS 检出,
-# 真实集成测试据此发现 Helper.jar 与 JDK 17)
+# Go 三件套 (Avalon 仓; AVALON_HELPER_REPO_ROOT 指向 Avalon-Helper 检出,
+# 真实集成测试据此发现 avalon-helper.jar 与 JDK 17)
 git clone https://github.com/CoreMatch/Avalon /tmp/avalon && cd /tmp/avalon
 go build ./... && go vet ./... && \
-  RWHPS_TEST_REPO_ROOT=/tmp/rwhps go test ./... -count=1
+  AVALON_HELPER_REPO_ROOT=/tmp/avalon-helper go test ./... -count=1
 
 # 分发包 + 干净目录实跑
-RW_HPS_REPO=/tmp/rwhps ./dist/build-dist.sh
+AVALON_HELPER_REPO=/tmp/avalon-helper ./dist/build-dist.sh
 mkdir /tmp/run && tar xzf dist/out/rwhps-*.tar.gz -C /tmp/run --strip-components=1
 cd /tmp/run && ./start.sh     # EULA 确认后: addai / start / gameover / exit
 ```

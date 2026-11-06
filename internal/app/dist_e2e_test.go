@@ -1,7 +1,7 @@
 package app_test
 
 // 分发自足性验证 (稳定壳收尾, 2026-11-05): 在干净目录组装分发形态
-// (rwhps 二进制 + Helper.jar + data/gameData + 默认配置), 以独立进程实跑
+// (rwhps 二进制 + avalon-helper.jar + data/gameData + 默认配置), 以独立进程实跑
 // "启动 -> 客户端直连握手 -> 控制台加 AI/开局/结算 -> 优雅退出", 证明
 // 分发包不依赖仓库环境. 同时验证退出后 Config.json 的 Go 独有键
 // (gameHelperPath) 仍在 —— 否则下次启动装不上游戏内核.
@@ -26,12 +26,12 @@ import (
 	rwnet "github.com/CoreMatch/Avalon/internal/net"
 )
 
-// distRepoRoot 返回含 Helper/ 与 data/gameData 的 RW-HPS 检出根目录.
-// Avalon 独立后, helper 与游戏数据在 RW-HPS 仓库 (SamuelCheston/RW-HPS):
-// 用环境变量 RWHPS_TEST_REPO_ROOT 指向其检出; 未设置时回退本仓相对路径
+// distRepoRoot 返回含 Helper/ 与 data/gameData 的 Avalon-Helper 检出根目录.
+// Avalon 独立后, helper 与游戏数据在 Avalon-Helper 仓库 (SamuelCheston/Avalon-Helper):
+// 用环境变量 AVALON_HELPER_REPO_ROOT 指向其检出; 未设置时回退本仓相对路径
 // (前置缺失时测试自动跳过).
 func distRepoRoot() string {
-	if root := os.Getenv("RWHPS_TEST_REPO_ROOT"); root != "" {
+	if root := os.Getenv("AVALON_HELPER_REPO_ROOT"); root != "" {
 		return root
 	}
 	return filepath.Join("..", "..", "..")
@@ -41,9 +41,9 @@ func distPrereqs(t *testing.T) (java, jar, gameData string) {
 	t.Helper()
 
 	root := distRepoRoot()
-	jar = filepath.Join(root, "Helper", "build", "libs", "Helper.jar")
+	jar = filepath.Join(root, "Helper", "build", "libs", "avalon-helper.jar")
 	if info, err := os.Stat(jar); err != nil || info.IsDir() {
-		t.Skipf("Helper.jar 未构建, 跳过分发验证: %s", jar)
+		t.Skipf("avalon-helper.jar 未构建, 跳过分发验证: %s", jar)
 	}
 	gameData, err := filepath.Abs(filepath.Join(root, "data", "gameData"))
 	if err != nil {
@@ -91,8 +91,8 @@ func TestDistributionSelfContained(t *testing.T) {
 	}
 	binInfo, _ := os.Stat(filepath.Join(stage, "rwhps"))
 	jarInfo, _ := os.Stat(jar)
-	if err := copyFile(jar, filepath.Join(stage, "Helper.jar")); err != nil {
-		t.Fatalf("复制 Helper.jar: %v", err)
+	if err := copyFile(jar, filepath.Join(stage, "avalon-helper.jar")); err != nil {
+		t.Fatalf("复制 avalon-helper.jar: %v", err)
 	}
 	if err := os.MkdirAll(filepath.Join(stage, "data"), 0o755); err != nil {
 		t.Fatalf("建 data 目录: %v", err)
@@ -106,7 +106,7 @@ func TestDistributionSelfContained(t *testing.T) {
   "port": %d,
   "log": "WARN",
   "javaPath": %q,
-  "gameHelperPath": "./Helper.jar",
+  "gameHelperPath": "./avalon-helper.jar",
   "gameHelperArgs": ["-Xmx512m"]
 }`, port, java)
 	if err := os.WriteFile(filepath.Join(stage, "data", "Config.json"), []byte(configJSON), 0o644); err != nil {

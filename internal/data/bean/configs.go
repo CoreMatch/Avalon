@@ -183,7 +183,7 @@ func SaveServerConfig(c ServerConfig) {
 // StringToCoreConfig 对应 BeanCoreConfig.stringToClass()
 func StringToCoreConfig() CoreConfig {
 	c := LoadOrInit(CoreConfigFile(), NewCoreConfig())
-	ReadProperty(&c, "rwhps.config.core", CoreConfigFile())
+	ReadProperty(&c, "avalonhelper.config.core", CoreConfigFile())
 	return c
 }
 
@@ -273,7 +273,7 @@ func ServerConfigFile() *file.FileUtils {
 // StringToServerConfig 对应 BeanServerConfig.stringToClass()
 func StringToServerConfig() ServerConfig {
 	c := LoadOrInit(ServerConfigFile(), NewServerConfig())
-	ReadProperty(&c, "rwhps.config.server", ServerConfigFile())
+	ReadProperty(&c, "avalonhelper.config.server", ServerConfigFile())
 	c.checkValue()
 	return c
 }
@@ -312,6 +312,6 @@ func RelayConfigFile() *file.FileUtils {
 // StringToRelayConfig 对应 BeanRelayConfig.stringToClass()
 func StringToRelayConfig() RelayConfig {
 	c := LoadOrInit(RelayConfigFile(), NewRelayConfig())
-	ReadProperty(&c, "rwhps.config.relay", RelayConfigFile())
+	ReadProperty(&c, "avalonhelper.config.relay", RelayConfigFile())
 	return c
 }
