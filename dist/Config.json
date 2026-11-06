@@ -1,0 +1,7 @@
+{
+  "port": 5123,
+  "log": "WARN",
+  "serverName": "RW-HPS",
+  "gameHelperPath": "./Helper.jar",
+  "gameHelperArgs": ["-Xmx512m"]
+}
