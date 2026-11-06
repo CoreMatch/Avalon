@@ -1,0 +1,14 @@
+# Go 构建产物
+/rwhps
+/dist/out/
+
+# 运行时数据 (首次启动生成: Config.json / Settings.bin / replays / logs)
+/data/
+/logs/
+
+# 编辑器 / OS
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db

@@ -1,0 +1,29 @@
+# Minimal Go CI: build, vet, and test (-race) on every push/PR to the mainline.
+# 真实 helper 集成测试在 CI 自动跳过 (缺 Helper.jar / JDK 17 / 游戏数据).
+name: Go
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v7
+
+    - name: Set up Go
+      uses: actions/setup-go@v7
+      with:
+        go-version-file: go.mod
+
+    - name: Build
+      run: go build ./...
+
+    - name: Vet
+      run: go vet ./...
+
+    - name: Test
+      run: go test -race ./...
