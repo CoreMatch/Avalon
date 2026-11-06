@@ -5,7 +5,7 @@ package gateway_test
 //   客户端连 Cascade -> 房间码路由 -> 身份绑定 (PUT /v1/sessions/{sid}/identity)
 //   -> 转发进引擎 -> 真实开局到结算.
 //
-// 前置不满足时跳过 (不失败): 缺 Helper.jar / JDK17 / Cascade 源码 / go 工具链.
+// 前置不满足时跳过 (不失败): 缺 avalon-helper.jar / JDK17 / Cascade 源码 / go 工具链.
 // Cascade 源码默认 /tmp/cascade-ro, 可用 RWHPS_CASCADE_SRC 覆盖.
 
 import (
@@ -265,16 +265,16 @@ func waitForPort(t *testing.T, addr string, timeout time.Duration) {
 //  4. 同一后端上真实开局并产出结算 (引擎对局真实可用)
 func TestCascadeRealProxyE2E(t *testing.T) {
 	// 前置: helper jar / java 由 external 包同款逻辑检查. 这里复用最小集.
-	// Avalon 独立后, helper 在 RW-HPS 仓库 (SamuelCheston/RW-HPS):
-	// 用环境变量 RWHPS_TEST_REPO_ROOT 指向其检出; 未设置时回退本仓相对路径
+	// Avalon 独立后, helper 在 Avalon-Helper 仓库 (SamuelCheston/Avalon-Helper):
+	// 用环境变量 AVALON_HELPER_REPO_ROOT 指向其检出; 未设置时回退本仓相对路径
 	// (前置缺失时测试自动跳过).
-	root := os.Getenv("RWHPS_TEST_REPO_ROOT")
+	root := os.Getenv("AVALON_HELPER_REPO_ROOT")
 	if root == "" {
 		root = filepath.Join("..", "..", "..", "..")
 	}
-	jar := filepath.Join(root, "Helper", "build", "libs", "Helper.jar")
+	jar := filepath.Join(root, "Helper", "build", "libs", "avalon-helper.jar")
 	if info, err := os.Stat(jar); err != nil || info.IsDir() {
-		t.Skipf("Helper.jar 未构建, 跳过真实 Cascade 联调: %s", jar)
+		t.Skipf("avalon-helper.jar 未构建, 跳过真实 Cascade 联调: %s", jar)
 	}
 	java := findJDK17Java(t)
 

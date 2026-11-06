@@ -1,6 +1,6 @@
 package external
 
-// 真实 helper 集成测试: 拉起真正的 Helper.jar (JVM + 上游游戏引擎),
+// 真实 helper 集成测试: 拉起真正的 avalon-helper.jar (JVM + 上游游戏引擎),
 // 走完整协议链路验证 v2 基础操作与 v2-ext 四个扩展操作都工作在
 // 真实路径上 (非降级路径).
 //
@@ -9,7 +9,7 @@ package external
 // 引擎真实开局、真实生成/移除 AI、真实返回结算数据.
 //
 // 前置条件不满足时跳过 (不失败):
-//   - Helper.jar 未构建 (./gradlew :Helper:jar)
+//   - avalon-helper.jar 未构建 (./gradlew :Helper:jar)
 //   - 找不到 JDK 17 的 java (环境变量 RWHPS_TEST_JAVA 可显式指定)
 //   - 仓库缺 data/gameData 游戏数据
 //
@@ -29,12 +29,12 @@ import (
 	"github.com/CoreMatch/Avalon/internal/game"
 )
 
-// repoRoot 返回含 Helper/ 与 data/gameData 的 RW-HPS 检出根目录.
-// Avalon 独立后, helper 与游戏数据在 RW-HPS 仓库 (SamuelCheston/RW-HPS):
-// 用环境变量 RWHPS_TEST_REPO_ROOT 指向其检出; 未设置时回退本仓相对路径
+// repoRoot 返回含 Helper/ 与 data/gameData 的 Avalon-Helper 检出根目录.
+// Avalon 独立后, helper 与游戏数据在 Avalon-Helper 仓库 (SamuelCheston/Avalon-Helper):
+// 用环境变量 AVALON_HELPER_REPO_ROOT 指向其检出; 未设置时回退本仓相对路径
 // (前置缺失时测试自动跳过).
 func repoRoot() string {
-	if root := os.Getenv("RWHPS_TEST_REPO_ROOT"); root != "" {
+	if root := os.Getenv("AVALON_HELPER_REPO_ROOT"); root != "" {
 		return root
 	}
 	return filepath.Join("..", "..", "..", "..")
@@ -42,15 +42,15 @@ func repoRoot() string {
 
 // realHelperPrereqs 检查真实 helper 的前置条件; 不满足时 t.Skip
 //
-// 返回 java 可执行文件路径、Helper.jar 路径与准备好的数据目录
+// 返回 java 可执行文件路径、avalon-helper.jar 路径与准备好的数据目录
 // (data/gameData 软链到仓库资源, 其余配置由 helper 首次启动生成).
 func realHelperPrereqs(t *testing.T) (java, jar, dataDir string) {
 	t.Helper()
 
 	root := repoRoot()
-	jar = filepath.Join(root, "Helper", "build", "libs", "Helper.jar")
+	jar = filepath.Join(root, "Helper", "build", "libs", "avalon-helper.jar")
 	if !fileExists(jar) {
-		t.Skipf("Helper.jar 未构建, 跳过真实集成测试: %s (构建: ./gradlew :Helper:jar)", jar)
+		t.Skipf("avalon-helper.jar 未构建, 跳过真实集成测试: %s (构建: ./gradlew :Helper:jar)", jar)
 	}
 
 	gameData, err := filepath.Abs(filepath.Join(root, "data", "gameData"))
@@ -103,7 +103,7 @@ func newRealBackend(t *testing.T) *Backend {
 		JavaPath:   java,
 		HelperPath: jar,
 		ExtraArgs: []string{
-			"-Drwhps.helper.dataPath=" + dataDir,
+			"-Davalonhelper.dataPath=" + dataDir,
 			"-Xmx512m",
 		},
 		// JVM 冷启动 + 引擎初始化留足余量
@@ -243,7 +243,7 @@ func TestRealHelperRobustness(t *testing.T) {
 	java, jar, dataDir := realHelperPrereqs(t)
 
 	cmd := exec.Command(java,
-		"-Drwhps.helper.dataPath="+dataDir,
+		"-Davalonhelper.dataPath="+dataDir,
 		"-Xmx512m",
 		"-jar", jar)
 	stdin, err := cmd.StdinPipe()

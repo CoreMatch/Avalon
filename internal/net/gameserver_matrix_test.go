@@ -105,7 +105,7 @@ func runMatrixScenario(t *testing.T, java, jar string, sc matrixScenario, idx in
 	backend, err := external.New(external.Config{
 		JavaPath:     java,
 		HelperPath:   jar,
-		ExtraArgs:    []string{"-Drwhps.helper.dataPath=" + dataDir, "-Xmx512m"},
+		ExtraArgs:    []string{"-Davalonhelper.dataPath=" + dataDir, "-Xmx512m"},
 		HelloTimeout: 90 * time.Second,
 		OpTimeout:    120 * time.Second,
 	})
