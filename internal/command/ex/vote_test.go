@@ -5,13 +5,13 @@ import (
 	"sync"
 	"testing"
 
-	"rwhps/internal/core/thread"
-	"rwhps/internal/data/global"
-	"rwhps/internal/game"
-	"rwhps/internal/game/event"
-	"rwhps/internal/game/player"
-	"rwhps/internal/game/room"
-	"rwhps/internal/io/packet"
+	"github.com/CoreMatch/Avalon/internal/core/thread"
+	"github.com/CoreMatch/Avalon/internal/data/global"
+	"github.com/CoreMatch/Avalon/internal/game"
+	"github.com/CoreMatch/Avalon/internal/game/event"
+	"github.com/CoreMatch/Avalon/internal/game/player"
+	"github.com/CoreMatch/Avalon/internal/game/room"
+	"github.com/CoreMatch/Avalon/internal/io/packet"
 )
 
 // recConn 记录系统消息的连接假实现 (带锁: 投票定时器可能并发广播)

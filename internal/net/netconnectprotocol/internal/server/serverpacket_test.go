@@ -3,10 +3,10 @@ package server
 import (
 	"testing"
 
-	gameio "rwhps/internal/io"
-	"rwhps/internal/io/packet"
-	"rwhps/internal/io/packettype"
-	"rwhps/internal/struct/list"
+	gameio "github.com/CoreMatch/Avalon/internal/io"
+	"github.com/CoreMatch/Avalon/internal/io/packet"
+	"github.com/CoreMatch/Avalon/internal/io/packettype"
+	"github.com/CoreMatch/Avalon/internal/struct/list"
 )
 
 // TestGameTickPacketNoCmds 验证 gameTickPacketInternal 字节布局: tick + count=0 → TICK

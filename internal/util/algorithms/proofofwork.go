@@ -5,9 +5,9 @@ import (
 	"strconv"
 	"strings"
 
-	gameio "rwhps/internal/io"
-	"rwhps/internal/util/mathutil"
-	"rwhps/internal/util/timeutil"
+	gameio "github.com/CoreMatch/Avalon/internal/io"
+	"github.com/CoreMatch/Avalon/internal/util/mathutil"
+	"github.com/CoreMatch/Avalon/internal/util/timeutil"
 )
 
 // NetConnectProofOfWork 对应 NetConnectProofOfWork

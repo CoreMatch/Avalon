@@ -4,11 +4,11 @@ import (
 	"strings"
 	"testing"
 
-	"rwhps/internal/data/global"
-	"rwhps/internal/game/player"
-	gameio "rwhps/internal/io"
-	"rwhps/internal/io/packettype"
-	"rwhps/internal/util/control"
+	"github.com/CoreMatch/Avalon/internal/data/global"
+	"github.com/CoreMatch/Avalon/internal/game/player"
+	gameio "github.com/CoreMatch/Avalon/internal/io"
+	"github.com/CoreMatch/Avalon/internal/io/packettype"
+	"github.com/CoreMatch/Avalon/internal/util/control"
 )
 
 // testVoter 记录 ToVote 调用

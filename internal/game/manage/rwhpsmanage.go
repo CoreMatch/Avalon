@@ -8,7 +8,7 @@ package manage
 import (
 	"sync"
 
-	"rwhps/internal/net/core"
+	"github.com/CoreMatch/Avalon/internal/net/core"
 )
 
 // Provider 按 NetType 构造一个 IRwHps 实现

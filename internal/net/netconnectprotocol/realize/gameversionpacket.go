@@ -2,15 +2,15 @@
 package realize
 
 import (
-	"rwhps/internal/data/global"
-	"rwhps/internal/game/enums"
-	gameio "rwhps/internal/io"
-	"rwhps/internal/io/packet"
-	"rwhps/internal/io/packettype"
-	"rwhps/internal/net/core/server/netpacket"
-	"rwhps/internal/net/netconnectprotocol/internal/server"
-	"rwhps/internal/struct/list"
-	"rwhps/internal/util/compression"
+	"github.com/CoreMatch/Avalon/internal/data/global"
+	"github.com/CoreMatch/Avalon/internal/game/enums"
+	gameio "github.com/CoreMatch/Avalon/internal/io"
+	"github.com/CoreMatch/Avalon/internal/io/packet"
+	"github.com/CoreMatch/Avalon/internal/io/packettype"
+	"github.com/CoreMatch/Avalon/internal/net/core/server/netpacket"
+	"github.com/CoreMatch/Avalon/internal/net/netconnectprotocol/internal/server"
+	"github.com/CoreMatch/Avalon/internal/struct/list"
+	"github.com/CoreMatch/Avalon/internal/util/compression"
 )
 
 // 编译期断言

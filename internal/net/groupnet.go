@@ -3,17 +3,17 @@ package net
 import (
 	"sync"
 
-	gameio "rwhps/internal/io"
-	"rwhps/internal/io/packet"
-	"rwhps/internal/net/core"
+	gameio "github.com/CoreMatch/Avalon/internal/io"
+	"github.com/CoreMatch/Avalon/internal/io/packet"
+	"github.com/CoreMatch/Avalon/internal/net/core"
 )
 
 // GroupNet 对应 GroupNet
 // 支持 TCP Channel 群组 + UDP ConnectionAgreement 群组的广播
 type GroupNet struct {
-	mu          sync.RWMutex
-	channels    map[*core.Channel]struct{}
-	agreements  map[*core.ConnectionAgreement]struct{}
+	mu         sync.RWMutex
+	channels   map[*core.Channel]struct{}
+	agreements map[*core.ConnectionAgreement]struct{}
 
 	singleUserRelay bool
 }

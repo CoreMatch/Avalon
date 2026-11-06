@@ -5,11 +5,11 @@ import (
 	"sync"
 	"testing"
 
-	"rwhps/internal/game/player"
-	"rwhps/internal/io/packet"
-	"rwhps/internal/net/core"
-	"rwhps/internal/util/javastr"
-	"rwhps/internal/util/timeutil"
+	"github.com/CoreMatch/Avalon/internal/game/player"
+	"github.com/CoreMatch/Avalon/internal/io/packet"
+	"github.com/CoreMatch/Avalon/internal/net/core"
+	"github.com/CoreMatch/Avalon/internal/util/javastr"
+	"github.com/CoreMatch/Avalon/internal/util/timeutil"
 )
 
 // fakeRelayConnect 是 RelayConnect 的测试实现

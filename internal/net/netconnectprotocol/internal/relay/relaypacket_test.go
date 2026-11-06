@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	gameio "rwhps/internal/io"
-	"rwhps/internal/io/packettype"
+	gameio "github.com/CoreMatch/Avalon/internal/io"
+	"github.com/CoreMatch/Avalon/internal/io/packettype"
 )
 
 // TestRelayServerInitInfo 验证 RelayServerInitInfoPacket 字节布局

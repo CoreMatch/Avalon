@@ -7,8 +7,8 @@ package main
 import (
 	"os"
 
-	"rwhps/internal/app"
-	"rwhps/internal/util/log"
+	"github.com/CoreMatch/Avalon/internal/app"
+	"github.com/CoreMatch/Avalon/internal/util/log"
 )
 
 func main() {

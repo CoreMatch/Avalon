@@ -49,9 +49,9 @@ const (
 	DISCONNECT              PacketType = 111
 
 	// StartGame
-	START_GAME             PacketType = 120
-	ACCEPT_START_GAME      PacketType = 112
-	RETURN_TO_BATTLEROOM   PacketType = 122
+	START_GAME           PacketType = 120
+	ACCEPT_START_GAME    PacketType = 112
+	RETURN_TO_BATTLEROOM PacketType = 122
 
 	// GameStart Commands
 	TICK                PacketType = 10
@@ -61,18 +61,18 @@ const (
 	SYNC                PacketType = 35
 
 	// Relay
-	RELAY_117                 PacketType = 117
-	RELAY_118_117_RETURN      PacketType = 118
-	RELAY_POW                 PacketType = 151
-	RELAY_POW_RECEIVE         PacketType = 152
-	RELAY_VERSION_INFO        PacketType = 163
-	RELAY_BECOME_SERVER       PacketType = 170
-	FORWARD_CLIENT_ADD        PacketType = 172
-	FORWARD_CLIENT_REMOVE     PacketType = 173
-	PACKET_FORWARD_CLIENT_FROM PacketType = 174
-	PACKET_FORWARD_CLIENT_TO   PacketType = 175
+	RELAY_117                         PacketType = 117
+	RELAY_118_117_RETURN              PacketType = 118
+	RELAY_POW                         PacketType = 151
+	RELAY_POW_RECEIVE                 PacketType = 152
+	RELAY_VERSION_INFO                PacketType = 163
+	RELAY_BECOME_SERVER               PacketType = 170
+	FORWARD_CLIENT_ADD                PacketType = 172
+	FORWARD_CLIENT_REMOVE             PacketType = 173
+	PACKET_FORWARD_CLIENT_FROM        PacketType = 174
+	PACKET_FORWARD_CLIENT_TO          PacketType = 175
 	PACKET_FORWARD_CLIENT_TO_REPEATED PacketType = 176
-	PACKET_RECONNECT_TO       PacketType = 178
+	PACKET_RECONNECT_TO               PacketType = 178
 
 	EMPTYP_ACKAGE PacketType = 0
 	NOT_RESOLVED  PacketType = -1

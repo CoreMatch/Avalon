@@ -1,7 +1,7 @@
 // Package temp 对应 net.rwhps.server.data.temp
 package temp
 
-import "rwhps/internal/data/totalizer"
+import "github.com/CoreMatch/Avalon/internal/data/totalizer"
 
 // ConnectReceiveData 对应 ConnectReceiveData
 type ConnectReceiveData struct {

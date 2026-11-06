@@ -5,8 +5,8 @@ import (
 	"errors"
 	"io"
 
-	gameio "rwhps/internal/io"
-	"rwhps/internal/io/packet"
+	gameio "github.com/CoreMatch/Avalon/internal/io"
+	"github.com/CoreMatch/Avalon/internal/io/packet"
 )
 
 // RCON 线协议格式 (全小端 LE):

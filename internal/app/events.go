@@ -13,8 +13,8 @@ package app
 import (
 	"sync"
 
-	"rwhps/internal/net/core"
-	"rwhps/internal/util/log"
+	"github.com/CoreMatch/Avalon/internal/net/core"
+	"github.com/CoreMatch/Avalon/internal/util/log"
 )
 
 // GlobalEvent 对应 game.event.global 下的各类全局事件

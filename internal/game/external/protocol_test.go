@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"rwhps/internal/game"
+	"github.com/CoreMatch/Avalon/internal/game"
 )
 
 func TestRequestRoundTrip(t *testing.T) {

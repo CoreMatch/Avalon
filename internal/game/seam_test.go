@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"rwhps/internal/data/global"
+	"github.com/CoreMatch/Avalon/internal/data/global"
 )
 
 // fakeSim 记录调用并按需返回错误

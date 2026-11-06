@@ -21,12 +21,12 @@ import (
 	"sync"
 	"syscall"
 
-	"rwhps/internal/command"
-	"rwhps/internal/data/global"
-	"rwhps/internal/game/room"
-	"rwhps/internal/net"
-	"rwhps/internal/util/console"
-	"rwhps/internal/util/log"
+	"github.com/CoreMatch/Avalon/internal/command"
+	"github.com/CoreMatch/Avalon/internal/data/global"
+	"github.com/CoreMatch/Avalon/internal/game/room"
+	"github.com/CoreMatch/Avalon/internal/net"
+	"github.com/CoreMatch/Avalon/internal/util/console"
+	"github.com/CoreMatch/Avalon/internal/util/log"
 )
 
 // Runtime 对应 Main 对象 + Data.core + Data.privateReader 的组合体

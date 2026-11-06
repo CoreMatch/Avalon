@@ -7,14 +7,14 @@ import (
 	"testing"
 	"time"
 
-	"rwhps/internal/data/global"
-	"rwhps/internal/data/totalizer"
-	"rwhps/internal/game"
-	"rwhps/internal/net/core"
-	"rwhps/internal/util/file"
-	"rwhps/internal/util/file/load"
-	"rwhps/internal/util/file/plugindata"
-	"rwhps/internal/util/log"
+	"github.com/CoreMatch/Avalon/internal/data/global"
+	"github.com/CoreMatch/Avalon/internal/data/totalizer"
+	"github.com/CoreMatch/Avalon/internal/game"
+	"github.com/CoreMatch/Avalon/internal/net/core"
+	"github.com/CoreMatch/Avalon/internal/util/file"
+	"github.com/CoreMatch/Avalon/internal/util/file/load"
+	"github.com/CoreMatch/Avalon/internal/util/file/plugindata"
+	"github.com/CoreMatch/Avalon/internal/util/log"
 )
 
 // setupBase 把数据根目录指到临时目录, 并保存/恢复测试会改动的全局状态

@@ -3,14 +3,14 @@ package gameserver
 import (
 	"testing"
 
-	"rwhps/internal/core/service"
-	"rwhps/internal/game"
-	"rwhps/internal/game/manage"
-	"rwhps/internal/game/room"
-	"rwhps/internal/net"
-	"rwhps/internal/net/core"
-	netpacket "rwhps/internal/net/core/server/netpacket"
-	"rwhps/internal/net/netconnectprotocol/realize"
+	"github.com/CoreMatch/Avalon/internal/core/service"
+	"github.com/CoreMatch/Avalon/internal/game"
+	"github.com/CoreMatch/Avalon/internal/game/manage"
+	"github.com/CoreMatch/Avalon/internal/game/room"
+	"github.com/CoreMatch/Avalon/internal/net"
+	"github.com/CoreMatch/Avalon/internal/net/core"
+	netpacket "github.com/CoreMatch/Avalon/internal/net/core/server/netpacket"
+	"github.com/CoreMatch/Avalon/internal/net/netconnectprotocol/realize"
 )
 
 // registerServerProtocol 复刻启动链的注册关系 (见 app.loadService 与 start 命令):

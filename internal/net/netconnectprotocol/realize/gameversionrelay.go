@@ -30,26 +30,26 @@ import (
 	"strconv"
 	"strings"
 
-	"rwhps/internal/data/global"
-	"rwhps/internal/game"
-	"rwhps/internal/game/player"
-	"rwhps/internal/game/room"
-	gameio "rwhps/internal/io"
-	"rwhps/internal/io/packet"
-	"rwhps/internal/io/packettype"
-	"rwhps/internal/net/core"
-	"rwhps/internal/net/core/server"
-	relaypacket "rwhps/internal/net/netconnectprotocol/internal/relay"
-	serverpacket "rwhps/internal/net/netconnectprotocol/internal/server"
-	"rwhps/internal/util/algorithms"
-	"rwhps/internal/util/compression"
-	"rwhps/internal/util/emoji"
-	cmd "rwhps/internal/util/game/command"
-	gameutil "rwhps/internal/util/game"
-	"rwhps/internal/util/isutils"
-	"rwhps/internal/util/javastr"
-	"rwhps/internal/util/log"
-	"rwhps/internal/util/timeutil"
+	"github.com/CoreMatch/Avalon/internal/data/global"
+	"github.com/CoreMatch/Avalon/internal/game"
+	"github.com/CoreMatch/Avalon/internal/game/player"
+	"github.com/CoreMatch/Avalon/internal/game/room"
+	gameio "github.com/CoreMatch/Avalon/internal/io"
+	"github.com/CoreMatch/Avalon/internal/io/packet"
+	"github.com/CoreMatch/Avalon/internal/io/packettype"
+	"github.com/CoreMatch/Avalon/internal/net/core"
+	"github.com/CoreMatch/Avalon/internal/net/core/server"
+	relaypacket "github.com/CoreMatch/Avalon/internal/net/netconnectprotocol/internal/relay"
+	serverpacket "github.com/CoreMatch/Avalon/internal/net/netconnectprotocol/internal/server"
+	"github.com/CoreMatch/Avalon/internal/util/algorithms"
+	"github.com/CoreMatch/Avalon/internal/util/compression"
+	"github.com/CoreMatch/Avalon/internal/util/emoji"
+	gameutil "github.com/CoreMatch/Avalon/internal/util/game"
+	cmd "github.com/CoreMatch/Avalon/internal/util/game/command"
+	"github.com/CoreMatch/Avalon/internal/util/isutils"
+	"github.com/CoreMatch/Avalon/internal/util/javastr"
+	"github.com/CoreMatch/Avalon/internal/util/log"
+	"github.com/CoreMatch/Avalon/internal/util/timeutil"
 )
 
 // 编译期确认: 原版 GameVersionRelay 同时实现两个接口并满足 RelayRoom 的接缝
@@ -990,7 +990,7 @@ func (g *GameVersionRelay) idCustom(inId string) {
 
 	if g.idDistribute(id) {
 		if global.ConfigRelay.MainServer {
-			g.SendPacket(relaypacket.FromRelayJumpsToAnotherServerPacket(firstRuneString(id, 1)+".relay.rwhps.net/"+id))
+			g.SendPacket(relaypacket.FromRelayJumpsToAnotherServerPacket(firstRuneString(id, 1) + ".relay.rwhps.net/" + id))
 			return
 		}
 		id = dropRunes(id, 2)

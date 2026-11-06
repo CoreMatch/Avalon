@@ -25,11 +25,11 @@ import (
 	"strings"
 	"sync"
 
-	"rwhps/internal/data/global"
-	nethttp "rwhps/internal/net/http"
-	"rwhps/internal/util/jsonutil"
-	"rwhps/internal/util/log"
-	"rwhps/internal/util/timeutil"
+	"github.com/CoreMatch/Avalon/internal/data/global"
+	nethttp "github.com/CoreMatch/Avalon/internal/net/http"
+	"github.com/CoreMatch/Avalon/internal/util/jsonutil"
+	"github.com/CoreMatch/Avalon/internal/util/log"
+	"github.com/CoreMatch/Avalon/internal/util/timeutil"
 )
 
 // consoleCache 对应 GetData.consoleCache (SeqSave(20)): 最近 20 条控制台输出

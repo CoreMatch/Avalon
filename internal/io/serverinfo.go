@@ -3,7 +3,7 @@ package gameio
 import (
 	"errors"
 
-	"rwhps/internal/io/packet"
+	"github.com/CoreMatch/Avalon/internal/io/packet"
 )
 
 // ErrServerInfoVersion 对应 require(readByte >= 2)

@@ -5,10 +5,10 @@ import (
 	"strings"
 	"sync"
 
-	"rwhps/internal/data/global"
-	"rwhps/internal/game/player"
-	"rwhps/internal/struct/list"
-	"rwhps/internal/util/isutils"
+	"github.com/CoreMatch/Avalon/internal/data/global"
+	"github.com/CoreMatch/Avalon/internal/game/player"
+	"github.com/CoreMatch/Avalon/internal/struct/list"
+	"github.com/CoreMatch/Avalon/internal/util/isutils"
 )
 
 // ErrNotPortable 表示该能力依赖 JVM 内核且当前 helper 协议没有对应操作,

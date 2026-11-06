@@ -3,14 +3,14 @@ package command
 import (
 	"strings"
 
-	"rwhps/internal/data/global"
-	"rwhps/internal/game/event"
-	"rwhps/internal/game/manage"
-	"rwhps/internal/game/player"
-	"rwhps/internal/util/isutils"
-	"rwhps/internal/util/timeutil"
+	"github.com/CoreMatch/Avalon/internal/data/global"
+	"github.com/CoreMatch/Avalon/internal/game/event"
+	"github.com/CoreMatch/Avalon/internal/game/manage"
+	"github.com/CoreMatch/Avalon/internal/game/player"
+	"github.com/CoreMatch/Avalon/internal/util/isutils"
+	"github.com/CoreMatch/Avalon/internal/util/timeutil"
 
-	cmd "rwhps/internal/util/game/command"
+	cmd "github.com/CoreMatch/Avalon/internal/util/game/command"
 )
 
 // notPortable 对应"依赖游戏内核 (引擎) 且当前 helper 协议无对应操作"的命令的统一回复.

@@ -14,11 +14,11 @@ package net
 import (
 	"encoding/binary"
 
-	"rwhps/internal/data/global"
-	"rwhps/internal/game/manage"
-	"rwhps/internal/io/packettype"
-	"rwhps/internal/net/core"
-	nethttp "rwhps/internal/net/http"
+	"github.com/CoreMatch/Avalon/internal/data/global"
+	"github.com/CoreMatch/Avalon/internal/game/manage"
+	"github.com/CoreMatch/Avalon/internal/io/packettype"
+	"github.com/CoreMatch/Avalon/internal/net/core"
+	nethttp "github.com/CoreMatch/Avalon/internal/net/http"
 )
 
 // MixKind 嗅探结果

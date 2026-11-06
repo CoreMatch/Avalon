@@ -18,7 +18,7 @@
 package httpapi
 
 import (
-	"rwhps/internal/util/jsonutil"
+	"github.com/CoreMatch/Avalon/internal/util/jsonutil"
 )
 
 // WebStatus 对应 WebStatus.kt: API 统一响应包装 (status + data)

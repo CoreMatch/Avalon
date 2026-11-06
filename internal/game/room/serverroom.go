@@ -5,17 +5,17 @@ import (
 	"sync"
 	"time"
 
-	"rwhps/internal/core/thread"
-	"rwhps/internal/data/global"
-	"rwhps/internal/data/temp"
-	"rwhps/internal/game"
-	"rwhps/internal/game/event"
-	"rwhps/internal/game/manage"
-	"rwhps/internal/game/player"
-	"rwhps/internal/io/packet"
-	"rwhps/internal/struct/list"
-	cmd "rwhps/internal/util/game/command"
-	"rwhps/internal/util/log"
+	"github.com/CoreMatch/Avalon/internal/core/thread"
+	"github.com/CoreMatch/Avalon/internal/data/global"
+	"github.com/CoreMatch/Avalon/internal/data/temp"
+	"github.com/CoreMatch/Avalon/internal/game"
+	"github.com/CoreMatch/Avalon/internal/game/event"
+	"github.com/CoreMatch/Avalon/internal/game/manage"
+	"github.com/CoreMatch/Avalon/internal/game/player"
+	"github.com/CoreMatch/Avalon/internal/io/packet"
+	"github.com/CoreMatch/Avalon/internal/struct/list"
+	cmd "github.com/CoreMatch/Avalon/internal/util/game/command"
+	"github.com/CoreMatch/Avalon/internal/util/log"
 )
 
 // ServerRoom 对应 ServerRoom: 服务端模式的房间实体
@@ -175,14 +175,14 @@ func (r *ServerRoom) registerAI(profile *game.AIProfile) {
 // Go 侧没有对应物, 一律空操作.
 type aiConnect struct{}
 
-func (aiConnect) SendSystemMessage(string) error              { return nil }
-func (aiConnect) SendChatMessage(string, string, int) error   { return nil }
-func (aiConnect) SendKick(string) error                       { return nil }
-func (aiConnect) SendRelayServerType(string, func(string))    {}
-func (aiConnect) SendPacket(*packet.Packet)                   {}
-func (aiConnect) SendJumpToAnotherServer(string)              {}
-func (aiConnect) IP() string                                  { return "127.0.0.1" }
-func (aiConnect) UseConnectionAgreement() string              { return "AI" }
+func (aiConnect) SendSystemMessage(string) error            { return nil }
+func (aiConnect) SendChatMessage(string, string, int) error { return nil }
+func (aiConnect) SendKick(string) error                     { return nil }
+func (aiConnect) SendRelayServerType(string, func(string))  {}
+func (aiConnect) SendPacket(*packet.Packet)                 {}
+func (aiConnect) SendJumpToAnotherServer(string)            {}
+func (aiConnect) IP() string                                { return "127.0.0.1" }
+func (aiConnect) UseConnectionAgreement() string            { return "AI" }
 
 // aiI18nInput 对应 Data.i18NBundle.getinput (AI 与上游一致用全局语言包)
 func aiI18nInput(key string, params ...any) string {

@@ -4,8 +4,8 @@ import (
 	"errors"
 	"testing"
 
-	"rwhps/internal/net/core"
-	netpacket "rwhps/internal/net/core/server/netpacket"
+	"github.com/CoreMatch/Avalon/internal/net/core"
+	netpacket "github.com/CoreMatch/Avalon/internal/net/core/server/netpacket"
 )
 
 // fakeProtocol 实现 core.IRwHps

@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	"rwhps/internal/util/log"
+	"github.com/CoreMatch/Avalon/internal/util/log"
 )
 
 // 契约 "Errors and retries" (Cascade-Backend-v1.md :137-164) 的稳定错误码.

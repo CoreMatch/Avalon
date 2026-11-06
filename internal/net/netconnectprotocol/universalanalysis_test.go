@@ -3,7 +3,7 @@ package netconnectprotocol
 import (
 	"testing"
 
-	gameio "rwhps/internal/io"
+	gameio "github.com/CoreMatch/Avalon/internal/io"
 )
 
 // buildUnitPacket 按原版读取顺序拼出字节:

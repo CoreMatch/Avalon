@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"rwhps/internal/util/file"
+	"github.com/CoreMatch/Avalon/internal/util/file"
 )
 
 // TestNewCoreConfigUplistEnableDefault 自报开关默认保持自报

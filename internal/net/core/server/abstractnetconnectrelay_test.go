@@ -4,9 +4,9 @@ import (
 	"errors"
 	"testing"
 
-	"rwhps/internal/game/room"
-	"rwhps/internal/io/packet"
-	"rwhps/internal/net/core"
+	"github.com/CoreMatch/Avalon/internal/game/room"
+	"github.com/CoreMatch/Avalon/internal/io/packet"
+	"github.com/CoreMatch/Avalon/internal/net/core"
 )
 
 // 编译期确认: 接口可被满足, 且 24 个成员的签名没有自相矛盾

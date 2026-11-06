@@ -3,11 +3,11 @@
 package server
 
 import (
-	gameio "rwhps/internal/io"
-	"rwhps/internal/io/packet"
-	"rwhps/internal/io/packettype"
-	"rwhps/internal/struct/list"
-	"rwhps/internal/util/compression"
+	gameio "github.com/CoreMatch/Avalon/internal/io"
+	"github.com/CoreMatch/Avalon/internal/io/packet"
+	"github.com/CoreMatch/Avalon/internal/io/packettype"
+	"github.com/CoreMatch/Avalon/internal/struct/list"
+	"github.com/CoreMatch/Avalon/internal/util/compression"
 )
 
 // GameTickPacket 对应 gameTickPacketInternal(tick)

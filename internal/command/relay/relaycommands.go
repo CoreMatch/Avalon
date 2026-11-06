@@ -7,8 +7,8 @@
 package relay
 
 import (
-	"rwhps/internal/data/global"
-	cmd "rwhps/internal/util/game/command"
+	"github.com/CoreMatch/Avalon/internal/data/global"
+	cmd "github.com/CoreMatch/Avalon/internal/util/game/command"
 )
 
 // RegisterRelayCommands 对应 RelayCommands(handler)

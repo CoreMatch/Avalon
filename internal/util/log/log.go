@@ -15,7 +15,7 @@ import (
 	"sync"
 	"time"
 
-	messageformat "rwhps/internal/util/str"
+	messageformat "github.com/CoreMatch/Avalon/internal/util/str"
 )
 
 // Level 对应 LogCore.Logg

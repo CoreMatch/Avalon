@@ -8,14 +8,14 @@ import (
 	"strings"
 	"testing"
 
-	"rwhps/internal/data/bean"
-	"rwhps/internal/data/global"
-	"rwhps/internal/game"
-	"rwhps/internal/game/external"
-	"rwhps/internal/resource"
-	"rwhps/internal/util/file"
-	"rwhps/internal/util/file/load"
-	"rwhps/internal/util/log"
+	"github.com/CoreMatch/Avalon/internal/data/bean"
+	"github.com/CoreMatch/Avalon/internal/data/global"
+	"github.com/CoreMatch/Avalon/internal/game"
+	"github.com/CoreMatch/Avalon/internal/game/external"
+	"github.com/CoreMatch/Avalon/internal/resource"
+	"github.com/CoreMatch/Avalon/internal/util/file"
+	"github.com/CoreMatch/Avalon/internal/util/file/load"
+	"github.com/CoreMatch/Avalon/internal/util/log"
 )
 
 // writeFakeHelper 造一个"存在但不可执行"的 jar 文件

@@ -25,8 +25,8 @@ func (t *testConnAdapter) WriteString(msg string) error {
 	_, err := t.Conn.Write([]byte(msg))
 	return err
 }
-func (t *testConnAdapter) Close() error        { return t.Conn.Close() }
-func (t *testConnAdapter) RemoteAddr() string  { return t.Conn.RemoteAddr().String() }
+func (t *testConnAdapter) Close() error       { return t.Conn.Close() }
+func (t *testConnAdapter) RemoteAddr() string { return t.Conn.RemoteAddr().String() }
 
 // TestStartHttpGetExactMatch 验证 HTTP/1.1 GET 请求被正确派发到精确注册的 handler
 func TestStartHttpGetExactMatch(t *testing.T) {

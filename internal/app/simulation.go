@@ -4,12 +4,12 @@ import (
 	"path/filepath"
 	"strings"
 
-	"rwhps/internal/data/global"
-	"rwhps/internal/game"
-	"rwhps/internal/game/external"
-	"rwhps/internal/net/gameserver"
-	"rwhps/internal/util/file"
-	"rwhps/internal/util/log"
+	"github.com/CoreMatch/Avalon/internal/data/global"
+	"github.com/CoreMatch/Avalon/internal/game"
+	"github.com/CoreMatch/Avalon/internal/game/external"
+	"github.com/CoreMatch/Avalon/internal/net/gameserver"
+	"github.com/CoreMatch/Avalon/internal/util/file"
+	"github.com/CoreMatch/Avalon/internal/util/log"
 )
 
 // anchorPath 把"看起来像路径"的相对路径锚到数据根目录

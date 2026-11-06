@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"rwhps/internal/game"
+	"github.com/CoreMatch/Avalon/internal/game"
 )
 
 // matchCfg 构造一个与上游默认值一致的开局参数

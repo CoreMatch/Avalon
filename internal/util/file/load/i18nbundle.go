@@ -1,9 +1,9 @@
 package load
 
 import (
-	"rwhps/internal/struct/orderedmap"
-	"rwhps/internal/util/log"
-	messageformat "rwhps/internal/util/str"
+	"github.com/CoreMatch/Avalon/internal/struct/orderedmap"
+	"github.com/CoreMatch/Avalon/internal/util/log"
+	messageformat "github.com/CoreMatch/Avalon/internal/util/str"
 )
 
 // I18NBundle 对应 I18NBundle

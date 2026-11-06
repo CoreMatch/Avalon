@@ -1,8 +1,8 @@
 package server
 
 import (
-	"rwhps/internal/game"
-	"rwhps/internal/net/core"
+	"github.com/CoreMatch/Avalon/internal/game"
+	"github.com/CoreMatch/Avalon/internal/net/core"
 )
 
 // AbstractNetConnectServer 对应 AbstractNetConnectServer

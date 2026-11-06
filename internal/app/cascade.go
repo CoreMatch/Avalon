@@ -4,13 +4,13 @@ import (
 	"strings"
 	"time"
 
-	"rwhps/internal/data/global"
-	"rwhps/internal/game"
-	"rwhps/internal/game/external"
-	"rwhps/internal/net/gateway"
-	"rwhps/internal/util/file"
-	"rwhps/internal/util/file/plugindata"
-	"rwhps/internal/util/log"
+	"github.com/CoreMatch/Avalon/internal/data/global"
+	"github.com/CoreMatch/Avalon/internal/game"
+	"github.com/CoreMatch/Avalon/internal/game/external"
+	"github.com/CoreMatch/Avalon/internal/net/gateway"
+	"github.com/CoreMatch/Avalon/internal/util/file"
+	"github.com/CoreMatch/Avalon/internal/util/file/plugindata"
+	"github.com/CoreMatch/Avalon/internal/util/log"
 )
 
 // loadCascadeGateway 在启用 Cascade 后端契约时装配网关并启动 /v1 控制面.

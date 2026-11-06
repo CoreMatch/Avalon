@@ -5,12 +5,12 @@ import (
 	"testing"
 	"time"
 
-	"rwhps/internal/core/thread"
-	"rwhps/internal/data/global"
-	"rwhps/internal/game"
-	"rwhps/internal/game/event"
-	"rwhps/internal/game/manage"
-	"rwhps/internal/game/player"
+	"github.com/CoreMatch/Avalon/internal/core/thread"
+	"github.com/CoreMatch/Avalon/internal/data/global"
+	"github.com/CoreMatch/Avalon/internal/game"
+	"github.com/CoreMatch/Avalon/internal/game/event"
+	"github.com/CoreMatch/Avalon/internal/game/manage"
+	"github.com/CoreMatch/Avalon/internal/game/player"
 )
 
 // fakeSim 记录调用并按需返回错误
@@ -268,8 +268,8 @@ type fakeRoomControl struct {
 	resultOK  bool
 	resultErr error
 
-	settingsErr error
-	settingsCnt int
+	settingsErr  error
+	settingsCnt  int
 	lastSettings game.RoomSettings
 }
 

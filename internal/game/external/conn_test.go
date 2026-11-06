@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"rwhps/internal/io/packet"
-	"rwhps/internal/io/packettype"
+	"github.com/CoreMatch/Avalon/internal/io/packet"
+	"github.com/CoreMatch/Avalon/internal/io/packettype"
 )
 
 // TestConnOpenCloseRoundTrip conn.open / conn.close 的请求-应答闭环

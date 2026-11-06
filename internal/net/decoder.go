@@ -6,20 +6,21 @@ import (
 	"io"
 	"sync"
 
-	"rwhps/internal/io/packet"
-	"rwhps/internal/io/packettype"
-	"rwhps/internal/net/core"
-	"rwhps/internal/util/log"
+	"github.com/CoreMatch/Avalon/internal/io/packet"
+	"github.com/CoreMatch/Avalon/internal/io/packettype"
+	"github.com/CoreMatch/Avalon/internal/net/core"
+	"github.com/CoreMatch/Avalon/internal/util/log"
 )
 
 // GamePacketDecoder 对应 GamePacketDecoder
-//   1 2 3 4  5  6  7  8  ...
-//  +-+-+-+-+-+-+-+-+---------------+
-//  |0 |0 |0 |0 |0|0|0|0| Data|
-//  +-+-+-+-+-+-+-+-+---------------+
-//  |Data length|  Type | Data
-//  |    Packet Head    | Data
-//  +---------------+---------------+
+//
+//	 1 2 3 4  5  6  7  8  ...
+//	+-+-+-+-+-+-+-+-+---------------+
+//	|0 |0 |0 |0 |0|0|0|0| Data|
+//	+-+-+-+-+-+-+-+-+---------------+
+//	|Data length|  Type | Data
+//	|    Packet Head    | Data
+//	+---------------+---------------+
 const (
 	HeaderSize    = 8
 	MaxPacketSize = 50_000_000 // 50MB

@@ -4,11 +4,11 @@ import (
 	"strings"
 	"testing"
 
-	"rwhps/internal/data/global"
-	"rwhps/internal/game"
-	"rwhps/internal/game/event"
-	"rwhps/internal/game/room"
-	nethttp "rwhps/internal/net/http"
+	"github.com/CoreMatch/Avalon/internal/data/global"
+	"github.com/CoreMatch/Avalon/internal/game"
+	"github.com/CoreMatch/Avalon/internal/game/event"
+	"github.com/CoreMatch/Avalon/internal/game/room"
+	nethttp "github.com/CoreMatch/Avalon/internal/net/http"
 )
 
 // captured 记录 SendWeb 写出的响应

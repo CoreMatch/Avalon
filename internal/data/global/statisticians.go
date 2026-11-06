@@ -4,8 +4,8 @@ package global
 import (
 	"sync"
 
-	"rwhps/internal/util/log"
-	"rwhps/internal/util/timeutil"
+	"github.com/CoreMatch/Avalon/internal/util/log"
+	"github.com/CoreMatch/Avalon/internal/util/timeutil"
 )
 
 // 统计计时器, 对应 Statisticians

@@ -12,14 +12,14 @@ import (
 	"sync"
 	"testing"
 
-	"rwhps/internal/data/global"
-	"rwhps/internal/game/room"
-	gameio "rwhps/internal/io"
-	"rwhps/internal/io/packet"
-	"rwhps/internal/io/packettype"
-	"rwhps/internal/net/core"
-	netpacket "rwhps/internal/net/core/server/netpacket"
-	"rwhps/internal/util/timeutil"
+	"github.com/CoreMatch/Avalon/internal/data/global"
+	"github.com/CoreMatch/Avalon/internal/game/room"
+	gameio "github.com/CoreMatch/Avalon/internal/io"
+	"github.com/CoreMatch/Avalon/internal/io/packet"
+	"github.com/CoreMatch/Avalon/internal/io/packettype"
+	"github.com/CoreMatch/Avalon/internal/net/core"
+	netpacket "github.com/CoreMatch/Avalon/internal/net/core/server/netpacket"
+	"github.com/CoreMatch/Avalon/internal/util/timeutil"
 )
 
 // --- 测试基建 ---
@@ -273,8 +273,8 @@ func TestIdCustomCustomModePackets(t *testing.T) {
 	// TEAM_LIST 包里的 maxPlayer 应为 5
 	team := w.lastOfType(packettype.TEAM_LIST)
 	in := gameio.NewGameInputStreamFromPacket(team, 0)
-	in.ReadInt()          // 0
-	in.ReadBoolean()      // false
+	in.ReadInt()     // 0
+	in.ReadBoolean() // false
 	if n := in.ReadInt(); n != 5 {
 		t.Fatalf("maxPlayerSize = %d, want 5", n)
 	}

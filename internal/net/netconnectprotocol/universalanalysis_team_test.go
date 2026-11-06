@@ -3,8 +3,8 @@ package netconnectprotocol
 import (
 	"testing"
 
-	"rwhps/internal/game/player"
-	gameio "rwhps/internal/io"
+	"github.com/CoreMatch/Avalon/internal/game/player"
+	gameio "github.com/CoreMatch/Avalon/internal/io"
 )
 
 // buildTeamPacket 按原版读取顺序拼出 TEAM_LIST 包:

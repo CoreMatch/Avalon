@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"rwhps/internal/core/thread"
-	"rwhps/internal/data/temp"
-	"rwhps/internal/game/event"
+	"github.com/CoreMatch/Avalon/internal/core/thread"
+	"github.com/CoreMatch/Avalon/internal/data/temp"
+	"github.com/CoreMatch/Avalon/internal/game/event"
 )
 
 // fakeRoomHooks 是 RoomHooks 的记录型假实现

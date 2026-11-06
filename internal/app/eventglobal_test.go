@@ -3,10 +3,10 @@ package app
 import (
 	"testing"
 
-	"rwhps/internal/data/global"
-	"rwhps/internal/game/player"
-	"rwhps/internal/net/core"
-	"rwhps/internal/util/timeutil"
+	"github.com/CoreMatch/Avalon/internal/data/global"
+	"github.com/CoreMatch/Avalon/internal/game/player"
+	"github.com/CoreMatch/Avalon/internal/net/core"
+	"github.com/CoreMatch/Avalon/internal/util/timeutil"
 )
 
 // TestEventGlobalMuteFilter ServerLoadEvent 注册禁言过滤器

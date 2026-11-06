@@ -7,12 +7,12 @@ import (
 	"sync"
 	"time"
 
-	"rwhps/internal/core/thread"
-	"rwhps/internal/data/global"
-	"rwhps/internal/game/player"
-	"rwhps/internal/game/room"
-	"rwhps/internal/struct/list"
-	"rwhps/internal/util/log"
+	"github.com/CoreMatch/Avalon/internal/core/thread"
+	"github.com/CoreMatch/Avalon/internal/data/global"
+	"github.com/CoreMatch/Avalon/internal/game/player"
+	"github.com/CoreMatch/Avalon/internal/game/room"
+	"github.com/CoreMatch/Avalon/internal/struct/list"
+	"github.com/CoreMatch/Avalon/internal/util/log"
 )
 
 // Vote 对应 Vote: 为游戏提供一个默认的 Vote 接口
@@ -60,13 +60,13 @@ func NewVoteWithTarget(command string, hostPlayer, targetPlayer *player.Player) 
 
 func newVote(command string, hostPlayer, targetPlayer *player.Player) *Vote {
 	v := &Vote{
-		command:      command,
-		Player:       hostPlayer,
-		TargetPlayer: targetPlayer,
-		reciprocal:   60,
-		playerList:   list.NewSeq[string](),
-		endNoMsg:     func() {},
-		endYesMsg:    func() {},
+		command:       command,
+		Player:        hostPlayer,
+		TargetPlayer:  targetPlayer,
+		reciprocal:    60,
+		playerList:    list.NewSeq[string](),
+		endNoMsg:      func() {},
+		endYesMsg:     func() {},
 		votePlayerIng: func() {},
 		voteIng:       func() {},
 	}
@@ -275,10 +275,10 @@ func (v *Vote) StopVote() { v.clearUp() }
 // --- companion ---
 
 var (
-	commandStartMu sync.RWMutex
+	commandStartMu   sync.RWMutex
 	commandStartData = map[string]func(*Vote){}
 
-	commandEndMu sync.RWMutex
+	commandEndMu   sync.RWMutex
 	commandEndData = map[string]func(*Vote){}
 )
 

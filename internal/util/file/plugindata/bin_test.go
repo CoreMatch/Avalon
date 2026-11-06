@@ -5,7 +5,7 @@ import (
 	"encoding/base64"
 	"testing"
 
-	"rwhps/internal/util/file"
+	"github.com/CoreMatch/Avalon/internal/util/file"
 )
 
 // fixture 由独立实现 (python gzip + struct) 生成, 用来钉死 Bin 布局:

@@ -65,22 +65,27 @@ cd rwhps-<version>-linux-<arch>
 4. 重新启动。
 
 只升 Go 二进制或只升 Helper.jar 均可（两者经 stdin/stdout 线协议解耦，
-协议版本 `v2`，见 `Go-Server/docs/HELPER-PROTOCOL.md`）。
+协议版本 `v2`，见 `docs/HELPER-PROTOCOL.md`）。
 
 > 注：退出时 Go 与 helper 会先后写配置，Go 侧在 helper 退出后最后写回，
 > 保证 `gameHelperPath` 等 Go 独有键不丢（2026-11-05 修复）。
 
 ## 构建分发包（开发者）
 
+分发包跨两个仓库组装：Go 二进制来自本仓（Avalon），Helper.jar 与
+`data/gameData` 来自 RW-HPS 检出（环境变量 `RW_HPS_REPO` 指向）。
+
 ```sh
-# 仓库根目录
-JAVA_HOME=<jdk17> ./gradlew :Helper:jar   # 先构建引擎壳
-./dist/build-dist.sh                       # 产出 dist/out/rwhps-*.tar.gz
+# RW-HPS 检出根目录: 先构建引擎壳
+JAVA_HOME=<jdk17> ./gradlew :Helper:jar
+
+# Avalon 仓库根目录
+RW_HPS_REPO=/path/to/RW-HPS ./dist/build-dist.sh   # 产出 dist/out/rwhps-*.tar.gz
 ```
 
 ## 验收记录
 
-分发自足性由 `Go-Server/internal/app/dist_e2e_test.go`
+分发自足性由 `internal/app/dist_e2e_test.go`
 （`TestDistributionSelfContained`）持续验证：干净目录组装 → 启动 →
 真实客户端 TCP 直连预注册握手（160→161）→ 控制台 `addai`×2 + `start` →
 引擎真实对局 → `gameover` 结算 → 回放文件落盘 → `exit` 优雅退出 →

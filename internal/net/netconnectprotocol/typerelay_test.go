@@ -12,14 +12,14 @@ import (
 	"sync"
 	"testing"
 
-	"rwhps/internal/data/global"
-	gameio "rwhps/internal/io"
-	"rwhps/internal/io/packet"
-	"rwhps/internal/io/packettype"
-	"rwhps/internal/net/core"
-	"rwhps/internal/net/netconnectprotocol/realize"
-	"rwhps/internal/util/algorithms"
-	cmd "rwhps/internal/util/game/command"
+	"github.com/CoreMatch/Avalon/internal/data/global"
+	gameio "github.com/CoreMatch/Avalon/internal/io"
+	"github.com/CoreMatch/Avalon/internal/io/packet"
+	"github.com/CoreMatch/Avalon/internal/io/packettype"
+	"github.com/CoreMatch/Avalon/internal/net/core"
+	"github.com/CoreMatch/Avalon/internal/net/netconnectprotocol/realize"
+	"github.com/CoreMatch/Avalon/internal/util/algorithms"
+	cmd "github.com/CoreMatch/Avalon/internal/util/game/command"
 )
 
 // --- 测试基建 ---

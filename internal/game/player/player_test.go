@@ -4,8 +4,8 @@ import (
 	"errors"
 	"testing"
 
-	"rwhps/internal/io/packet"
-	"rwhps/internal/util/timeutil"
+	"github.com/CoreMatch/Avalon/internal/io/packet"
+	"github.com/CoreMatch/Avalon/internal/util/timeutil"
 )
 
 // mockConnect 记录发包行为的假连接

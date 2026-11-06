@@ -10,9 +10,9 @@ import (
 	"strings"
 	"sync"
 
-	"rwhps/internal/data/global"
-	"rwhps/internal/net/core"
-	"rwhps/internal/util/log"
+	"github.com/CoreMatch/Avalon/internal/data/global"
+	"github.com/CoreMatch/Avalon/internal/net/core"
+	"github.com/CoreMatch/Avalon/internal/util/log"
 )
 
 // ConnIO 是 HTTP 层所需的最小连接投影 (便于测试用 in-memory conn 驱动)

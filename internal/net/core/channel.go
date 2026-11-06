@@ -7,7 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"rwhps/internal/io/packet"
+	"github.com/CoreMatch/Avalon/internal/io/packet"
 )
 
 // PacketGate 是网关模式下的包放行裁决接缝 (如 Cascade 会话绑定前的门控).

@@ -2,8 +2,8 @@
 package netpacket
 
 import (
-	"rwhps/internal/io/packet"
-	"rwhps/internal/struct/list"
+	"github.com/CoreMatch/Avalon/internal/io/packet"
+	"github.com/CoreMatch/Avalon/internal/struct/list"
 )
 
 // AbstractNetPacket 对应 AbstractNetPacket

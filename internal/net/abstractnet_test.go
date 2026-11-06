@@ -3,8 +3,8 @@ package net
 import (
 	"testing"
 
-	"rwhps/internal/net/core"
-	"rwhps/internal/util/game/command"
+	"github.com/CoreMatch/Avalon/internal/net/core"
+	"github.com/CoreMatch/Avalon/internal/util/game/command"
 )
 
 // TestNewAbstractNetKeepsCommandHooks 构造监听器不得清空已注入的命令钩子,

@@ -3,9 +3,9 @@ package bean
 import (
 	"os"
 
-	"rwhps/internal/util/file"
-	"rwhps/internal/util/log"
-	"rwhps/internal/util/mathutil"
+	"github.com/CoreMatch/Avalon/internal/util/file"
+	"github.com/CoreMatch/Avalon/internal/util/log"
+	"github.com/CoreMatch/Avalon/internal/util/mathutil"
 )
 
 // CoreConfig 对应 BeanCoreConfig
@@ -127,10 +127,10 @@ func NewCoreConfig() CoreConfig {
 		DefStartCommand: "start",
 		Log:             "WARN",
 
-		Port:       5123,
-		ServerName: "RW-HPS",
-		Subtitle:   "",
-		AutoUpList: false,
+		Port:         5123,
+		ServerName:   "RW-HPS",
+		Subtitle:     "",
+		AutoUpList:   false,
 		UplistEnable: true,
 
 		MixProtocolEnable: false,

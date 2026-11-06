@@ -11,11 +11,11 @@ import (
 var ipv4Pattern = regexp.MustCompile(`^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$`)
 
 const (
-	ipv4MaxOctetValue          = 255
-	ipv6MaxHexGroups           = 8
-	ipv6MaxHexDigitsPerGroup   = 4
-	maxUnsignedShort           = 0xffff
-	base16                     = 16
+	ipv4MaxOctetValue        = 255
+	ipv6MaxHexGroups         = 8
+	ipv6MaxHexDigitsPerGroup = 4
+	maxUnsignedShort         = 0xffff
+	base16                   = 16
 )
 
 // ErrIPUnknow 对应 VariableException("[IP-Check IPV4-IPV6 Unknown]")

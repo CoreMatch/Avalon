@@ -5,9 +5,9 @@ import (
 	"strings"
 	"sync"
 
-	"rwhps/internal/io/packet"
-	"rwhps/internal/util/ip"
-	"rwhps/internal/util/log"
+	"github.com/CoreMatch/Avalon/internal/io/packet"
+	"github.com/CoreMatch/Avalon/internal/util/ip"
+	"github.com/CoreMatch/Avalon/internal/util/log"
 )
 
 // ChannelKind 标识 ConnectionAgreement 使用的传输类型
@@ -24,18 +24,18 @@ const (
 // 统一封装 TCP/UDP/Headless/Test 四种连接协议的发送与关闭
 // 注: 为遵循 Go 习惯, 把原 Kotlin 的 `val` 映射为方法 getter.
 type ConnectionAgreement struct {
-	Kind         ChannelKind
-	Channel      *Channel
-	UDPOUT       UDPWriter
-	RwHps        IRwHps
+	Kind            ChannelKind
+	Channel         *Channel
+	UDPOUT          UDPWriter
+	RwHps           IRwHps
 	UseAgreementStr string
-	isClosed     func() bool
-	closeClean   func()
-	ID           string
+	isClosed        func() bool
+	closeClean      func()
+	ID              string
 
-	IP            string
-	IPLong24      string
-	LocalPort     int
+	IP        string
+	IPLong24  string
+	LocalPort int
 
 	writeMu sync.Mutex
 }

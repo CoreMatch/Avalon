@@ -5,11 +5,11 @@ import (
 	"strconv"
 	"sync"
 
-	"rwhps/internal/io/packet"
-	"rwhps/internal/util/isutils"
-	"rwhps/internal/util/javastr"
-	"rwhps/internal/util/log"
-	"rwhps/internal/util/timeutil"
+	"github.com/CoreMatch/Avalon/internal/io/packet"
+	"github.com/CoreMatch/Avalon/internal/util/isutils"
+	"github.com/CoreMatch/Avalon/internal/util/javastr"
+	"github.com/CoreMatch/Avalon/internal/util/log"
+	"github.com/CoreMatch/Avalon/internal/util/timeutil"
 )
 
 // ErrPlayerNotBound 对应 ImplementedException.PlayerImplementedException("[Player] No Bound Connection")

@@ -3,10 +3,10 @@ package net
 import (
 	"sync"
 
-	"rwhps/internal/io/packet"
-	"rwhps/internal/io/packettype"
-	"rwhps/internal/net/core"
-	"rwhps/internal/util/log"
+	"github.com/CoreMatch/Avalon/internal/io/packet"
+	"github.com/CoreMatch/Avalon/internal/io/packettype"
+	"github.com/CoreMatch/Avalon/internal/net/core"
+	"github.com/CoreMatch/Avalon/internal/util/log"
 )
 
 // AcceptorIdleStateTrigger 对应 AcceptorIdleStateTrigger

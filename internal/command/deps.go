@@ -12,9 +12,9 @@
 package command
 
 import (
-	"rwhps/internal/game/room"
-	"rwhps/internal/net/core"
-	str "rwhps/internal/util/str"
+	"github.com/CoreMatch/Avalon/internal/game/room"
+	"github.com/CoreMatch/Avalon/internal/net/core"
+	str "github.com/CoreMatch/Avalon/internal/util/str"
 )
 
 // Deps 收集命令层需要、但无法直接 import 的外部能力

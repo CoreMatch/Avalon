@@ -1,8 +1,8 @@
 package external
 
 import (
-	"rwhps/internal/game"
-	"rwhps/internal/game/event"
+	"github.com/CoreMatch/Avalon/internal/game"
+	"github.com/CoreMatch/Avalon/internal/game/event"
 )
 
 // 本文件实现 helper 协议 v2-ext 的四个扩展操作 (DECISIONS D-9).

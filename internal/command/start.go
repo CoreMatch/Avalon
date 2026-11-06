@@ -4,13 +4,13 @@ package command
 import (
 	"strings"
 
-	"rwhps/internal/command/relay"
-	"rwhps/internal/data/global"
-	"rwhps/internal/game/manage"
-	"rwhps/internal/net"
-	"rwhps/internal/net/core"
-	cmd "rwhps/internal/util/game/command"
-	"rwhps/internal/util/log"
+	"github.com/CoreMatch/Avalon/internal/command/relay"
+	"github.com/CoreMatch/Avalon/internal/data/global"
+	"github.com/CoreMatch/Avalon/internal/game/manage"
+	"github.com/CoreMatch/Avalon/internal/net"
+	"github.com/CoreMatch/Avalon/internal/net/core"
+	cmd "github.com/CoreMatch/Avalon/internal/util/game/command"
+	"github.com/CoreMatch/Avalon/internal/util/log"
 )
 
 // registerStart 对应 CoreCommands.registerStartServer

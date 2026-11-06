@@ -9,9 +9,9 @@ import (
 	"errors"
 	"sync"
 
-	"rwhps/internal/data/global"
-	"rwhps/internal/game/event"
-	"rwhps/internal/util/timeutil"
+	"github.com/CoreMatch/Avalon/internal/data/global"
+	"github.com/CoreMatch/Avalon/internal/game/event"
+	"github.com/CoreMatch/Avalon/internal/util/timeutil"
 )
 
 // ErrNotImplemented 表示该操作需要真实的游戏模拟内核, 而当前进程没有可用后端.

@@ -18,10 +18,10 @@ import (
 	"testing"
 	"time"
 
-	"rwhps/internal/game"
-	"rwhps/internal/game/room"
-	"rwhps/internal/util/file"
-	"rwhps/internal/util/file/plugindata"
+	"github.com/CoreMatch/Avalon/internal/game"
+	"github.com/CoreMatch/Avalon/internal/game/room"
+	"github.com/CoreMatch/Avalon/internal/util/file"
+	"github.com/CoreMatch/Avalon/internal/util/file/plugindata"
 )
 
 // --- TLS/密钥夹具 ---

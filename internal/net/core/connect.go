@@ -4,13 +4,13 @@ import (
 	"net/url"
 	"sync/atomic"
 
-	gameio "rwhps/internal/io"
-	"rwhps/internal/io/packet"
-	"rwhps/internal/io/packettype"
-	"rwhps/internal/net/temp"
-	"rwhps/internal/util/game/command"
-	"rwhps/internal/util/log"
-	"rwhps/internal/util/timeutil"
+	gameio "github.com/CoreMatch/Avalon/internal/io"
+	"github.com/CoreMatch/Avalon/internal/io/packet"
+	"github.com/CoreMatch/Avalon/internal/io/packettype"
+	"github.com/CoreMatch/Avalon/internal/net/temp"
+	"github.com/CoreMatch/Avalon/internal/util/game/command"
+	"github.com/CoreMatch/Avalon/internal/util/log"
+	"github.com/CoreMatch/Avalon/internal/util/timeutil"
 )
 
 // IGroupNet 对应 net.GroupNet (为避免包循环而以接口形式在 core 中声明)

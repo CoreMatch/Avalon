@@ -5,13 +5,13 @@ import (
 	"sync"
 	"testing"
 
-	"rwhps/internal/core/thread"
-	"rwhps/internal/data/global"
-	"rwhps/internal/game/event"
-	"rwhps/internal/game/player"
-	"rwhps/internal/io/packet"
-	"rwhps/internal/util/file"
-	"rwhps/internal/util/timeutil"
+	"github.com/CoreMatch/Avalon/internal/core/thread"
+	"github.com/CoreMatch/Avalon/internal/data/global"
+	"github.com/CoreMatch/Avalon/internal/game/event"
+	"github.com/CoreMatch/Avalon/internal/game/player"
+	"github.com/CoreMatch/Avalon/internal/io/packet"
+	"github.com/CoreMatch/Avalon/internal/util/file"
+	"github.com/CoreMatch/Avalon/internal/util/timeutil"
 )
 
 // fakeConn 记录发包动作的连接假实现

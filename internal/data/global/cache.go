@@ -4,8 +4,8 @@ package global
 import (
 	"sync"
 
-	"rwhps/internal/io/packet"
-	"rwhps/internal/net/core"
+	"github.com/CoreMatch/Avalon/internal/io/packet"
+	"github.com/CoreMatch/Avalon/internal/net/core"
 )
 
 // packetCacheEntry 显式带创建回调的版本 (对应 ObjectMap.get(key, createFn))

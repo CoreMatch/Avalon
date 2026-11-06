@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"rwhps/internal/io/packettype"
-	"rwhps/internal/util/file"
-	"rwhps/internal/util/file/plugindata"
+	"github.com/CoreMatch/Avalon/internal/io/packettype"
+	"github.com/CoreMatch/Avalon/internal/util/file"
+	"github.com/CoreMatch/Avalon/internal/util/file/plugindata"
 )
 
 // --- 前导 ---

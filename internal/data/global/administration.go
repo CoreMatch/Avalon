@@ -5,9 +5,9 @@ import (
 	"strings"
 	"sync"
 
-	"rwhps/internal/game/player"
-	"rwhps/internal/struct/list"
-	"rwhps/internal/util/timeutil"
+	"github.com/CoreMatch/Avalon/internal/game/player"
+	"github.com/CoreMatch/Avalon/internal/struct/list"
+	"github.com/CoreMatch/Avalon/internal/util/timeutil"
 )
 
 // PlayerAdminInfo 对应 Administration.PlayerAdminInfo

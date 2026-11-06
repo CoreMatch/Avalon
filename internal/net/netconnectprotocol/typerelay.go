@@ -13,16 +13,16 @@ package netconnectprotocol
 import (
 	"strings"
 
-	"rwhps/internal/data/global"
-	gameio "rwhps/internal/io"
-	"rwhps/internal/io/packet"
-	"rwhps/internal/io/packettype"
-	"rwhps/internal/net/core"
-	"rwhps/internal/net/netconnectprotocol/realize"
-	"rwhps/internal/util/javastr"
-	"rwhps/internal/util/log"
+	"github.com/CoreMatch/Avalon/internal/data/global"
+	gameio "github.com/CoreMatch/Avalon/internal/io"
+	"github.com/CoreMatch/Avalon/internal/io/packet"
+	"github.com/CoreMatch/Avalon/internal/io/packettype"
+	"github.com/CoreMatch/Avalon/internal/net/core"
+	"github.com/CoreMatch/Avalon/internal/net/netconnectprotocol/realize"
+	"github.com/CoreMatch/Avalon/internal/util/javastr"
+	"github.com/CoreMatch/Avalon/internal/util/log"
 
-	cmd "rwhps/internal/util/game/command"
+	cmd "github.com/CoreMatch/Avalon/internal/util/game/command"
 )
 
 // TypeRelay 对应 TypeRelay

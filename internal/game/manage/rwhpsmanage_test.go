@@ -3,7 +3,7 @@ package manage
 import (
 	"testing"
 
-	"rwhps/internal/net/core"
+	"github.com/CoreMatch/Avalon/internal/net/core"
 )
 
 // reset 清空全局注册表

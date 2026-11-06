@@ -6,19 +6,19 @@ import (
 	"testing"
 	"time"
 
-	"rwhps/internal/core/thread"
-	"rwhps/internal/data/global"
-	"rwhps/internal/game"
-	"rwhps/internal/game/event"
-	"rwhps/internal/game/manage"
-	"rwhps/internal/game/player"
-	"rwhps/internal/game/room"
-	"rwhps/internal/io/packet"
-	"rwhps/internal/net"
-	"rwhps/internal/net/core"
-	netpacket "rwhps/internal/net/core/server/netpacket"
-	"rwhps/internal/util/file/load"
-	cmd "rwhps/internal/util/game/command"
+	"github.com/CoreMatch/Avalon/internal/core/thread"
+	"github.com/CoreMatch/Avalon/internal/data/global"
+	"github.com/CoreMatch/Avalon/internal/game"
+	"github.com/CoreMatch/Avalon/internal/game/event"
+	"github.com/CoreMatch/Avalon/internal/game/manage"
+	"github.com/CoreMatch/Avalon/internal/game/player"
+	"github.com/CoreMatch/Avalon/internal/game/room"
+	"github.com/CoreMatch/Avalon/internal/io/packet"
+	"github.com/CoreMatch/Avalon/internal/net"
+	"github.com/CoreMatch/Avalon/internal/net/core"
+	netpacket "github.com/CoreMatch/Avalon/internal/net/core/server/netpacket"
+	"github.com/CoreMatch/Avalon/internal/util/file/load"
+	cmd "github.com/CoreMatch/Avalon/internal/util/game/command"
 )
 
 // --- 测试桩 ---
@@ -319,13 +319,13 @@ type fakeTypeConnect struct {
 }
 
 func (f *fakeTypeConnect) GetTypeConnect(*core.ConnectionAgreement) core.TypeConnect { return f }
-func (f *fakeTypeConnect) SetData(any)                                                {}
-func (f *fakeTypeConnect) ProcessConnect(*packet.Packet) error                        { return nil }
-func (f *fakeTypeConnect) AbstractNetConnect() *core.AbstractNetConnect               { return nil }
-func (f *fakeTypeConnect) Version() string                                            { return "test" }
-func (f *fakeTypeConnect) SupportedVersionBeta() bool                                 { return f.beta }
-func (f *fakeTypeConnect) SupportedVersionGame() string                               { return f.game }
-func (f *fakeTypeConnect) SupportedVersionInt() int                                   { return f.gameInt }
+func (f *fakeTypeConnect) SetData(any)                                               {}
+func (f *fakeTypeConnect) ProcessConnect(*packet.Packet) error                       { return nil }
+func (f *fakeTypeConnect) AbstractNetConnect() *core.AbstractNetConnect              { return nil }
+func (f *fakeTypeConnect) Version() string                                           { return "test" }
+func (f *fakeTypeConnect) SupportedVersionBeta() bool                                { return f.beta }
+func (f *fakeTypeConnect) SupportedVersionGame() string                              { return f.game }
+func (f *fakeTypeConnect) SupportedVersionInt() int                                  { return f.gameInt }
 
 // fakeRwHps 实现 core.IRwHps
 type fakeRwHps struct {
@@ -333,8 +333,8 @@ type fakeRwHps struct {
 	tc core.TypeConnect
 }
 
-func (f *fakeRwHps) NetType() core.NetType                       { return f.nt }
-func (f *fakeRwHps) TypeConnect() core.TypeConnect               { return f.tc }
+func (f *fakeRwHps) NetType() core.NetType                          { return f.nt }
+func (f *fakeRwHps) TypeConnect() core.TypeConnect                  { return f.tc }
 func (f *fakeRwHps) AbstractNetPacket() netpacket.AbstractNetPacket { return nil }
 
 // registerFakeRwHps 把一个假协议实现注册成 firstServer

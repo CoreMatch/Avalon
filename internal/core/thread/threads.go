@@ -3,10 +3,10 @@ package thread
 import (
 	"time"
 
-	"rwhps/internal/struct/list"
-	"rwhps/internal/timetask"
-	"rwhps/internal/util/concurrent/threads"
-	"rwhps/internal/util/timeutil"
+	"github.com/CoreMatch/Avalon/internal/struct/list"
+	"github.com/CoreMatch/Avalon/internal/timetask"
+	"github.com/CoreMatch/Avalon/internal/util/concurrent/threads"
+	"github.com/CoreMatch/Avalon/internal/util/timeutil"
 )
 
 // Threads 对应 object Threads

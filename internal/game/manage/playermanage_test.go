@@ -3,9 +3,9 @@ package manage
 import (
 	"testing"
 
-	"rwhps/internal/data/global"
-	"rwhps/internal/game/player"
-	"rwhps/internal/io/packet"
+	"github.com/CoreMatch/Avalon/internal/data/global"
+	"github.com/CoreMatch/Avalon/internal/game/player"
+	"github.com/CoreMatch/Avalon/internal/io/packet"
 )
 
 // pmMockConnect 管理层测试用的假连接

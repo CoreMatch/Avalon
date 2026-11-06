@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"strings"
 
-	"rwhps/internal/game"
+	"github.com/CoreMatch/Avalon/internal/game"
 )
 
 // ProtocolVersion 线协议版本

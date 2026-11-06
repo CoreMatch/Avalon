@@ -3,7 +3,7 @@ package event
 import (
 	"testing"
 
-	"rwhps/internal/game/player"
+	"github.com/CoreMatch/Avalon/internal/game/player"
 )
 
 // TestRegisterFire 基本注册与分发: 监听器收到自己类型的事件

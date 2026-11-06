@@ -3,10 +3,10 @@ package net
 import (
 	"testing"
 
-	"rwhps/internal/data/global"
-	"rwhps/internal/game/manage"
-	"rwhps/internal/net/core"
-	nethttp "rwhps/internal/net/http"
+	"github.com/CoreMatch/Avalon/internal/data/global"
+	"github.com/CoreMatch/Avalon/internal/game/manage"
+	"github.com/CoreMatch/Avalon/internal/net/core"
+	nethttp "github.com/CoreMatch/Avalon/internal/net/http"
 )
 
 // resetServices 清掉 NetStaticData 里登记的服务, 避免用例之间互相污染

@@ -36,11 +36,11 @@ type keyMaterial struct {
 	proxyKeyPath string // Ed25519 PKCS#8 (Cascade 用, 0600)
 	proxyPubPath string // Ed25519 PKIX (Go 校验用)
 
-	caPath       string // CA (双方信任根)
-	serverCert   string // Go 服务端证书
-	serverKey    string
-	clientCert   string // Cascade 客户端证书
-	clientKey    string // 0600
+	caPath     string // CA (双方信任根)
+	serverCert string // Go 服务端证书
+	serverKey  string
+	clientCert string // Cascade 客户端证书
+	clientKey  string // 0600
 }
 
 func genKeyMaterial(t *testing.T) *keyMaterial {
@@ -218,7 +218,7 @@ func registerBody(name, uuidHex string) []byte {
 	writeInt(&buf, 176) // 客户端版本
 	writeInt(&buf, 0)
 	writeJavaString(&buf, name)
-	buf = append(buf, 0) // 可空 string = false
+	buf = append(buf, 0)           // 可空 string = false
 	writeJavaString(&buf, "e2e")   // 子版本>=1
 	writeJavaString(&buf, uuidHex) // 子版本>=2: 游戏 UUID
 	return buf
@@ -265,8 +265,13 @@ func waitForPort(t *testing.T, addr string, timeout time.Duration) {
 //  4. 同一后端上真实开局并产出结算 (引擎对局真实可用)
 func TestCascadeRealProxyE2E(t *testing.T) {
 	// 前置: helper jar / java 由 external 包同款逻辑检查. 这里复用最小集.
-	// 本包在 Go-Server/internal/net/gateway, 回推 4 级到仓库根.
-	root := filepath.Join("..", "..", "..", "..")
+	// Avalon 独立后, helper 在 RW-HPS 仓库 (SamuelCheston/RW-HPS):
+	// 用环境变量 RWHPS_TEST_REPO_ROOT 指向其检出; 未设置时回退本仓相对路径
+	// (前置缺失时测试自动跳过).
+	root := os.Getenv("RWHPS_TEST_REPO_ROOT")
+	if root == "" {
+		root = filepath.Join("..", "..", "..", "..")
+	}
 	jar := filepath.Join(root, "Helper", "build", "libs", "Helper.jar")
 	if info, err := os.Stat(jar); err != nil || info.IsDir() {
 		t.Skipf("Helper.jar 未构建, 跳过真实 Cascade 联调: %s", jar)

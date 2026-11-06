@@ -5,9 +5,9 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"rwhps/internal/io/packettype"
-	"rwhps/internal/util/control"
-	"rwhps/internal/util/log"
+	"github.com/CoreMatch/Avalon/internal/io/packettype"
+	"github.com/CoreMatch/Avalon/internal/util/control"
+	"github.com/CoreMatch/Avalon/internal/util/log"
 )
 
 // Packet 网络传输包的具象化

@@ -26,11 +26,17 @@ import (
 	"testing"
 	"time"
 
-	"rwhps/internal/game"
+	"github.com/CoreMatch/Avalon/internal/game"
 )
 
-// repoRoot 从本包目录 (Go-Server/internal/game/external) 回推到仓库根
+// repoRoot 返回含 Helper/ 与 data/gameData 的 RW-HPS 检出根目录.
+// Avalon 独立后, helper 与游戏数据在 RW-HPS 仓库 (SamuelCheston/RW-HPS):
+// 用环境变量 RWHPS_TEST_REPO_ROOT 指向其检出; 未设置时回退本仓相对路径
+// (前置缺失时测试自动跳过).
 func repoRoot() string {
+	if root := os.Getenv("RWHPS_TEST_REPO_ROOT"); root != "" {
+		return root
+	}
 	return filepath.Join("..", "..", "..", "..")
 }
 

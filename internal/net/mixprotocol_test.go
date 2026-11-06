@@ -4,10 +4,10 @@ import (
 	"encoding/binary"
 	"testing"
 
-	"rwhps/internal/data/global"
-	"rwhps/internal/game/manage"
-	"rwhps/internal/io/packettype"
-	"rwhps/internal/net/core"
+	"github.com/CoreMatch/Avalon/internal/data/global"
+	"github.com/CoreMatch/Avalon/internal/game/manage"
+	"github.com/CoreMatch/Avalon/internal/io/packettype"
+	"github.com/CoreMatch/Avalon/internal/net/core"
 )
 
 // withMixConfig 临时修改混合协议开关, 测试结束恢复

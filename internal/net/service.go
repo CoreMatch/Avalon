@@ -15,11 +15,11 @@ import (
 	"strconv"
 	"sync"
 
-	"rwhps/internal/data/global"
-	"rwhps/internal/net/core"
-	nethttp "rwhps/internal/net/http"
-	"rwhps/internal/util/log"
-	"rwhps/internal/util/mathutil"
+	"github.com/CoreMatch/Avalon/internal/data/global"
+	"github.com/CoreMatch/Avalon/internal/net/core"
+	nethttp "github.com/CoreMatch/Avalon/internal/net/http"
+	"github.com/CoreMatch/Avalon/internal/util/log"
+	"github.com/CoreMatch/Avalon/internal/util/mathutil"
 )
 
 // ChannelStarter 对应 NetService.start 的静态类型 AbstractNet

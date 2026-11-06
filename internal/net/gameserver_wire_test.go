@@ -11,15 +11,15 @@ import (
 	"testing"
 	"time"
 
-	"rwhps/internal/game"
-	"rwhps/internal/game/external"
-	"rwhps/internal/game/room"
-	gameio "rwhps/internal/io"
-	"rwhps/internal/io/packet"
-	"rwhps/internal/io/packettype"
-	rwnet "rwhps/internal/net"
-	"rwhps/internal/net/core"
-	"rwhps/internal/net/gameserver"
+	"github.com/CoreMatch/Avalon/internal/game"
+	"github.com/CoreMatch/Avalon/internal/game/external"
+	"github.com/CoreMatch/Avalon/internal/game/room"
+	gameio "github.com/CoreMatch/Avalon/internal/io"
+	"github.com/CoreMatch/Avalon/internal/io/packet"
+	"github.com/CoreMatch/Avalon/internal/io/packettype"
+	rwnet "github.com/CoreMatch/Avalon/internal/net"
+	"github.com/CoreMatch/Avalon/internal/net/core"
+	"github.com/CoreMatch/Avalon/internal/net/gameserver"
 )
 
 // wireMockHelper 记录 conn.* 调用的假内核 (端到端测试用)

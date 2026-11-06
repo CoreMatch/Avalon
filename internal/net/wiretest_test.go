@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"rwhps/internal/io/packet"
-	"rwhps/internal/io/packettype"
-	"rwhps/internal/net/core"
-	netpacket "rwhps/internal/net/core/server/netpacket"
+	"github.com/CoreMatch/Avalon/internal/io/packet"
+	"github.com/CoreMatch/Avalon/internal/io/packettype"
+	"github.com/CoreMatch/Avalon/internal/net/core"
+	netpacket "github.com/CoreMatch/Avalon/internal/net/core/server/netpacket"
 )
 
 // TestWireRoundTrip 验证 TCP 帧编解码互通
@@ -128,7 +128,7 @@ func (n *capturingTypeConnect) GetTypeConnect(ca *core.ConnectionAgreement) core
 	n.anc = core.NewAbstractNetConnect(ca)
 	return n
 }
-func (n *capturingTypeConnect) SetData(_ any)                                       {}
+func (n *capturingTypeConnect) SetData(_ any) {}
 func (n *capturingTypeConnect) ProcessConnect(p *packet.Packet) error {
 	if n.onPacket != nil && p != nil {
 		n.onPacket(p)

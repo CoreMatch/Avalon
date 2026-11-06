@@ -10,7 +10,7 @@ package net
 import (
 	"sync"
 
-	"rwhps/internal/net/core"
+	"github.com/CoreMatch/Avalon/internal/net/core"
 )
 
 // Cache 对应 net.rwhps.server.data.global.Cache
@@ -26,7 +26,8 @@ func NewCache() *Cache {
 }
 
 // GetOrCreate 对应 ObjectMap[key, { ... }] 原 Kotlin 双参数行为:
-//   命中返回 cache 值; 未命中调用 loader 生成并存入.
+//
+//	命中返回 cache 值; 未命中调用 loader 生成并存入.
 func (c *Cache) GetOrCreate(key string, loader func() core.IRwHps) core.IRwHps {
 	c.mu.RLock()
 	if v, ok := c.iRwHpsCache[key]; ok {

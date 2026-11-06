@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	gameio "rwhps/internal/io"
+	gameio "github.com/CoreMatch/Avalon/internal/io"
 )
 
 // TestPowDigestKnownAnswer SHA-256 已知测试向量.

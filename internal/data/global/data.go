@@ -4,11 +4,11 @@ package global
 import (
 	"sync/atomic"
 
-	"rwhps/internal/data/bean"
-	"rwhps/internal/util/file/load"
-	"rwhps/internal/util/game/command"
-	"rwhps/internal/util/log"
-	"rwhps/internal/util/systemprops"
+	"github.com/CoreMatch/Avalon/internal/data/bean"
+	"github.com/CoreMatch/Avalon/internal/util/file/load"
+	"github.com/CoreMatch/Avalon/internal/util/game/command"
+	"github.com/CoreMatch/Avalon/internal/util/log"
+	"github.com/CoreMatch/Avalon/internal/util/systemprops"
 )
 
 // 服务器路径常量 (与原版一致)

@@ -5,14 +5,14 @@ import (
 	"sync"
 	"testing"
 
-	"rwhps/internal/core/thread"
-	"rwhps/internal/data/global"
-	"rwhps/internal/game"
-	"rwhps/internal/game/event"
-	"rwhps/internal/game/player"
-	"rwhps/internal/game/room"
-	"rwhps/internal/io/packet"
-	cmd "rwhps/internal/util/game/command"
+	"github.com/CoreMatch/Avalon/internal/core/thread"
+	"github.com/CoreMatch/Avalon/internal/data/global"
+	"github.com/CoreMatch/Avalon/internal/game"
+	"github.com/CoreMatch/Avalon/internal/game/event"
+	"github.com/CoreMatch/Avalon/internal/game/player"
+	"github.com/CoreMatch/Avalon/internal/game/room"
+	"github.com/CoreMatch/Avalon/internal/io/packet"
+	cmd "github.com/CoreMatch/Avalon/internal/util/game/command"
 )
 
 // clientConn 记录发给玩家的系统消息 (客户端命令的反馈都走 sendSystemMessage)

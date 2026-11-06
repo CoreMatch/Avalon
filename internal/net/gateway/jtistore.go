@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"rwhps/internal/util/file/plugindata"
+	"github.com/CoreMatch/Avalon/internal/util/file/plugindata"
 )
 
 // ErrJtiReplayed 令牌 ID 已被消费过 (契约 :84 "A token ID can only be

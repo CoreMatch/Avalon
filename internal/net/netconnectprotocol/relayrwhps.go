@@ -1,11 +1,11 @@
 package netconnectprotocol
 
 import (
-	"rwhps/internal/core/service"
-	"rwhps/internal/net/core"
-	netpacket "rwhps/internal/net/core/server/netpacket"
-	"rwhps/internal/net/netconnectprotocol/realize"
-	"rwhps/internal/util/log"
+	"github.com/CoreMatch/Avalon/internal/core/service"
+	"github.com/CoreMatch/Avalon/internal/net/core"
+	netpacket "github.com/CoreMatch/Avalon/internal/net/core/server/netpacket"
+	"github.com/CoreMatch/Avalon/internal/net/netconnectprotocol/realize"
+	"github.com/CoreMatch/Avalon/internal/util/log"
 )
 
 // RelayRwHps 对应上游 RwHps 在 RelayProtocol / RelayMulticastProtocol 下的实例

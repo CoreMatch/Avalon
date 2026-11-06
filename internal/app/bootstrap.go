@@ -2,19 +2,19 @@
 package app
 
 import (
-	"rwhps/internal/command"
-	"rwhps/internal/data/bean"
-	"rwhps/internal/data/global"
-	"rwhps/internal/game"
-	"rwhps/internal/game/manage"
-	"rwhps/internal/game/room"
-	"rwhps/internal/net"
-	"rwhps/internal/net/core"
-	nethttp "rwhps/internal/net/http"
-	"rwhps/internal/net/httpapi"
-	"rwhps/internal/net/uplist"
-	cmd "rwhps/internal/util/game/command"
-	"rwhps/internal/util/log"
+	"github.com/CoreMatch/Avalon/internal/command"
+	"github.com/CoreMatch/Avalon/internal/data/bean"
+	"github.com/CoreMatch/Avalon/internal/data/global"
+	"github.com/CoreMatch/Avalon/internal/game"
+	"github.com/CoreMatch/Avalon/internal/game/manage"
+	"github.com/CoreMatch/Avalon/internal/game/room"
+	"github.com/CoreMatch/Avalon/internal/net"
+	"github.com/CoreMatch/Avalon/internal/net/core"
+	nethttp "github.com/CoreMatch/Avalon/internal/net/http"
+	"github.com/CoreMatch/Avalon/internal/net/httpapi"
+	"github.com/CoreMatch/Avalon/internal/net/uplist"
+	cmd "github.com/CoreMatch/Avalon/internal/util/game/command"
+	"github.com/CoreMatch/Avalon/internal/util/log"
 )
 
 // Start 对应 Main.main 从 SystemSetProperty 到 newThreadCore(inputMonitor) 之间的全部流程

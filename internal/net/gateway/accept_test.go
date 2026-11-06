@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"rwhps/internal/io/packettype"
-	"rwhps/internal/net/core"
-	"rwhps/internal/util/file/plugindata"
+	"github.com/CoreMatch/Avalon/internal/io/packettype"
+	"github.com/CoreMatch/Avalon/internal/net/core"
+	"github.com/CoreMatch/Avalon/internal/util/file/plugindata"
 )
 
 // startGameListener 起一个带网关的明文监听器, 服务端协程对每条连接跑
@@ -68,7 +68,7 @@ func TestAcceptGameHandshakeAndGate(t *testing.T) {
 	addr, accepted := startGameListener(t, gw)
 
 	conn, err := tls.Dial("tcp", addr, &tls.Config{
-		Certificates:     []tls.Certificate{clientCert},
+		Certificates:       []tls.Certificate{clientCert},
 		InsecureSkipVerify: true,
 	})
 	if err != nil {

@@ -3,8 +3,8 @@ package global
 import (
 	"testing"
 
-	"rwhps/internal/game/player"
-	"rwhps/internal/util/timeutil"
+	"github.com/CoreMatch/Avalon/internal/game/player"
+	"github.com/CoreMatch/Avalon/internal/util/timeutil"
 )
 
 // TestDefaultChatFilterRepeat 上游 Administration.init 的默认过滤器:

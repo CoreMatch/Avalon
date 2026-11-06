@@ -14,10 +14,10 @@ import (
 	"testing"
 	"time"
 
-	"rwhps/internal/data/global"
-	nethttp "rwhps/internal/net/http"
-	"rwhps/internal/util/log"
-	cmd "rwhps/internal/util/game/command"
+	"github.com/CoreMatch/Avalon/internal/data/global"
+	nethttp "github.com/CoreMatch/Avalon/internal/net/http"
+	cmd "github.com/CoreMatch/Avalon/internal/util/game/command"
+	"github.com/CoreMatch/Avalon/internal/util/log"
 )
 
 // --- WS 客户端最小工具 (掩码帧, RFC 6455) ---

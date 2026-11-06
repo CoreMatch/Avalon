@@ -14,7 +14,7 @@ import (
 	"strings"
 	"sync"
 
-	"rwhps/internal/util/systemprops"
+	"github.com/CoreMatch/Avalon/internal/util/systemprops"
 )
 
 // FileUtils 简易文件工具, 对应 FileUtils

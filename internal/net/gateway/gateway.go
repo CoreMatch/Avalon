@@ -9,8 +9,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"rwhps/internal/net/core"
-	"rwhps/internal/util/log"
+	"github.com/CoreMatch/Avalon/internal/net/core"
+	"github.com/CoreMatch/Avalon/internal/util/log"
 )
 
 // Config 是网关装配所需的已解析配置 (由启动链从 bean.CoreConfig 构造).
@@ -35,7 +35,7 @@ type Config struct {
 	// TLSCert / TLSKey 服务端证书/私钥 (PEM 路径); 同时给出时传输走 TLS,
 	// 留空即明文. 路径解析与缺失报错见 resolveMaterialPath (C3 回退策略).
 	TLSCert string
-	TLSKey string
+	TLSKey  string
 
 	// ControlAddr /v1 控制面监听地址
 	ControlAddr string

@@ -1,7 +1,7 @@
 // Package temp 对应 net.rwhps.server.data.temp
 package temp
 
-import "rwhps/internal/io/packet"
+import "github.com/CoreMatch/Avalon/internal/io/packet"
 
 // RelayPacketCache 对应 RelayPacketCache
 //

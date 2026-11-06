@@ -1,9 +1,9 @@
 package command
 
 import (
-	"rwhps/internal/game/player"
-	"rwhps/internal/game/room"
-	"rwhps/internal/util/isutils"
+	"github.com/CoreMatch/Avalon/internal/game/player"
+	"github.com/CoreMatch/Avalon/internal/game/room"
+	"github.com/CoreMatch/Avalon/internal/util/isutils"
 )
 
 // playerPosition 对应 TabCompleterProcess.playerPosition(nameOrPosition, strCons)

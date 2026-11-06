@@ -5,11 +5,11 @@ import (
 	"runtime"
 	"strings"
 
-	"rwhps/internal/data/global"
-	"rwhps/internal/net"
-	"rwhps/internal/net/core"
-	cmd "rwhps/internal/util/game/command"
-	"rwhps/internal/util/log"
+	"github.com/CoreMatch/Avalon/internal/data/global"
+	"github.com/CoreMatch/Avalon/internal/net"
+	"github.com/CoreMatch/Avalon/internal/net/core"
+	cmd "github.com/CoreMatch/Avalon/internal/util/game/command"
+	"github.com/CoreMatch/Avalon/internal/util/log"
 )
 
 // tr 复用 log 包注入的取词函数, 避免出现第二套 i18n 注入机制

@@ -3,7 +3,7 @@ package gameio
 import (
 	"testing"
 
-	"rwhps/internal/game/enums"
+	"github.com/CoreMatch/Avalon/internal/game/enums"
 )
 
 // commandCfg 描述要组装的 GameCommandOnePacket 字段

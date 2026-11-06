@@ -3,8 +3,8 @@ package temp
 import (
 	"testing"
 
-	"rwhps/internal/io/packet"
-	"rwhps/internal/io/packettype"
+	"github.com/CoreMatch/Avalon/internal/io/packet"
+	"github.com/CoreMatch/Avalon/internal/io/packettype"
 )
 
 func TestRelayPacketCacheStartsEmpty(t *testing.T) {

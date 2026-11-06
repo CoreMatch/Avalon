@@ -1,8 +1,8 @@
 package netconnectprotocol
 
 import (
-	"rwhps/internal/io/packet"
-	"rwhps/internal/net/netconnectprotocol/internal/server"
+	"github.com/CoreMatch/Avalon/internal/io/packet"
+	"github.com/CoreMatch/Avalon/internal/net/netconnectprotocol/internal/server"
 )
 
 // 本文件是 internal/server 的对外桥, 与 relayflavor.go 同理:

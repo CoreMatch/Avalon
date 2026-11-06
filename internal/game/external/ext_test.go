@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"rwhps/internal/game"
+	"github.com/CoreMatch/Avalon/internal/game"
 )
 
 // startRoom 走 hello + room.create + room.start, 让 Backend 持有房间

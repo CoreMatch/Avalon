@@ -23,20 +23,24 @@ import (
 	"testing"
 	"time"
 
-	"rwhps/internal/game"
-	"rwhps/internal/game/external"
-	"rwhps/internal/game/room"
-	gameio "rwhps/internal/io"
-	"rwhps/internal/io/packettype"
-	rwnet "rwhps/internal/net"
-	"rwhps/internal/net/core"
-	"rwhps/internal/net/gameserver"
+	"github.com/CoreMatch/Avalon/internal/game"
+	"github.com/CoreMatch/Avalon/internal/game/external"
+	"github.com/CoreMatch/Avalon/internal/game/room"
+	gameio "github.com/CoreMatch/Avalon/internal/io"
+	"github.com/CoreMatch/Avalon/internal/io/packettype"
+	rwnet "github.com/CoreMatch/Avalon/internal/net"
+	"github.com/CoreMatch/Avalon/internal/net/core"
+	"github.com/CoreMatch/Avalon/internal/net/gameserver"
 )
 
-// e2eRepoRoot 从本包目录 (Go-Server/internal/net) 回推到仓库根
-//
-//	net -> internal -> Go-Server -> 仓库根
+// e2eRepoRoot 返回含 Helper/ 与 data/gameData 的 RW-HPS 检出根目录.
+// Avalon 独立后, helper 与游戏数据在 RW-HPS 仓库 (SamuelCheston/RW-HPS):
+// 用环境变量 RWHPS_TEST_REPO_ROOT 指向其检出; 未设置时回退本仓相对路径
+// (前置缺失时测试自动跳过).
 func e2eRepoRoot() string {
+	if root := os.Getenv("RWHPS_TEST_REPO_ROOT"); root != "" {
+		return root
+	}
 	return filepath.Join("..", "..", "..")
 }
 

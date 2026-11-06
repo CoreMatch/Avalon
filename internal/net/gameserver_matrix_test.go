@@ -19,13 +19,13 @@ import (
 	"testing"
 	"time"
 
-	"rwhps/internal/game"
-	"rwhps/internal/game/external"
-	"rwhps/internal/game/room"
-	"rwhps/internal/io/packettype"
-	rwnet "rwhps/internal/net"
-	"rwhps/internal/net/core"
-	"rwhps/internal/net/gameserver"
+	"github.com/CoreMatch/Avalon/internal/game"
+	"github.com/CoreMatch/Avalon/internal/game/external"
+	"github.com/CoreMatch/Avalon/internal/game/room"
+	"github.com/CoreMatch/Avalon/internal/io/packettype"
+	rwnet "github.com/CoreMatch/Avalon/internal/net"
+	"github.com/CoreMatch/Avalon/internal/net/core"
+	"github.com/CoreMatch/Avalon/internal/net/gameserver"
 )
 
 type matrixScenario struct {

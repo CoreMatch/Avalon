@@ -5,10 +5,10 @@ import (
 	"errors"
 	"sync"
 
-	gameio "rwhps/internal/io"
-	"rwhps/internal/io/packet"
-	"rwhps/internal/net/core"
-	"rwhps/internal/util/log"
+	gameio "github.com/CoreMatch/Avalon/internal/io"
+	"github.com/CoreMatch/Avalon/internal/io/packet"
+	"github.com/CoreMatch/Avalon/internal/net/core"
+	"github.com/CoreMatch/Avalon/internal/util/log"
 )
 
 // RCON 鉴权标记的 Channel 属性键 (对应 Netty AttributeKey.valueOf<Boolean>("R-CON Authenticated"))
@@ -18,13 +18,16 @@ const rconAttrKey = "_rcon_authenticated"
 
 // StartRemoteControl 对应 net.rwhps.server.net.handler.tcp.StartRemoteControl
 // 接管嗅探为 RCON 协议的连接:
+//
 //   - 客户端发 SERVERDATA_AUTH (type=3) 进行认证
+//
 //   - 服务端回 SERVERDATA_RESPONSE_VALUE (type=0) 作为同步 ack
+//
 //   - 校验密码:
 //
-//	正确 → 回 SERVERDATA_AUTH_RESPONSE(id=请求id, type=2) + 置认证标记
-//	错误 → *** 行为修正 (原版 Kotlin 把任意认证请求都置为已认证) ***:
-//	      回 SERVERDATA_AUTH_RESPONSE(id=-1, type=2) + 直接断开连接, 不置认证标记
+//     正确 → 回 SERVERDATA_AUTH_RESPONSE(id=请求id, type=2) + 置认证标记
+//     错误 → *** 行为修正 (原版 Kotlin 把任意认证请求都置为已认证) ***:
+//     回 SERVERDATA_AUTH_RESPONSE(id=-1, type=2) + 直接断开连接, 不置认证标记
 //
 //   - 服务器命令通过 SERVERDATA_EXECCOMMAND (type=2) 下发, body 为一行命令
 type StartRemoteControl struct {

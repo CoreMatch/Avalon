@@ -3,7 +3,7 @@ package core
 import (
 	"errors"
 
-	netpacket "rwhps/internal/net/core/server/netpacket"
+	netpacket "github.com/CoreMatch/Avalon/internal/net/core/server/netpacket"
 )
 
 // IRwHps 对应 IRwHps 接口

@@ -1,7 +1,7 @@
 package gameio
 
 import (
-	"rwhps/internal/game/enums"
+	"github.com/CoreMatch/Avalon/internal/game/enums"
 )
 
 // 本文件对应 net.rwhps.server.io.packet.GameCommandOnePacket 与

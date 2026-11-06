@@ -4,7 +4,7 @@ package totalizer
 import (
 	"sync"
 
-	"rwhps/internal/util/timeutil"
+	"github.com/CoreMatch/Avalon/internal/util/timeutil"
 )
 
 // TimeAndNumber 对应 TimeAndNumber

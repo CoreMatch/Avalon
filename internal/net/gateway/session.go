@@ -5,8 +5,8 @@ import (
 	"sync"
 	"time"
 
-	"rwhps/internal/io/packettype"
-	"rwhps/internal/util/log"
+	"github.com/CoreMatch/Avalon/internal/io/packettype"
+	"github.com/CoreMatch/Avalon/internal/util/log"
 )
 
 // 契约 "Session state machine" (Cascade-Backend-v1.md :45-59):

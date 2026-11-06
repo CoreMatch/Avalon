@@ -20,12 +20,12 @@
 package gameserver
 
 import (
-	"rwhps/internal/core/service"
-	"rwhps/internal/data/global"
-	"rwhps/internal/net/core"
-	netpacket "rwhps/internal/net/core/server/netpacket"
-	"rwhps/internal/net/netconnectprotocol/realize"
-	"rwhps/internal/util/log"
+	"github.com/CoreMatch/Avalon/internal/core/service"
+	"github.com/CoreMatch/Avalon/internal/data/global"
+	"github.com/CoreMatch/Avalon/internal/net/core"
+	netpacket "github.com/CoreMatch/Avalon/internal/net/core/server/netpacket"
+	"github.com/CoreMatch/Avalon/internal/net/netconnectprotocol/realize"
+	"github.com/CoreMatch/Avalon/internal/util/log"
 )
 
 // RwHps 对应 netconnectprotocol.RwHps: 核心协议实现

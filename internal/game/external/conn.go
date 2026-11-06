@@ -1,7 +1,7 @@
 package external
 
 import (
-	"rwhps/internal/io/packet"
+	"github.com/CoreMatch/Avalon/internal/io/packet"
 )
 
 // ConnOpen 向 helper 登记一条新的客户端连接 (对应 conn.open)

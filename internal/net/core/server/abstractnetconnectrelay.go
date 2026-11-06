@@ -1,9 +1,9 @@
 package server
 
 import (
-	"rwhps/internal/game/room"
-	"rwhps/internal/io/packet"
-	"rwhps/internal/net/core"
+	"github.com/CoreMatch/Avalon/internal/game/room"
+	"github.com/CoreMatch/Avalon/internal/io/packet"
+	"github.com/CoreMatch/Avalon/internal/net/core"
 )
 
 // AbstractNetConnectRelay 对应 AbstractNetConnectRelay

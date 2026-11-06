@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"sync"
 
-	"rwhps/internal/net/core"
-	netpacket "rwhps/internal/net/core/server/netpacket"
+	"github.com/CoreMatch/Avalon/internal/net/core"
+	netpacket "github.com/CoreMatch/Avalon/internal/net/core/server/netpacket"
 )
 
 // Kind 对应 ServiceLoader.ServiceType

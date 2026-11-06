@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"rwhps/internal/util/log"
+	"github.com/CoreMatch/Avalon/internal/util/log"
 )
 
 // HttpRequestManage 对应 HttpRequestManage (OkHttp 的 net/http 替代)

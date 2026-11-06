@@ -4,9 +4,9 @@ package game
 import (
 	"errors"
 
-	"rwhps/internal/data/global"
-	"rwhps/internal/util/compression"
-	"rwhps/internal/util/file"
+	"github.com/CoreMatch/Avalon/internal/data/global"
+	"github.com/CoreMatch/Avalon/internal/util/compression"
+	"github.com/CoreMatch/Avalon/internal/util/file"
 )
 
 // MapType 对应 GameMaps.MapType, 每个取值带一个地图文件后缀

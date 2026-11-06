@@ -4,8 +4,8 @@ import (
 	"errors"
 	"testing"
 
-	"rwhps/internal/game"
-	"rwhps/internal/net/core"
+	"github.com/CoreMatch/Avalon/internal/game"
+	"github.com/CoreMatch/Avalon/internal/net/core"
 )
 
 // 编译期确认: 接口可被满足, 且成员签名没有自相矛盾

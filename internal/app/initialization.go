@@ -4,18 +4,18 @@ package app
 import (
 	"strings"
 
-	"rwhps/internal/core/service"
-	"rwhps/internal/data/global"
-	"rwhps/internal/game/manage"
-	"rwhps/internal/io/packettype"
-	"rwhps/internal/net/core"
-	"rwhps/internal/net/gameserver"
-	"rwhps/internal/net/netconnectprotocol"
-	"rwhps/internal/net/netconnectprotocol/realize"
-	"rwhps/internal/resource"
-	"rwhps/internal/util/file/load"
-	"rwhps/internal/util/file/plugindata"
-	"rwhps/internal/util/log"
+	"github.com/CoreMatch/Avalon/internal/core/service"
+	"github.com/CoreMatch/Avalon/internal/data/global"
+	"github.com/CoreMatch/Avalon/internal/game/manage"
+	"github.com/CoreMatch/Avalon/internal/io/packettype"
+	"github.com/CoreMatch/Avalon/internal/net/core"
+	"github.com/CoreMatch/Avalon/internal/net/gameserver"
+	"github.com/CoreMatch/Avalon/internal/net/netconnectprotocol"
+	"github.com/CoreMatch/Avalon/internal/net/netconnectprotocol/realize"
+	"github.com/CoreMatch/Avalon/internal/resource"
+	"github.com/CoreMatch/Avalon/internal/util/file/load"
+	"github.com/CoreMatch/Avalon/internal/util/file/plugindata"
+	"github.com/CoreMatch/Avalon/internal/util/log"
 )
 
 // loadLang 对应 Initialization.loadLang

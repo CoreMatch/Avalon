@@ -8,8 +8,8 @@ package player
 import (
 	"fmt"
 
-	"rwhps/internal/data/totalizer"
-	"rwhps/internal/util/timeutil"
+	"github.com/CoreMatch/Avalon/internal/data/totalizer"
+	"github.com/CoreMatch/Avalon/internal/util/timeutil"
 )
 
 // PlayerRelay 对应 PlayerRelay

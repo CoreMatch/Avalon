@@ -28,7 +28,7 @@ import (
 	"sync"
 	"time"
 
-	"rwhps/internal/util/concurrent/threads"
+	"github.com/CoreMatch/Avalon/internal/util/concurrent/threads"
 )
 
 // poolSize 对应 Quartz 默认线程池的 threadCount = 10

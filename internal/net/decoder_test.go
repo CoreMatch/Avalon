@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"testing"
 
-	"rwhps/internal/io/packet"
-	"rwhps/internal/io/packettype"
+	"github.com/CoreMatch/Avalon/internal/io/packet"
+	"github.com/CoreMatch/Avalon/internal/io/packettype"
 )
 
 // TestPacketStreamRoundTrip 验证 PacketStream 解码器与 GamePacketEncoder 配套工作

@@ -3,7 +3,7 @@ package totalizer
 import (
 	"testing"
 
-	"rwhps/internal/util/timeutil"
+	"github.com/CoreMatch/Avalon/internal/util/timeutil"
 )
 
 // TestResetStampsStartTime 锁住 Reset 的打戳行为.

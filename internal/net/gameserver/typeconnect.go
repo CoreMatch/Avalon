@@ -1,11 +1,11 @@
 package gameserver
 
 import (
-	"rwhps/internal/io/packet"
-	"rwhps/internal/io/packettype"
-	"rwhps/internal/net/core"
-	"rwhps/internal/util/control"
-	"rwhps/internal/util/log"
+	"github.com/CoreMatch/Avalon/internal/io/packet"
+	"github.com/CoreMatch/Avalon/internal/io/packettype"
+	"github.com/CoreMatch/Avalon/internal/net/core"
+	"github.com/CoreMatch/Avalon/internal/util/control"
+	"github.com/CoreMatch/Avalon/internal/util/log"
 )
 
 // HeadlessTypeConnect 对应 HeadlessTypeConnect: 解析 ServerProtocol 协议

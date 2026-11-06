@@ -6,15 +6,15 @@ import (
 	"strconv"
 	"strings"
 
-	"rwhps/internal/data/global"
-	"rwhps/internal/game/player"
-	"rwhps/internal/game/room"
-	"rwhps/internal/net"
-	"rwhps/internal/net/netconnectprotocol/realize"
-	"rwhps/internal/util/algorithms"
-	cmd "rwhps/internal/util/game/command"
-	"rwhps/internal/util/isutils"
-	"rwhps/internal/util/timeutil"
+	"github.com/CoreMatch/Avalon/internal/data/global"
+	"github.com/CoreMatch/Avalon/internal/game/player"
+	"github.com/CoreMatch/Avalon/internal/game/room"
+	"github.com/CoreMatch/Avalon/internal/net"
+	"github.com/CoreMatch/Avalon/internal/net/netconnectprotocol/realize"
+	"github.com/CoreMatch/Avalon/internal/util/algorithms"
+	cmd "github.com/CoreMatch/Avalon/internal/util/game/command"
+	"github.com/CoreMatch/Avalon/internal/util/isutils"
+	"github.com/CoreMatch/Avalon/internal/util/timeutil"
 )
 
 // RegisterRelayClientCommands 对应 RelayClientCommands(handler)

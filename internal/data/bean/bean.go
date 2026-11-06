@@ -6,11 +6,11 @@ import (
 	"strconv"
 	"strings"
 
-	"rwhps/internal/util/algorithms"
-	"rwhps/internal/util/file"
-	"rwhps/internal/util/jsonutil"
-	"rwhps/internal/util/log"
-	"rwhps/internal/util/systemprops"
+	"github.com/CoreMatch/Avalon/internal/util/algorithms"
+	"github.com/CoreMatch/Avalon/internal/util/file"
+	"github.com/CoreMatch/Avalon/internal/util/jsonutil"
+	"github.com/CoreMatch/Avalon/internal/util/log"
+	"github.com/CoreMatch/Avalon/internal/util/systemprops"
 )
 
 // jsonName 返回字段的 json 名称 (无 tag 时用字段名)

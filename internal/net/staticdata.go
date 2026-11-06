@@ -11,8 +11,8 @@ package net
 import (
 	"sync"
 
-	"rwhps/internal/game/manage"
-	"rwhps/internal/net/core"
+	"github.com/CoreMatch/Avalon/internal/game/manage"
+	"github.com/CoreMatch/Avalon/internal/net/core"
 )
 
 // NetStatic 对应 NetStaticData 单例的类型

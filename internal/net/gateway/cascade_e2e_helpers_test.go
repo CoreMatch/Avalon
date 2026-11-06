@@ -9,15 +9,15 @@ import (
 	"testing"
 	"time"
 
-	"rwhps/internal/game"
-	"rwhps/internal/game/external"
-	"rwhps/internal/game/room"
-	"rwhps/internal/net/core"
-	"rwhps/internal/net/gateway"
-	gameserver "rwhps/internal/net/gameserver"
-	rwnet "rwhps/internal/net"
-	"rwhps/internal/util/file"
-	"rwhps/internal/util/file/plugindata"
+	"github.com/CoreMatch/Avalon/internal/game"
+	"github.com/CoreMatch/Avalon/internal/game/external"
+	"github.com/CoreMatch/Avalon/internal/game/room"
+	rwnet "github.com/CoreMatch/Avalon/internal/net"
+	"github.com/CoreMatch/Avalon/internal/net/core"
+	gameserver "github.com/CoreMatch/Avalon/internal/net/gameserver"
+	"github.com/CoreMatch/Avalon/internal/net/gateway"
+	"github.com/CoreMatch/Avalon/internal/util/file"
+	"github.com/CoreMatch/Avalon/internal/util/file/plugindata"
 )
 
 // findJDK17Java 定位 JDK17 的 java (与 external/realhelper_test 同款逻辑)
@@ -46,8 +46,12 @@ func findJDK17Java(t *testing.T) string {
 // 返回后端、网关与停止函数.
 func startGoBackend(t *testing.T, java, jar string, km *keyMaterial, gamePort, controlPort int) (*external.Backend, *gateway.Gateway, func()) {
 	t.Helper()
-	// Go-Server/internal/net/gateway -> 仓库根 (4 级)
-	root := filepath.Join("..", "..", "..", "..")
+	// 含 data/gameData 的 RW-HPS 检出根: 环境变量 RWHPS_TEST_REPO_ROOT 指定;
+	// 未设置时回退本仓相对路径 (前置缺失时测试自动跳过).
+	root := os.Getenv("RWHPS_TEST_REPO_ROOT")
+	if root == "" {
+		root = filepath.Join("..", "..", "..", "..")
+	}
 
 	// helper 数据目录: gameData 软链到仓库资源
 	dataDir := t.TempDir()
@@ -63,9 +67,9 @@ func startGoBackend(t *testing.T, java, jar string, km *keyMaterial, gamePort, c
 	}
 
 	backend, err := external.New(external.Config{
-		JavaPath:   java,
-		HelperPath: jar,
-		ExtraArgs:  []string{"-Drwhps.helper.dataPath=" + dataDir, "-Xmx512m"},
+		JavaPath:     java,
+		HelperPath:   jar,
+		ExtraArgs:    []string{"-Drwhps.helper.dataPath=" + dataDir, "-Xmx512m"},
 		HelloTimeout: 90 * time.Second,
 		OpTimeout:    120 * time.Second,
 	})
@@ -94,12 +98,12 @@ func startGoBackend(t *testing.T, java, jar string, km *keyMaterial, gamePort, c
 		t.Fatal(err)
 	}
 	gw, err := gateway.New(gateway.Config{
-		BackendID:   "rwhps-e2e",
-		RoomCode:    "GW01",
-		TLSCert:     km.serverCert,
-		TLSKey:      km.serverKey,
-		ControlAddr: fmt.Sprintf("127.0.0.1:%d", controlPort),
-		HelperReady: backend.Ready,
+		BackendID:      "rwhps-e2e",
+		RoomCode:       "GW01",
+		TLSCert:        km.serverCert,
+		TLSKey:         km.serverKey,
+		ControlAddr:    fmt.Sprintf("127.0.0.1:%d", controlPort),
+		HelperReady:    backend.Ready,
 		PendingTimeout: 5 * time.Second,
 	}, gateway.NewJtiStore(store))
 	if err != nil {

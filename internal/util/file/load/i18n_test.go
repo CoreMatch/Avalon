@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"rwhps/internal/resource"
+	"github.com/CoreMatch/Avalon/internal/resource"
 )
 
 // TestI18NBundleLoad 用真实语言包验证加载与取值

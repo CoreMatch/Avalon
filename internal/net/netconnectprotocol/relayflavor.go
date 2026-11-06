@@ -1,8 +1,8 @@
 package netconnectprotocol
 
 import (
-	"rwhps/internal/io/packet"
-	"rwhps/internal/net/netconnectprotocol/internal/relay"
+	"github.com/CoreMatch/Avalon/internal/io/packet"
+	"github.com/CoreMatch/Avalon/internal/net/netconnectprotocol/internal/relay"
 )
 
 // 本文件是 internal/relay 的对外桥.

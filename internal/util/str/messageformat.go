@@ -1,7 +1,7 @@
 // Package messageformat 实现 Java MessageFormat 的占位符替换.
 //
 // 只覆盖原版用到的子集: {n} 与 {n,type}. 与 Java 对齐的关键行为:
-//   - 单引号是引用符: '' 表示一个字面单引号, 单引号内的 {} 不替换
+//   - 单引号是引用符: ” 表示一个字面单引号, 单引号内的 {} 不替换
 //   - 数字参数按 NumberFormat 默认格式输出 (千位分隔 + 最多 3 位小数)
 //   - 越界的占位符原样保留
 package messageformat

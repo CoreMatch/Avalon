@@ -6,8 +6,8 @@ import (
 	"errors"
 	"strings"
 
-	"rwhps/internal/game/player"
-	gameio "rwhps/internal/io"
+	"github.com/CoreMatch/Avalon/internal/game/player"
+	gameio "github.com/CoreMatch/Avalon/internal/io"
 )
 
 // GetPacketUnitName 对应 UniversalAnalysisOfGamePackages.getPacketUnitName

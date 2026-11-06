@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"rwhps/internal/io/packet"
+	"github.com/CoreMatch/Avalon/internal/io/packet"
 )
 
 // TestRconRoundTrip 验证 RconWritePacket + RconReadPacket 完整往返

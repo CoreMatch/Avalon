@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"rwhps/internal/util/log"
+	"github.com/CoreMatch/Avalon/internal/util/log"
 )
 
 // Config 外部 helper 的启动参数

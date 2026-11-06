@@ -2,12 +2,12 @@
 package command
 
 import (
-	"rwhps/internal/data/global"
-	gameio "rwhps/internal/io"
-	"rwhps/internal/io/packettype"
-	"rwhps/internal/net"
-	"rwhps/internal/net/core"
-	cmd "rwhps/internal/util/game/command"
+	"github.com/CoreMatch/Avalon/internal/data/global"
+	gameio "github.com/CoreMatch/Avalon/internal/io"
+	"github.com/CoreMatch/Avalon/internal/io/packettype"
+	"github.com/CoreMatch/Avalon/internal/net"
+	"github.com/CoreMatch/Avalon/internal/net/core"
+	cmd "github.com/CoreMatch/Avalon/internal/util/game/command"
 )
 
 // registerPingCommands 对应 CommandsEx.registerCore

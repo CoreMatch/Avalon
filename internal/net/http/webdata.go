@@ -40,15 +40,15 @@ var (
 // WebData 对应 net.rwhps.server.net.http.WebData
 // 路由注册表: 精确匹配 + 单层通配 (`/xxx/*`) + 全通配 (`/prefix**`)。
 type WebData struct {
-	getData             map[string]WebGet
-	postData            map[string]WebPost
-	getWildcardAll      map[string]WebGet // key 已去掉 ** 结尾
-	postWildcardAll     map[string]WebPost
-	webSocketData       map[string]*StartWebSocket
-	getOrder            []string // 保持有序, 用于稳定遍历 (虽然精确 + 全通配场景不需要顺序, 留作未来扩展)
-	postOrder           []string
-	getWildcardOrder    []string
-	postWildcardOrder   []string
+	getData           map[string]WebGet
+	postData          map[string]WebPost
+	getWildcardAll    map[string]WebGet // key 已去掉 ** 结尾
+	postWildcardAll   map[string]WebPost
+	webSocketData     map[string]*StartWebSocket
+	getOrder          []string // 保持有序, 用于稳定遍历 (虽然精确 + 全通配场景不需要顺序, 留作未来扩展)
+	postOrder         []string
+	getWildcardOrder  []string
+	postWildcardOrder []string
 }
 
 // NewWebData 创建空 WebData

@@ -4,15 +4,15 @@ import (
 	"strings"
 	"sync"
 
-	"rwhps/internal/data/global"
-	"rwhps/internal/game/event"
-	"rwhps/internal/game/room"
-	nethttp "rwhps/internal/net/http"
-	"rwhps/internal/util/algorithms"
-	"rwhps/internal/util/jsonutil"
-	"rwhps/internal/util/log"
-	"rwhps/internal/util/mathutil"
-	"rwhps/internal/util/timeutil"
+	"github.com/CoreMatch/Avalon/internal/data/global"
+	"github.com/CoreMatch/Avalon/internal/game/event"
+	"github.com/CoreMatch/Avalon/internal/game/room"
+	nethttp "github.com/CoreMatch/Avalon/internal/net/http"
+	"github.com/CoreMatch/Avalon/internal/util/algorithms"
+	"github.com/CoreMatch/Avalon/internal/util/jsonutil"
+	"github.com/CoreMatch/Avalon/internal/util/log"
+	"github.com/CoreMatch/Avalon/internal/util/mathutil"
+	"github.com/CoreMatch/Avalon/internal/util/timeutil"
 )
 
 // name / cookieName 对应 RwHpsWebApiMain.name / cookieName 常量

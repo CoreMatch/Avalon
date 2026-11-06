@@ -2,7 +2,7 @@
 package command
 
 import (
-	cmd "rwhps/internal/util/game/command"
+	cmd "github.com/CoreMatch/Avalon/internal/util/game/command"
 )
 
 // Register 一次性注册全部服务端命令

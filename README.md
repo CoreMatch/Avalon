@@ -1,8 +1,12 @@
-# RW-HPS Go Server
+# Avalon
 
-RW-HPS（Rusted Warfare Headless Project Server）的 Go 复刻版。目标客户端 **1.15 / 协议号 176**。
+**Avalon** 是 RW-HPS（Rusted Warfare Headless Project Server）游戏服务端的 Go 复刻版，
+运行时主体：网关、房间、玩家与协议处理、控制台、HTTP API、Cascade 对接。
+目标客户端 **1.15 / 协议号 176**。
 
-本目录是 Go 实现；Kotlin/Java 原版位于仓库其它模块，两者功能对照见
+Java 引擎壳（helper）与游戏数据由
+[RW-HPS 仓库](https://github.com/SamuelCheston/RW-HPS)提供（`Helper/` 模块与
+`data/gameData`）；Go 版与 Kotlin/Java 版功能对照见
 `/home/lnb/SamuelPortal-docs/RW-HPS-GO-PARITY.md`。
 
 ---
@@ -21,7 +25,7 @@ Go 服务端与它之间用一条文本协议（protocol v2，见 `docs/HELPER-P
 | **有 helper** | 配置 `gameHelperPath` 指向一个实现了 protocol v2 的 Java helper | 上述全部 + 真实开局/游戏模拟 |
 
 > 没有 helper 时服务器依然能完整启动（控制台、HTTP、Relay 都不依赖它），只是无法真正开局。
-> helper 本体在本仓库 `Helper/` 模块（薄封装：复用上游 Kotlin headless 内核，
+> helper 本体在 RW-HPS 仓库的 `Helper/` 模块（薄封装：复用上游 Kotlin headless 内核，
 > 把网络层换成 protocol v2/v2-ext 的 stdin/stdout 适配），构建方式见下文
 > 「安装并接入外部游戏内核」。协议合同见 `docs/HELPER-PROTOCOL.md`。
 
@@ -29,10 +33,9 @@ Go 服务端与它之间用一条文本协议（protocol v2，见 `docs/HELPER-P
 
 ## 构建
 
-需要 Go 1.22+。
+需要 Go 1.26.10+（见 go.mod）。
 
 ```bash
-cd Go-Server
 go build -o rwhps ./cmd/rwhps
 ```
 
@@ -108,22 +111,24 @@ go test ./...          # 需要时追加 -race
 
 ## 安装并接入外部游戏内核（helper）
 
-只有需要**真实开局**时才需要这一步。helper 是本仓库 `Helper/` 模块：薄封装上游
-Kotlin headless 内核（引擎装载链、ASM 重定向、游戏 classloader 全部复用上游），
-客户端网络层换成 protocol v2/v2-ext 的 stdin/stdout 适配。协议合同见
-[`docs/HELPER-PROTOCOL.md`](docs/HELPER-PROTOCOL.md)。
+只有需要**真实开局**时才需要这一步。helper 在 RW-HPS 仓库
+（[SamuelCheston/RW-HPS](https://github.com/SamuelCheston/RW-HPS)）的 `Helper/`
+模块：薄封装上游 Kotlin headless 内核（引擎装载链、ASM 重定向、游戏 classloader
+全部复用上游），客户端网络层换成 protocol v2/v2-ext 的 stdin/stdout 适配。
+协议合同见 [`docs/HELPER-PROTOCOL.md`](docs/HELPER-PROTOCOL.md)。
 
 ### 前置环境
 
-- **JDK 17**（构建与运行都需要）。注意：过新的 JDK（如 25）会让仓库使用的
+- **RW-HPS 检出**（helper 与游戏数据都在该仓库）。
+- **JDK 17**（构建与运行都需要）。注意：过新的 JDK（如 25）会让该仓库使用的
   Kotlin 2.0.0 编译器崩溃，请用 Temurin 17 这类 17 线发行版。
   构建时用 `-Dorg.gradle.java.home` 指定，运行时把 `javaPath` 指向它。
-- **游戏数据**：仓库根目录 `data/gameData`（随仓库提供；helper 首次启动会校验
-  MD5，缺失才走下载）。
+- **游戏数据**：RW-HPS 仓库根目录 `data/gameData`（随该仓库提供；helper 首次
+  启动会校验 MD5，缺失才走下载）。
 
 ### 一条命令构建
 
-在**仓库根目录**执行（产物 `Helper/build/libs/Helper.jar`，不入库）：
+在 **RW-HPS 仓库根目录**执行（产物 `Helper/build/libs/Helper.jar`，不入库）：
 
 ```bash
 ./gradlew :Helper:jar -Dorg.gradle.java.home=/path/to/jdk-17
@@ -148,10 +153,11 @@ Kotlin headless 内核（引擎装载链、ASM 重定向、游戏 classloader �
 
 - `gameHelperPath` 相对路径会锚定到数据根目录；绝对路径原样使用。
 - `-Drwhps.helper.dataPath` 指定 **helper 自己的数据目录**（配置、回放、
-  `data/gameData` 等）。该目录下的 `data/gameData` 可软链到仓库
+  `data/gameData` 等）。该目录下的 `data/gameData` 可软链到 RW-HPS 仓库的
   `data/gameData` 以免重复占用空间；缺省时 helper 以 jar 同级目录为数据根。
 - 集成测试用同样的方式拉起 helper（`RWHPS_TEST_JAVA` 环境变量可指定 JDK 17
-  的 java；jar 未构建/缺数据时测试自动跳过）。
+  的 java；`RWHPS_TEST_REPO_ROOT` 指向 RW-HPS 检出；jar 未构建/缺数据时测试
+  自动跳过）。
 
 ### 启动并确认
 
@@ -374,7 +380,7 @@ backend_ca_pool: "/run/secrets/ca.pem"                 # 校验 Go 服务端证�
 
 ---
 
-## 目录结构（Go-Server）
+## 目录结构
 
 ```
 cmd/rwhps/            程序入口

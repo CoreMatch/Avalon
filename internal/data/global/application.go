@@ -8,12 +8,12 @@ import (
 	"strings"
 	"sync"
 
-	"rwhps/internal/net/manage"
-	"rwhps/internal/util/algorithms"
-	"rwhps/internal/util/file"
-	"rwhps/internal/util/file/plugindata"
-	"rwhps/internal/util/log"
-	"rwhps/internal/util/mathutil"
+	"github.com/CoreMatch/Avalon/internal/net/manage"
+	"github.com/CoreMatch/Avalon/internal/util/algorithms"
+	"github.com/CoreMatch/Avalon/internal/util/file"
+	"github.com/CoreMatch/Avalon/internal/util/file/plugindata"
+	"github.com/CoreMatch/Avalon/internal/util/log"
+	"github.com/CoreMatch/Avalon/internal/util/mathutil"
 )
 
 // Core 对应 Data.core (Application 单例)

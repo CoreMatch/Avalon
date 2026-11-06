@@ -3,7 +3,7 @@ package external
 import (
 	"errors"
 
-	"rwhps/internal/game"
+	"github.com/CoreMatch/Avalon/internal/game"
 )
 
 // ErrNoRoom 表示 Backend 上还没有创建过房间 (Start 从未成功),

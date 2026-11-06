@@ -5,12 +5,12 @@ import (
 	"path"
 	"strings"
 
-	"rwhps/internal/data/global"
-	"rwhps/internal/game"
-	"rwhps/internal/util/algorithms"
-	"rwhps/internal/util/compression"
-	"rwhps/internal/util/file"
-	"rwhps/internal/util/log"
+	"github.com/CoreMatch/Avalon/internal/data/global"
+	"github.com/CoreMatch/Avalon/internal/game"
+	"github.com/CoreMatch/Avalon/internal/util/algorithms"
+	"github.com/CoreMatch/Avalon/internal/util/compression"
+	"github.com/CoreMatch/Avalon/internal/util/file"
+	"github.com/CoreMatch/Avalon/internal/util/log"
 )
 
 // Maps 对应 MapManage.maps: 当前房间使用的地图

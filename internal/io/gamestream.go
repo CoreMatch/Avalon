@@ -14,10 +14,10 @@ import (
 	"io"
 	"math"
 
-	"rwhps/internal/io/packet"
-	"rwhps/internal/io/packettype"
-	"rwhps/internal/util/compression"
-	"rwhps/internal/util/javautf"
+	"github.com/CoreMatch/Avalon/internal/io/packet"
+	"github.com/CoreMatch/Avalon/internal/io/packettype"
+	"github.com/CoreMatch/Avalon/internal/util/compression"
+	"github.com/CoreMatch/Avalon/internal/util/javautf"
 )
 
 // ErrEOF 对应 EOFException

@@ -9,8 +9,8 @@ import (
 	"errors"
 	"sync"
 
-	"rwhps/internal/struct/orderedmap"
-	"rwhps/internal/util/file"
+	"github.com/CoreMatch/Avalon/internal/struct/orderedmap"
+	"github.com/CoreMatch/Avalon/internal/util/file"
 )
 
 // Kind 对应 Bin 格式里的类型 tag

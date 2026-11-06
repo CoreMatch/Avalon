@@ -3,9 +3,9 @@
 package relay
 
 import (
-	gameio "rwhps/internal/io"
-	"rwhps/internal/io/packet"
-	"rwhps/internal/io/packettype"
+	gameio "github.com/CoreMatch/Avalon/internal/io"
+	"github.com/CoreMatch/Avalon/internal/io/packet"
+	"github.com/CoreMatch/Avalon/internal/io/packettype"
 )
 
 // RelayServerInitInfoPacket 对应 relayServerInitInfoInternalPacket()

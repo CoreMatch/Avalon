@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"rwhps/internal/struct/orderedmap"
+	"github.com/CoreMatch/Avalon/internal/struct/orderedmap"
 )
 
 // Ini 对应 LoadIni (基于 Java Properties 解析)

@@ -1,8 +1,8 @@
 package event
 
 import (
-	"rwhps/internal/game/enums"
-	"rwhps/internal/game/player"
+	"github.com/CoreMatch/Avalon/internal/game/enums"
+	"github.com/CoreMatch/Avalon/internal/game/player"
 )
 
 // 本文件对应 net.rwhps.server.game.event.game 下的全部事件类.

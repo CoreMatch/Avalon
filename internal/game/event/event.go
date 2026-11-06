@@ -24,7 +24,7 @@ import (
 	"reflect"
 	"sync"
 
-	"rwhps/internal/util/log"
+	"github.com/CoreMatch/Avalon/internal/util/log"
 )
 
 // Manage 对应 EventManage: 一个房间的游戏事件总线

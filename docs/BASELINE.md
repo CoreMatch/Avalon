@@ -81,16 +81,18 @@ worktree 21.94 s，`-count=2` 稳定。
 ## 5. 复测方法
 
 ```bash
-# 干净克隆 + 引擎壳
-git clone -b <branch> <repo> /tmp/check && cd /tmp/check
+# 干净克隆 + 引擎壳 (RW-HPS 仓: helper 与游戏数据)
+git clone https://github.com/SamuelCheston/RW-HPS /tmp/rwhps && cd /tmp/rwhps
 JAVA_HOME=<jdk17> ./gradlew :Helper:jar
 
-# Go 三件套（真实集成测试自动发现 Helper.jar 与 JDK 17）
-cd Go-Server
-go build ./... && go vet ./... && go test ./... -count=1
+# Go 三件套 (Avalon 仓; RWHPS_TEST_REPO_ROOT 指向 RW-HPS 检出,
+# 真实集成测试据此发现 Helper.jar 与 JDK 17)
+git clone https://github.com/CoreMatch/Avalon /tmp/avalon && cd /tmp/avalon
+go build ./... && go vet ./... && \
+  RWHPS_TEST_REPO_ROOT=/tmp/rwhps go test ./... -count=1
 
 # 分发包 + 干净目录实跑
-cd .. && ./dist/build-dist.sh
+RW_HPS_REPO=/tmp/rwhps ./dist/build-dist.sh
 mkdir /tmp/run && tar xzf dist/out/rwhps-*.tar.gz -C /tmp/run --strip-components=1
 cd /tmp/run && ./start.sh     # EULA 确认后: addai / start / gameover / exit
 ```

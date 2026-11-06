@@ -6,16 +6,16 @@ import (
 	"strings"
 	"sync"
 
-	"rwhps/internal/data/global"
+	"github.com/CoreMatch/Avalon/internal/data/global"
 )
 
 // 状态码常量
 const (
-	StatusOK         = 200
-	StatusBadRequest = 400
+	StatusOK           = 200
+	StatusBadRequest   = 400
 	StatusUnauthorized = 401
-	StatusForbidden  = 403
-	StatusNotFound   = 404
+	StatusForbidden    = 403
+	StatusNotFound     = 404
 )
 
 // SendWeb 对应 net.rwhps.server.net.http.SendWeb

@@ -21,13 +21,19 @@ import (
 	"testing"
 	"time"
 
-	gameio "rwhps/internal/io"
-	"rwhps/internal/io/packettype"
-	rwnet "rwhps/internal/net"
+	gameio "github.com/CoreMatch/Avalon/internal/io"
+	"github.com/CoreMatch/Avalon/internal/io/packettype"
+	rwnet "github.com/CoreMatch/Avalon/internal/net"
 )
 
-// distRepoRoot: internal/app -> Go-Server -> 仓库根
+// distRepoRoot 返回含 Helper/ 与 data/gameData 的 RW-HPS 检出根目录.
+// Avalon 独立后, helper 与游戏数据在 RW-HPS 仓库 (SamuelCheston/RW-HPS):
+// 用环境变量 RWHPS_TEST_REPO_ROOT 指向其检出; 未设置时回退本仓相对路径
+// (前置缺失时测试自动跳过).
 func distRepoRoot() string {
+	if root := os.Getenv("RWHPS_TEST_REPO_ROOT"); root != "" {
+		return root
+	}
 	return filepath.Join("..", "..", "..")
 }
 
@@ -74,9 +80,9 @@ func TestDistributionSelfContained(t *testing.T) {
 	stage := t.TempDir()
 
 	// --- 1. 组装分发目录 (与 dist/build-dist.sh 同布局) ---
-	goDir, err := filepath.Abs(filepath.Join("..", "..")) // Go-Server 模块根
+	goDir, err := filepath.Abs(filepath.Join("..", "..")) // Avalon 模块根
 	if err != nil {
-		t.Fatalf("解析 Go-Server 目录: %v", err)
+		t.Fatalf("解析模块根目录: %v", err)
 	}
 	build := exec.Command("go", "build", "-trimpath", "-o", filepath.Join(stage, "rwhps"), "./cmd/rwhps")
 	build.Dir = goDir

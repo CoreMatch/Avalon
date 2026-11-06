@@ -3,12 +3,12 @@ package gameserver
 import (
 	"testing"
 
-	"rwhps/internal/game/enums"
-	"rwhps/internal/game/event"
-	gameio "rwhps/internal/io"
-	"rwhps/internal/io/packet"
-	"rwhps/internal/io/packettype"
-	"rwhps/internal/util/control"
+	"github.com/CoreMatch/Avalon/internal/game/enums"
+	"github.com/CoreMatch/Avalon/internal/game/event"
+	gameio "github.com/CoreMatch/Avalon/internal/io"
+	"github.com/CoreMatch/Avalon/internal/io/packet"
+	"github.com/CoreMatch/Avalon/internal/io/packettype"
+	"github.com/CoreMatch/Avalon/internal/util/control"
 )
 
 // buildOnePacketBytes 按 GameCommandOnePacket 的解析顺序组装命令字节.

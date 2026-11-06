@@ -3,13 +3,13 @@ package gameserver
 import (
 	"sync"
 
-	"rwhps/internal/data/global"
-	"rwhps/internal/game/event"
-	"rwhps/internal/game/external"
-	"rwhps/internal/game/player"
-	"rwhps/internal/game/room"
-	"rwhps/internal/io/packet"
-	"rwhps/internal/util/log"
+	"github.com/CoreMatch/Avalon/internal/data/global"
+	"github.com/CoreMatch/Avalon/internal/game/event"
+	"github.com/CoreMatch/Avalon/internal/game/external"
+	"github.com/CoreMatch/Avalon/internal/game/player"
+	"github.com/CoreMatch/Avalon/internal/game/room"
+	"github.com/CoreMatch/Avalon/internal/io/packet"
+	"github.com/CoreMatch/Avalon/internal/util/log"
 )
 
 // HelperBackend 是连接层使用外部游戏内核的最小接口 (conn.* 三件套)

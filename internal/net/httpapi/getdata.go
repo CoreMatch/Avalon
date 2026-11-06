@@ -4,9 +4,9 @@ import (
 	"runtime"
 	"sync"
 
-	"rwhps/internal/game/player"
-	"rwhps/internal/game/room"
-	"rwhps/internal/util/systemutils"
+	"github.com/CoreMatch/Avalon/internal/game/player"
+	"github.com/CoreMatch/Avalon/internal/game/room"
+	"github.com/CoreMatch/Avalon/internal/util/systemutils"
 )
 
 // gameOverCache 对应 GetData.GameOverPositive.data (SeqSave(10)):

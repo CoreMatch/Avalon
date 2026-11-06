@@ -19,7 +19,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"rwhps/internal/util/log"
+	"github.com/CoreMatch/Avalon/internal/util/log"
 )
 
 // ThreadFactoryName 对应 ThreadFactoryName.nameThreadFactory(name)

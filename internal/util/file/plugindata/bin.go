@@ -4,9 +4,9 @@ import (
 	"errors"
 	"fmt"
 
-	gameio "rwhps/internal/io"
-	"rwhps/internal/struct/orderedmap"
-	"rwhps/internal/util/compression"
+	gameio "github.com/CoreMatch/Avalon/internal/io"
+	"github.com/CoreMatch/Avalon/internal/struct/orderedmap"
+	"github.com/CoreMatch/Avalon/internal/util/compression"
 )
 
 // errTooManyEntries 防御性上限, 避免损坏文件把 count 读成天文数字后长时间空转

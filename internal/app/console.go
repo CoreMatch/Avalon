@@ -8,11 +8,11 @@ import (
 	"sync"
 	"syscall"
 
-	"rwhps/internal/data/global"
-	"rwhps/internal/data/totalizer"
-	"rwhps/internal/util/console"
-	cmd "rwhps/internal/util/game/command"
-	"rwhps/internal/util/log"
+	"github.com/CoreMatch/Avalon/internal/data/global"
+	"github.com/CoreMatch/Avalon/internal/data/totalizer"
+	"github.com/CoreMatch/Avalon/internal/util/console"
+	cmd "github.com/CoreMatch/Avalon/internal/util/game/command"
+	"github.com/CoreMatch/Avalon/internal/util/log"
 )
 
 // exitGuard 对应 inputMonitor 里的 last 变量

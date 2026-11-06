@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"rwhps/internal/net/core"
-	"rwhps/internal/util/timeutil"
+	"github.com/CoreMatch/Avalon/internal/net/core"
+	"github.com/CoreMatch/Avalon/internal/util/timeutil"
 )
 
 func TestGetRelayAndGetCheckRelay(t *testing.T) {
