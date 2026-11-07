@@ -2,7 +2,10 @@
 package manage
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"os"
 	"path"
 	"strings"
 
@@ -139,6 +142,11 @@ func MapDataCount() int { return len(mapsDataOrder) }
 //
 // 扫描 maps 目录下的 .tmx/.zip 与 saves 目录下的 .rwsave/.zip, 把可选地图登记到 MapsData.
 // 文件名可能是 Base64 编码的, 先尝试解码.
+//
+// 协议 v4 (地图分发): 登记时为每张图计算内容清单 (SHA-256 + 大小),
+// 哈希对象是开局时将被物化并随 START_GAME 流送给客户端的字节 ——
+// File 形态取盘上文件, Zip 形态取 zip 内对应条目. 清单与模组下发
+// (ModManifest) 同一信任模型: 内容哈希是唯一信任依据.
 func ReadMapAndSave() {
 	MapsData = map[string]*game.MapData{}
 	mapsDataOrder = nil
@@ -147,7 +155,14 @@ func ReadMapAndSave() {
 	readList(mapsFolder, func(name, suffix, fileName string) {
 		switch suffix {
 		case ".tmx":
-			registerMapData(name, game.NewMapData(game.CustomMap, game.MapFile, name))
+			data, err := os.ReadFile(mapsFolder.ToFile(fileName).PathString())
+			if err != nil {
+				log.LogError("MAP REGISTER", fmt.Errorf("读取地图文件失败 %q: %v", fileName, err))
+				return
+			}
+			md := game.NewMapData(game.CustomMap, game.MapFile, name)
+			md.SetContentManifest(sha256Hex(data), int64(len(data)))
+			registerMapData(name, md)
 		case ".zip":
 			// 上游经 getFolder(ServerMapsPath).toFile(fileName) 取全路径;
 			// 裸文件名只在进程工作目录碰巧等于 maps 目录时才能打开
@@ -157,7 +172,15 @@ func ReadMapAndSave() {
 				return
 			}
 			for _, zipMapName := range zipMaps {
-				registerMapData(zipMapName, game.NewMapDataZip(game.CustomMap, game.MapZip, zipMapName, name))
+				md := game.NewMapDataZip(game.CustomMap, game.MapZip, zipMapName, name)
+				if entry, zErr := compression.ZipEntryBytes(mapsFolder.ToFile(fileName).PathString(), ".tmx", zipMapName); zErr == nil {
+					md.SetContentManifest(sha256Hex(entry), int64(len(entry)))
+				} else {
+					// 清单缺失时开局校验会按 ErrMapContentMismatch 明确失败,
+					// 这里只记日志不拒绝登记 (与上游"先登记后使用"一致)
+					log.LogError("ZIP READ", fmt.Errorf("登记清单失败 %q/%q: %v", fileName, zipMapName, zErr))
+				}
+				registerMapData(zipMapName, md)
 			}
 		}
 	})
@@ -166,7 +189,14 @@ func ReadMapAndSave() {
 	readList(savesFolder, func(name, suffix, fileName string) {
 		switch suffix {
 		case ".rwsave":
-			registerMapData(name, game.NewMapData(game.SavedGames, game.MapFile, name))
+			data, err := os.ReadFile(savesFolder.ToFile(fileName).PathString())
+			if err != nil {
+				log.LogError("MAP REGISTER", fmt.Errorf("读取存档文件失败 %q: %v", fileName, err))
+				return
+			}
+			md := game.NewMapData(game.SavedGames, game.MapFile, name)
+			md.SetContentManifest(sha256Hex(data), int64(len(data)))
+			registerMapData(name, md)
 		case ".zip":
 			zipSaves, err := compression.ZipFileNames(savesFolder.ToFile(fileName).PathString(), "save")
 			if err != nil {
@@ -174,10 +204,22 @@ func ReadMapAndSave() {
 				return
 			}
 			for _, zipSaveName := range zipSaves {
-				registerMapData(zipSaveName, game.NewMapDataZip(game.SavedGames, game.MapZip, zipSaveName, name))
+				md := game.NewMapDataZip(game.SavedGames, game.MapZip, zipSaveName, name)
+				if entry, zErr := compression.ZipEntryBytes(savesFolder.ToFile(fileName).PathString(), ".rwsave", zipSaveName); zErr == nil {
+					md.SetContentManifest(sha256Hex(entry), int64(len(entry)))
+				} else {
+					log.LogError("ZIP READ", fmt.Errorf("登记清单失败 %q/%q: %v", fileName, zipSaveName, zErr))
+				}
+				registerMapData(zipSaveName, md)
 			}
 		}
 	})
+}
+
+// sha256Hex 计算内容清单哈希 (与模组下发同一算法: SHA-256 十六进制小写)
+func sha256Hex(data []byte) string {
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:])
 }
 
 // readList 对应 MapManage.readList

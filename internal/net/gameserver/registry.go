@@ -1,6 +1,7 @@
 package gameserver
 
 import (
+	"encoding/binary"
 	"sync"
 
 	"github.com/CoreMatch/Avalon/internal/data/global"
@@ -9,6 +10,7 @@ import (
 	"github.com/CoreMatch/Avalon/internal/game/player"
 	"github.com/CoreMatch/Avalon/internal/game/room"
 	"github.com/CoreMatch/Avalon/internal/io/packet"
+	"github.com/CoreMatch/Avalon/internal/io/packettype"
 	"github.com/CoreMatch/Avalon/internal/util/log"
 )
 
@@ -154,6 +156,10 @@ func DeliverPacket(m *external.PacketMessage) { routePacket(m) }
 //
 // 对应上游"引擎 -> 客户端"的发包路径 (NetEnginePackaging.transformPacket 之后
 // 的 send). 找不到连接只记日志: 连接可能刚好在包飞行途中关闭.
+//
+// 协议 v4 (地图分发): START_GAME(120) 走专门路径 —— 只读解析负载前缀判断
+// 是否携带地图流, 发送失败归类为"传输中断", 成功送达记入连接状态供
+// "客户端拒收"分类. 其余包类型保持原有透传.
 func routePacket(m *external.PacketMessage) {
 	g := connections.get(m.Conn)
 	if g == nil {
@@ -165,7 +171,42 @@ func routePacket(m *external.PacketMessage) {
 		log.Errorf("[GameServer]", "decode packet data for conn {0}: {1}", m.Conn, err)
 		return
 	}
-	g.SendPacket(packet.NewPacketFromInt(m.PType, data))
+	pkt := packet.NewPacketFromInt(m.PType, data)
+	if m.PType == int(packettype.START_GAME) {
+		routeStartGame(g, pkt, data)
+		return
+	}
+	g.SendPacket(pkt)
+}
+
+// routeStartGame 发送 START_GAME 并做地图分发观测 (协议 v4).
+//
+// 负载前缀 (引擎官方格式, 只读不改写): [byte][int32 地图类型枚举]
+// (枚举 1 = 自定义地图) [int32 地图流大小][地图字节]... 解析失败不影响
+// 发送 —— 分类是尽力而为, 透传是硬职责.
+func routeStartGame(g *GameVersionServer, pkt *packet.Packet, data []byte) {
+	if err := g.SendStartGame(pkt); err != nil {
+		log.Errorf("[GameServer]", "map delivery: transfer interrupted (conn {0}): START_GAME write failed: {1}", g.ConnID(), err)
+		g.Disconnect()
+		return
+	}
+	size := parseStartGameMapStream(data)
+	g.noteMapStream(size)
+}
+
+// parseStartGameMapStream 只读解析 START_GAME 负载里的地图流大小.
+//
+// 返回 -1: 非自定义地图开局 (无地图流) 或负载不足以解析.
+// 自定义地图分支返回声明的地图字节数.
+func parseStartGameMapStream(data []byte) int64 {
+	if len(data) < 9 || data[0] != 0 {
+		return -1
+	}
+	ordinal := int32(binary.BigEndian.Uint32(data[1:5]))
+	if ordinal != 1 {
+		return -1
+	}
+	return int64(int32(binary.BigEndian.Uint32(data[5:9])))
 }
 
 // connRegistry 连接表: helper 侧 connID -> GameVersionServer

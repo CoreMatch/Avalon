@@ -152,3 +152,40 @@ func TestMapDataByIndexOutOfRange(t *testing.T) {
 		t.Fatal("负序号应返回 false")
 	}
 }
+
+// TestReadMapAndSaveRegistersManifest 协议 v4: 登记即生成内容清单
+// (SHA-256 + 大小), File 形态取盘上字节, Zip 形态取将被物化的条目字节.
+func TestReadMapAndSaveRegistersManifest(t *testing.T) {
+	mapsDir := withMapDirs(t)
+
+	if err := os.WriteFile(filepath.Join(mapsDir, "plain.tmx"), []byte("<map/>"), 0o644); err != nil {
+		t.Fatalf("写地图: %v", err)
+	}
+	writeZip(t, filepath.Join(mapsDir, "pack.zip"), map[string]string{"inner.tmx": "<map/>"})
+
+	ReadMapAndSave()
+
+	const wantSHA = "0e9a897681da892fbb62033be399b94032d5eb71d47251bbff67b651747dbc42"
+	for _, name := range []string{"plain", "inner"} {
+		data, ok := MapsData[name]
+		if !ok {
+			t.Fatalf("地图 %q 未登记", name)
+		}
+		if data.ContentSHA256() != wantSHA || data.ContentSize() != int64(len("<map/>")) {
+			t.Errorf("%q 清单 = %q/%d, 期望 %q/%d", name, data.ContentSHA256(), data.ContentSize(), wantSHA, len("<map/>"))
+		}
+	}
+
+	// BuildMapManifest / LookupManifest 与注册表同源
+	m := BuildMapManifest()
+	if len(m.Maps) != 2 {
+		t.Fatalf("清单条目数 = %d, 期望 2", len(m.Maps))
+	}
+	entry, ok := LookupManifest("plain")
+	if !ok || entry.SHA256 != wantSHA || entry.Size != 6 || entry.File != "plain.tmx" {
+		t.Fatalf("LookupManifest(plain) = %+v, ok=%v", entry, ok)
+	}
+	if _, ok := LookupManifest("ghost"); ok {
+		t.Fatal("未登记地图不应出现在清单里")
+	}
+}

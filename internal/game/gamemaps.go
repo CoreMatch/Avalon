@@ -2,7 +2,11 @@
 package game
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
+	"io"
+	"os"
 
 	"github.com/CoreMatch/Avalon/internal/data/global"
 	"github.com/CoreMatch/Avalon/internal/util/compression"
@@ -65,6 +69,13 @@ func (m MapFileType) String() string {
 // ErrMapSourceUnavailable 表示地图既不在本地也没有可用的下载来源
 var ErrMapSourceUnavailable = errors.New("game: map source unavailable")
 
+// ErrMapContentMismatch 表示盘上地图内容与登记清单 (大小/SHA-256) 不符.
+//
+// 地图分发的信任依据与模组下发一致 (见 manage.ModManifest): 内容哈希是
+// 唯一信任依据, 同名不同内容不当作已有 —— 登记后被改写的文件必须被
+// 显式拒绝, 而不是当作"已经在了"静默开局.
+var ErrMapContentMismatch = errors.New("game: map content mismatch")
+
 // MapData 对应 GameMaps.MapData
 type MapData struct {
 	// MapType 地图类型
@@ -76,6 +87,13 @@ type MapData struct {
 	zipFileName string
 	mapClean    bool
 	mapFile     *file.FileUtils
+
+	// contentSHA256/contentSize 登记时计算的内容清单 (v4):
+	// 对 File 形态是盘上文件字节, 对 Zip 形态是 zip 内将被物化的那个
+	// 条目的字节 —— 即引擎开局时随 START_GAME 流送给客户端的字节.
+	// 空哈希表示登记方未提供清单 (旧路径), 校验按缺清单处理.
+	contentSHA256 string
+	contentSize   int64
 }
 
 // NewMapData 对应 MapData(mapType, mapFileType, mapFileName)
@@ -141,6 +159,61 @@ func (d *MapData) FileType() MapFileType { return d.mapFileType }
 
 // ZipFileName 返回 zip 包名 (非 zip 来源时为空)
 func (d *MapData) ZipFileName() string { return d.zipFileName }
+
+// SetContentManifest 由登记方 (manage.ReadMapAndSave) 写入内容清单:
+// 即将随 START_GAME 流送给客户端的字节的 SHA-256 与大小.
+func (d *MapData) SetContentManifest(sha256Hex string, size int64) {
+	d.contentSHA256 = sha256Hex
+	d.contentSize = size
+}
+
+// ContentSHA256 返回登记的内容哈希 (空 = 登记方未提供清单)
+func (d *MapData) ContentSHA256() string { return d.contentSHA256 }
+
+// ContentSize 返回登记的内容大小
+func (d *MapData) ContentSize() int64 { return d.contentSize }
+
+// VerifyOnDisk 按登记清单复核引擎将要读取/流送的盘上文件
+// (ReadMap 物化之后调用):
+//
+//   - 清单缺失 (旧登记路径) -> ErrMapContentMismatch, 明确失败不静默放行;
+//   - 文件不存在/不可读   -> ErrMapSourceUnavailable (服务端没有这张图);
+//   - 大小或哈希不符      -> ErrMapContentMismatch (同名不同内容).
+//
+// 校验对象与引擎读取路径一致: data/maps (存档为 data/saves) 下的
+// <MapFileName><后缀>, 即 helper 侧 /SD/rusted_warfare_maps/<file>
+// 重定向落点.
+func (d *MapData) VerifyOnDisk() error {
+	if d.contentSHA256 == "" {
+		return ErrMapContentMismatch
+	}
+	dir := global.ServerMapsPath
+	if d.MapType == SavedGames {
+		dir = global.ServerSavePath
+	}
+	path := file.GetFolder(dir).ToFile(d.MapFileName + d.MapType.FileType()).PathString()
+	f, err := os.Open(path)
+	if err != nil {
+		return ErrMapSourceUnavailable
+	}
+	defer f.Close()
+
+	info, err := f.Stat()
+	if err != nil {
+		return ErrMapSourceUnavailable
+	}
+	if info.Size() != d.contentSize {
+		return ErrMapContentMismatch
+	}
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return ErrMapSourceUnavailable
+	}
+	if hex.EncodeToString(h.Sum(nil)) != d.contentSHA256 {
+		return ErrMapContentMismatch
+	}
+	return nil
+}
 
 // GameMaps 对应 GameMaps: 当前房间使用的地图
 type GameMaps struct {

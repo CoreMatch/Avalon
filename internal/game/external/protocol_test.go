@@ -35,19 +35,23 @@ func TestRequestRoundTrip(t *testing.T) {
 	}
 }
 
-// TestRequestMapFields 协议 v3: room.start 的自定义地图字段
+// TestRequestMapFields 协议 v3/v4: room.start 的自定义地图字段
 //
-// 带字段时完整传输; 默认地图时字段缺省 (omitempty), 与 v2 请求形态一致.
+// 带字段时完整传输 (v4 起含内容清单 mapSha256/mapSize); 默认地图时字段
+// 缺省 (omitempty), 与 v2 请求形态一致.
 func TestRequestMapFields(t *testing.T) {
+	size := int64(6)
 	custom := &Request{
-		V:       ProtocolVersion,
-		ID:      8,
-		Op:      OpRoomStart,
-		Gen:     1,
-		Room:    "room-1",
-		Map:     "MyMap",
-		MapType: "CustomMap",
-		MapFile: "MyMap.tmx",
+		V:         ProtocolVersion,
+		ID:        8,
+		Op:        OpRoomStart,
+		Gen:       1,
+		Room:      "room-1",
+		Map:       "MyMap",
+		MapType:   "CustomMap",
+		MapFile:   "MyMap.tmx",
+		MapSHA256: "0e9a897681da892fbb62033be399b94032d5eb71d47251bbff67b651747dbc42",
+		MapSize:   &size,
 	}
 	line, err := encodeRequest(custom)
 	if err != nil {
@@ -60,14 +64,27 @@ func TestRequestMapFields(t *testing.T) {
 	if back.MapType != "CustomMap" || back.MapFile != "MyMap.tmx" {
 		t.Fatalf("自定义地图字段回读 = %q/%q", back.MapType, back.MapFile)
 	}
+	if back.MapSHA256 != custom.MapSHA256 || back.MapSize == nil || *back.MapSize != 6 {
+		t.Fatalf("清单字段回读 = %q/%v", back.MapSHA256, back.MapSize)
+	}
 
 	def := &Request{V: ProtocolVersion, ID: 9, Op: OpRoomStart, Gen: 1, Room: "room-1", Map: "X"}
 	lineDef, err := encodeRequest(def)
 	if err != nil {
 		t.Fatalf("encodeRequest: %v", err)
 	}
-	if strings.Contains(lineDef, "mapType") || strings.Contains(lineDef, "mapFile") {
-		t.Fatalf("默认地图请求不应携带 mapType/mapFile: %s", lineDef)
+	if strings.Contains(lineDef, "mapType") || strings.Contains(lineDef, "mapFile") ||
+		strings.Contains(lineDef, "mapSha256") || strings.Contains(lineDef, "mapSize") {
+		t.Fatalf("默认地图请求不应携带地图字段: %s", lineDef)
+	}
+
+	// 协议 v4 闸门: 非默认地图缺清单在 Go 侧即拒绝
+	noManifest := &Request{
+		V: ProtocolVersion, ID: 10, Op: OpRoomStart, Gen: 1, Room: "room-1",
+		Map: "MyMap", MapType: "CustomMap", MapFile: "MyMap.tmx",
+	}
+	if _, err := encodeRequest(noManifest); err == nil || !strings.Contains(err.Error(), "map manifest") {
+		t.Fatalf("缺清单的非默认地图开局应被拒绝, err = %v", err)
 	}
 }
 
@@ -120,7 +137,7 @@ func TestValidateRequest(t *testing.T) {
 }
 
 func TestDecodeResponse(t *testing.T) {
-	resp, err := decodeResponse(`{"v":3,"type":"response","id":3,"gen":1,"ok":true,"running":true,"players":4}`)
+	resp, err := decodeResponse(`{"v":4,"type":"response","id":3,"gen":1,"ok":true,"running":true,"players":4}`)
 	if err != nil {
 		t.Fatalf("decodeResponse: %v", err)
 	}
@@ -132,10 +149,10 @@ func TestDecodeResponse(t *testing.T) {
 func TestDecodeResponseErrors(t *testing.T) {
 	cases := map[string]string{
 		"":                                      "empty line",
-		`{"v":3,"type":"response","id":1,"ok":`: "decode message",
+		`{"v":4,"type":"response","id":1,"ok":`: "decode message",
 		`{"v":99,"type":"response","id":1,"gen":1,"ok":true}`: "helper speaks protocol 99",
-		`{"v":3,"type":"response","id":1,"gen":0,"ok":true}`:  "without generation",
-		`{"v":3,"type":"response","id":0,"gen":1,"ok":true}`:  "without request id",
+		`{"v":4,"type":"response","id":1,"gen":0,"ok":true}`:  "without generation",
+		`{"v":4,"type":"response","id":0,"gen":1,"ok":true}`:  "without request id",
 	}
 	for line, want := range cases {
 		_, err := decodeResponse(line)
@@ -150,7 +167,7 @@ func TestDecodeResponseErrors(t *testing.T) {
 
 // TestDecodeUnknownMessageType 未知 type 是致命协议错误
 func TestDecodeUnknownMessageType(t *testing.T) {
-	_, err := decodeMessage(`{"v":3,"type":"whatever","gen":1}`)
+	_, err := decodeMessage(`{"v":4,"type":"whatever","gen":1}`)
 	if err == nil || !strings.Contains(err.Error(), "unknown message type") {
 		t.Fatalf("decodeMessage = %v, 期望未知类型错误", err)
 	}
@@ -158,7 +175,7 @@ func TestDecodeUnknownMessageType(t *testing.T) {
 
 // TestDecodePacketMessage 游戏包必须带房间/连接/类型
 func TestDecodePacketMessage(t *testing.T) {
-	pkt, err := decodeMessage(`{"v":3,"type":"packet","gen":1,"room":"r1","conn":"c1","ptype":115,"data":"AQID"}`)
+	pkt, err := decodeMessage(`{"v":4,"type":"packet","gen":1,"room":"r1","conn":"c1","ptype":115,"data":"AQID"}`)
 	if err != nil {
 		t.Fatalf("decodeMessage: %v", err)
 	}
@@ -171,9 +188,9 @@ func TestDecodePacketMessage(t *testing.T) {
 	}
 
 	for _, bad := range []string{
-		`{"v":3,"type":"packet","gen":1,"conn":"c1","ptype":1}`,
-		`{"v":3,"type":"packet","gen":1,"room":"r1","ptype":1}`,
-		`{"v":3,"type":"packet","gen":1,"room":"r1","conn":"c1"}`,
+		`{"v":4,"type":"packet","gen":1,"conn":"c1","ptype":1}`,
+		`{"v":4,"type":"packet","gen":1,"room":"r1","ptype":1}`,
+		`{"v":4,"type":"packet","gen":1,"room":"r1","conn":"c1"}`,
 	} {
 		if _, err := decodeMessage(bad); err == nil {
 			t.Errorf("decodeMessage(%q) 应报错", bad)
@@ -183,10 +200,10 @@ func TestDecodePacketMessage(t *testing.T) {
 
 // TestDecodeEventMessage 玩家级事件必须能定位到连接
 func TestDecodeEventMessage(t *testing.T) {
-	if _, err := decodeMessage(`{"v":3,"type":"event","gen":1,"event":"player.join","room":"r1"}`); err == nil {
+	if _, err := decodeMessage(`{"v":4,"type":"event","gen":1,"event":"player.join","room":"r1"}`); err == nil {
 		t.Fatal("player.join 缺少 conn 时应报错")
 	}
-	ev, err := decodeMessage(`{"v":3,"type":"event","gen":1,"event":"chat","room":"r1","conn":"c1","data":{"name":"n","text":"t"}}`)
+	ev, err := decodeMessage(`{"v":4,"type":"event","gen":1,"event":"chat","room":"r1","conn":"c1","data":{"name":"n","text":"t"}}`)
 	if err != nil {
 		t.Fatalf("decodeMessage: %v", err)
 	}
@@ -321,7 +338,7 @@ func TestEncodeRequestExtPosition(t *testing.T) {
 
 // TestDecodeResponseGameResult game.result 应答的 result 负载解码
 func TestDecodeResponseGameResult(t *testing.T) {
-	line := `{"v":3,"type":"response","id":9,"gen":1,"ok":true,"result":{"gameTime":600,"allPlayerList":["a","b"],"winPlayerList":["a"],"mapName":"m1","playerData":{"a":{"unitsKilled":1,"buildingsKilled":2,"experimentalsKilled":3,"unitsLost":4,"buildingsLost":5,"experimentalsLost":6}},"replayName":"rep1"}}`
+	line := `{"v":4,"type":"response","id":9,"gen":1,"ok":true,"result":{"gameTime":600,"allPlayerList":["a","b"],"winPlayerList":["a"],"mapName":"m1","playerData":{"a":{"unitsKilled":1,"buildingsKilled":2,"experimentalsKilled":3,"unitsLost":4,"buildingsLost":5,"experimentalsLost":6}},"replayName":"rep1"}}`
 	resp, err := decodeResponse(line)
 	if err != nil {
 		t.Fatalf("decodeResponse: %v", err)
@@ -350,7 +367,7 @@ func TestDecodeResponseGameResult(t *testing.T) {
 	}
 
 	// result 缺失 (尚未分出胜负) 时 Result 为 nil
-	resp, err = decodeResponse(`{"v":3,"type":"response","id":9,"gen":1,"ok":true}`)
+	resp, err = decodeResponse(`{"v":4,"type":"response","id":9,"gen":1,"ok":true}`)
 	if err != nil {
 		t.Fatalf("decodeResponse: %v", err)
 	}

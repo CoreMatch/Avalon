@@ -125,6 +125,12 @@ type MatchConfig struct {
 	// MapFile 非默认地图的文件名 (含后缀, 如 "MyMap.tmx");
 	// 仅当 MapType 非 DefaultMap 时有值, 由房间在开局前经 ReadMap 落盘保证存在
 	MapFile string
+	// MapSHA256/MapSize 非默认地图的内容清单 (协议 v4):
+	// 引擎开局时将该文件随 START_GAME 流送给客户端, helper 在流送前
+	// 按此复核盘上字节 (同名不同内容不当作已有). 仅当 MapType 非
+	// DefaultMap 时有值.
+	MapSHA256 string
+	MapSize   int64
 	// MaxPlayer 对应 Data.configServer.maxPlayer
 	MaxPlayer int
 
@@ -269,6 +275,8 @@ func (s *GameSession) StartGame() error {
 		if maps.MapType != DefaultMap && maps.MapData != nil {
 			cfg.MapType = maps.MapType.String()
 			cfg.MapFile = maps.MapData.MapFileName + maps.MapType.FileType()
+			cfg.MapSHA256 = maps.MapData.ContentSHA256()
+			cfg.MapSize = maps.MapData.ContentSize()
 		}
 	}
 	s.mu.RUnlock()
@@ -276,8 +284,15 @@ func (s *GameSession) StartGame() error {
 	// 原版 roomStartGame 之前会由地图管理器把地图落到磁盘; 这里先把地图准备好.
 	// 与上游 start 一致: 仅非默认地图需要 readMap (zip 解包落盘).
 	// 大厅模式不开局, 无需用图, 跳过落盘.
+	//
+	// 协议 v4 (地图分发): 物化后按登记清单复核盘上字节 —— 服务端没图
+	// (ErrMapSourceUnavailable) 与内容不符 (ErrMapContentMismatch) 在这里
+	// 就分成两类明确失败, 房间保持未开局.
 	if !lobby && maps != nil && maps.MapData != nil && maps.MapType != DefaultMap {
 		if err := maps.MapData.ReadMap(); err != nil {
+			return err
+		}
+		if err := maps.MapData.VerifyOnDisk(); err != nil {
 			return err
 		}
 	}

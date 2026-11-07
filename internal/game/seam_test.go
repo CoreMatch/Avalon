@@ -308,7 +308,8 @@ func TestStartGameDefaultMapUnchanged(t *testing.T) {
 	}
 }
 
-// TestStartGameCustomMapConfig 自定义图: MatchConfig 携带 mapType/mapFile
+// TestStartGameCustomMapConfig 自定义图: MatchConfig 携带 mapType/mapFile 与
+// 协议 v4 内容清单 (mapSha256/mapSize)
 func TestStartGameCustomMapConfig(t *testing.T) {
 	dir := seamMapDirs(t)
 	if err := os.WriteFile(filepath.Join(dir, "My.tmx"), []byte("<map/>"), 0o644); err != nil {
@@ -321,12 +322,16 @@ func TestStartGameCustomMapConfig(t *testing.T) {
 	s.Maps.MapName = "My"
 	s.Maps.MapPlayer = ""
 	s.Maps.MapData = NewMapData(CustomMap, MapFile, "My")
+	s.Maps.MapData.SetContentManifest("0e9a897681da892fbb62033be399b94032d5eb71d47251bbff67b651747dbc42", 6)
 
 	if err := s.StartGame(); err != nil {
 		t.Fatalf("StartGame err = %v", err)
 	}
 	if sim.cfg.MapType != "CustomMap" || sim.cfg.MapFile != "My.tmx" {
 		t.Fatalf("MatchConfig 地图字段 = %q/%q, 期望 CustomMap/My.tmx", sim.cfg.MapType, sim.cfg.MapFile)
+	}
+	if sim.cfg.MapSHA256 != "0e9a897681da892fbb62033be399b94032d5eb71d47251bbff67b651747dbc42" || sim.cfg.MapSize != 6 {
+		t.Fatalf("MatchConfig 清单字段 = %q/%d, 期望登记清单", sim.cfg.MapSHA256, sim.cfg.MapSize)
 	}
 }
 
@@ -357,6 +362,8 @@ func TestStartGameZipMapMaterialized(t *testing.T) {
 	s.Maps.MapType = CustomMap
 	s.Maps.MapName = "inner"
 	s.Maps.MapData = NewMapDataZip(CustomMap, MapZip, "inner", "pack.zip")
+	// 清单 = zip 内将被物化的条目字节 ("<map/>")
+	s.Maps.MapData.SetContentManifest("0e9a897681da892fbb62033be399b94032d5eb71d47251bbff67b651747dbc42", 6)
 
 	if err := s.StartGame(); err != nil {
 		t.Fatalf("StartGame err = %v", err)
@@ -366,6 +373,52 @@ func TestStartGameZipMapMaterialized(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dir, "inner.tmx")); err != nil {
 		t.Fatalf("zip 内地图未落盘: %v", err)
+	}
+}
+
+// TestStartGameMapContentMismatch 协议 v4: 登记后盘上文件被改写 (同名不同内容),
+// 开局必须明确失败且房间保持未开局, 不能当作"已经在了"放行.
+func TestStartGameMapContentMismatch(t *testing.T) {
+	dir := seamMapDirs(t)
+	if err := os.WriteFile(filepath.Join(dir, "Tampered.tmx"), []byte("<map/>"), 0o644); err != nil {
+		t.Fatalf("写地图: %v", err)
+	}
+
+	sim := &fakeSim{}
+	s := NewGameSession("room-tamper", sim)
+	s.Maps.MapType = CustomMap
+	s.Maps.MapName = "Tampered"
+	s.Maps.MapData = NewMapData(CustomMap, MapFile, "Tampered")
+	// 登记的是另一份内容的清单
+	s.Maps.MapData.SetContentManifest("0000000000000000000000000000000000000000000000000000000000000000", 6)
+
+	err := s.StartGame()
+	if !errors.Is(err, ErrMapContentMismatch) {
+		t.Fatalf("StartGame err = %v, 期望 ErrMapContentMismatch", err)
+	}
+	if s.IsStartGame {
+		t.Fatal("内容不符时房间应保持未开局")
+	}
+	if sim.started {
+		t.Fatal("内容不符时不应调用模拟内核 Start")
+	}
+}
+
+// TestStartGameMapMissingManifest 登记时未生成清单的地图, 开局明确失败 (不静默放行)
+func TestStartGameMapMissingManifest(t *testing.T) {
+	dir := seamMapDirs(t)
+	if err := os.WriteFile(filepath.Join(dir, "NoManifest.tmx"), []byte("<map/>"), 0o644); err != nil {
+		t.Fatalf("写地图: %v", err)
+	}
+
+	sim := &fakeSim{}
+	s := NewGameSession("room-nomanifest", sim)
+	s.Maps.MapType = CustomMap
+	s.Maps.MapName = "NoManifest"
+	s.Maps.MapData = NewMapData(CustomMap, MapFile, "NoManifest")
+
+	if err := s.StartGame(); !errors.Is(err, ErrMapContentMismatch) {
+		t.Fatalf("StartGame err = %v, 期望 ErrMapContentMismatch (缺清单)", err)
 	}
 }
 

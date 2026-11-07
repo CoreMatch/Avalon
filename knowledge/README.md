@@ -15,6 +15,7 @@ HA-Contract on 2026-11-07; this repository owns its own knowledge entries).
 | [0008](./0008-custom-map-selection.md) | Custom Map Selection (Current State) | Accepted |
 | [0009](./0009-zero-mod-lobby-and-mod-assembly.md) | Zero-Mod Lobby and Mod Assembly | Accepted |
 | [0010](./0010-plugin-v2-implementation-status.md) | Plugin Extension Points v2 — Implementation Status | Accepted |
+| [0011](./0011-map-distribution.md) | Map Distribution (Engine Streaming + Content Manifest) | Accepted |
 
 Anchor checker: `bash /home/lnb/Desktop/HA/HA-Contract/scripts/check-knowledge-anchors.sh`
 (run from this repository's root).
