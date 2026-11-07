@@ -96,6 +96,8 @@ var vetoPaths = map[string]bool{
 	"/v1/events/player.join":    true,
 	"/v1/events/unit.operation": true,
 	"/v1/events/factory.build":  true,
+	"/v1/events/connection.new": true,
+	"/v1/events/game.start":     true,
 }
 
 func (s *Server) handle(w http.ResponseWriter, r *http.Request) {
@@ -114,11 +116,15 @@ func (s *Server) handle(w http.ResponseWriter, r *http.Request) {
 			"room.create", "game.over", "player.join", "player.leave",
 			"player.banned", "player.unbanned", "player.ipbanned",
 			"game.start", "player.chat", "unit.operation", "factory.build",
+			"connection.new", "player.kicked",
 		} {
 			capability := map[string]any{"versions": []int{1}}
 			if vetoDeclare && name != "room.create" && name != "game.over" {
-				// 双模事件才声明 veto 能力 (其余事件声明无意义)
-				if name == "player.join" || name == "unit.operation" || name == "factory.build" {
+				// 双模事件才声明 veto 能力 (其余事件声明无意义);
+				// connection.new 仅否决档, 同样由此声明.
+				switch name {
+				case "player.join", "unit.operation", "factory.build",
+					"connection.new", "game.start":
 					capability["veto"] = true
 				}
 			}

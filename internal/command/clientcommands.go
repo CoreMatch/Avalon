@@ -12,7 +12,9 @@ import (
 	"github.com/CoreMatch/Avalon/internal/game/manage"
 	"github.com/CoreMatch/Avalon/internal/game/player"
 	"github.com/CoreMatch/Avalon/internal/game/room"
+	"github.com/CoreMatch/Avalon/internal/plugin"
 	"github.com/CoreMatch/Avalon/internal/util/isutils"
+	"github.com/CoreMatch/Avalon/internal/util/log"
 
 	cmd "github.com/CoreMatch/Avalon/internal/util/game/command"
 )
@@ -254,6 +256,18 @@ func (c *clientCommands) registerGameCoreCommand(h *cmd.Handler) {
 			} else {
 				return
 			}
+		}
+
+		// 插件开局准入 (契约 v1.2.0 game.start veto 档): 仅授权插件参与,
+		// 无授权时零网络 I/O. 否决 = 取消开局: 理由呈现给发起管理员,
+		// 自动开局 (p==nil, 经 AutoStartTask 走 "/start") 只进日志;
+		// 插件超时/不可达 = fail-open 照常开局.
+		if d := plugin.AdmitGameStart(c.room); !d.Allowed {
+			log.Warnf("[Plugin]", "game.start vetoed by {0}: {1}", d.Plugin, d.Reason)
+			if p != nil {
+				_ = p.SendSystemMessage(d.Reason)
+			}
+			return
 		}
 
 		// 上游: 自定义地图先 readMap, 再 multiplayerStart (引擎), 最后 fire 开局事件.

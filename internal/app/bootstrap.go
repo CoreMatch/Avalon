@@ -72,6 +72,9 @@ func (r *Runtime) Start() error {
 		return err
 	}
 	plugin.SetDefault(hub)
+	// player.kicked 审计 (契约 v1.2.0): 单一踢出咽喉点 -> observe 发射.
+	// 钩子全局生效 (不挂房间总线), 须在玩家可能出现前装好.
+	plugin.RegisterPlayerKickAudit()
 	prevPluginHook := global.CloseServerHook
 	global.CloseServerHook = func() {
 		prevPluginHook()

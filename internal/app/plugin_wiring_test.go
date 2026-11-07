@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	"github.com/CoreMatch/Avalon/internal/data/global"
+	"github.com/CoreMatch/Avalon/internal/game/player"
+	"github.com/CoreMatch/Avalon/internal/net/core"
 	"github.com/CoreMatch/Avalon/internal/plugin"
 	"github.com/CoreMatch/Avalon/internal/plugin/plugintest"
 )
@@ -85,5 +87,88 @@ func TestPluginConsoleCommandShowsStatus(t *testing.T) {
 		if !strings.Contains(lines[0], want) {
 			t.Fatalf("状态行缺 %q: %s", want, lines[0])
 		}
+	}
+}
+
+// TestConnectionNewHookComposition 连接钩子组合 (契约 v1.2.0 connection.new):
+// 内建 IP/24 ban 先行 (命中不咨询插件), 插件否决 = 拒绝连接, 放行 = 通过
+func TestConnectionNewHookComposition(t *testing.T) {
+	setupBase(t)
+	cleanupPluginHub(t)
+
+	srv := plugintest.Start(t, true, "blocked exit node")
+	srv.SetVetoDeclare(true)
+	plugintest.Install(t, srv.EntryWithVeto("gate", plugin.EventConnectionNew))
+
+	r := New(global.MainParameters{})
+	r.registerEventGlobal()
+
+	// 插件否决 -> 拒绝连接 (理由只进日志, 钩子只表达拒绝)
+	if !core.NetConnectNewEventHook(&core.ConnectionAgreement{
+		IP: "203.0.113.7", IPLong24: "203.0.113", UseAgreementStr: "TCP-NIO",
+	}) {
+		t.Fatal("插件否决时应拒绝连接")
+	}
+	if n := srv.RequestsOf("/v1/events/connection.new"); n != 1 {
+		t.Fatalf("准入咨询应恰好 1 次, got %d", n)
+	}
+
+	// IP/24 ban 命中 -> 直接拒绝, 不咨询插件
+	global.Core.Admin.BanIP24("198.51.100")
+	before := srv.RequestsOf("/v1/events/connection.new")
+	if !core.NetConnectNewEventHook(&core.ConnectionAgreement{
+		IP: "198.51.100.9", IPLong24: "198.51.100", UseAgreementStr: "TCP-NIO",
+	}) {
+		t.Fatal("banned /24 应拒绝连接")
+	}
+	if n := srv.RequestsOf("/v1/events/connection.new"); n != before {
+		t.Fatalf("ban 命中不应咨询插件, 请求数 %d -> %d", before, n)
+	}
+
+	// 插件放行 -> 连接通过
+	srv.SetDeny(false, "")
+	if core.NetConnectNewEventHook(&core.ConnectionAgreement{
+		IP: "192.0.2.5", IPLong24: "192.0.2", UseAgreementStr: "TCP-NIO",
+	}) {
+		t.Fatal("插件放行时应通过连接")
+	}
+}
+
+// TestConnectionNewHookNoPluginZeroRegression 未配置插件: 钩子行为与
+// 纯 IP/24 ban 完全一致 (零回归)
+func TestConnectionNewHookNoPluginZeroRegression(t *testing.T) {
+	setupBase(t)
+	cleanupPluginHub(t)
+
+	r := New(global.MainParameters{})
+	r.registerEventGlobal()
+
+	ca := &core.ConnectionAgreement{IP: "203.0.113.7", IPLong24: "203.0.113", UseAgreementStr: "TCP-NIO"}
+	if core.NetConnectNewEventHook(ca) {
+		t.Fatal("无插件时正常连接应通过")
+	}
+	global.Core.Admin.BanIP24("203.0.113")
+	if !core.NetConnectNewEventHook(ca) {
+		t.Fatal("无插件时 banned /24 仍应拒绝")
+	}
+}
+
+// TestBootWiresKickAudit 启动链装上踢出审计钩子 (player.kicked 接线)
+func TestBootWiresKickAudit(t *testing.T) {
+	setupBase(t)
+	seedSettings(t)
+	cleanupPluginHub(t)
+	oldKick := player.OnKicked
+	t.Cleanup(func() { player.OnKicked = oldKick })
+
+	srv := plugintest.Start(t, false, "")
+	plugintest.WriteConfig(t, srv.Entry("audit"))
+
+	r := New(global.MainParameters{})
+	if err := r.Start(); err != nil {
+		t.Fatalf("启动: %v", err)
+	}
+	if player.OnKicked == nil {
+		t.Fatal("启动链应装上踢出审计钩子")
 	}
 }

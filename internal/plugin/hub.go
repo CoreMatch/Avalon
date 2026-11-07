@@ -465,6 +465,22 @@ func (h *Hub) AdmitFactoryBuildBody(body []byte) Decision {
 	return h.admitCore(EventFactoryBuild, body, h.gameplayVetoTimeout())
 }
 
+// AdmitConnectionNew 连接级准入 (v1.2.0): 首包时刻、协议状态之前咨询.
+// 仅授权否决的插件参与 (HasVetoConsult 快速路径在包级入口); 超时/错误
+// 一律 fail-open. 否决理由无对端呈现通道 (尚未进入协议), 由调用方记日志.
+func (h *Hub) AdmitConnectionNew(address, ipLong24, transport string) Decision {
+	body := []byte(jsonutil.ToJSON(buildConnectionNewEvent(address, ipLong24, transport, time.Now())))
+	return h.admitCore(EventConnectionNew, body, h.admissionTimeout())
+}
+
+// AdmitGameStart 开局准入 (v1.2.0): StartGame 之前同步咨询.
+// 载荷为开局前房间快照 (startTime=0); 否决 = 取消开局, 理由呈现由调用方
+// 决定 (发起管理员可见, 自动开局只进日志). 超时/错误 fail-open (照常开局).
+func (h *Hub) AdmitGameStart(roomCode string, match MatchInfo) Decision {
+	body := []byte(jsonutil.ToJSON(buildGameStartEvent(roomCode, match, time.Now())))
+	return h.admitCore(EventGameStart, body, h.admissionTimeout())
+}
+
 // HasVetoConsult 是否存在被授予某事件否决权的启用插件 (监听器快速路径:
 // 无授权插件时不产生任何网络调用). 不要求插件就绪 —— 未就绪的授权插件
 // 会在 admitCore 里按 fail-open 计数, 与 room.create 的 v1 语义一致.
@@ -690,6 +706,14 @@ func (h *Hub) EmitUnitOperation(roomCode string, info PlayerInfo, action, unitNa
 func (h *Hub) EmitFactoryBuild(roomCode string, info PlayerInfo, actionID string) {
 	ev := buildFactoryBuildEvent(roomCode, info, actionID, time.Now())
 	h.enqueueEvent(EventFactoryBuild, ev.EventID, jsonutil.ToJSON(ev), TierObserve)
+}
+
+// EmitPlayerKicked 踢出审计通知 (v1.2.0): 单一踢出咽喉点发射.
+// observe 档 = 失败即弃并计数, 不重试不重放 —— 踢出动作本身绝不因
+// 审计投递失败而被重放或撤销 (契约 v1.2.0 明确的档位语义).
+func (h *Hub) EmitPlayerKicked(roomCode string, info PlayerInfo, reason string, durationSec int) {
+	ev := buildPlayerKickedEvent(roomCode, info, reason, durationSec, time.Now())
+	h.enqueueEvent(EventPlayerKicked, ev.EventID, jsonutil.ToJSON(ev), TierObserve)
 }
 
 // --- 运维可见性 ---

@@ -125,7 +125,7 @@ func observeAckHandlers(f *fakePlugin) {
 	for _, name := range []string{
 		EventPlayerJoin, EventPlayerLeave, EventPlayerBanned, EventPlayerUnbanned,
 		EventPlayerIpBanned, EventGameStart, EventPlayerChat,
-		EventUnitOperation, EventFactoryBuild,
+		EventUnitOperation, EventFactoryBuild, EventPlayerKicked,
 	} {
 		f.handlers[name] = func(_ []byte) (int, []byte) {
 			return http.StatusOK, []byte(`{}`)

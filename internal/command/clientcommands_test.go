@@ -15,6 +15,8 @@ import (
 	"github.com/CoreMatch/Avalon/internal/game/player"
 	"github.com/CoreMatch/Avalon/internal/game/room"
 	"github.com/CoreMatch/Avalon/internal/io/packet"
+	"github.com/CoreMatch/Avalon/internal/plugin"
+	"github.com/CoreMatch/Avalon/internal/plugin/plugintest"
 	"github.com/CoreMatch/Avalon/internal/util/file"
 	cmd "github.com/CoreMatch/Avalon/internal/util/game/command"
 )
@@ -342,6 +344,82 @@ func TestClientStartBlockedInLobby(t *testing.T) {
 	}
 	if !strings.Contains(cs[0].text(), "err.lobbyNoStart") {
 		t.Fatalf("大厅模式应拒绝开局: %q", cs[0].text())
+	}
+}
+
+// --- 插件开局准入 (契约 v1.2.0 game.start veto 档) ---
+
+// isolatePluginBase 把数据根指到临时目录 (插件配置/outbox 落盘隔离)
+func isolatePluginBase(t *testing.T) {
+	t.Helper()
+	old := file.BasePath()
+	file.SetBasePath(t.TempDir())
+	t.Cleanup(func() { file.SetBasePath(old) })
+}
+
+// installStartGatePlugin 装一个对 game.start 有否决能力 (声明 + 授权) 的假插件
+func installStartGatePlugin(t *testing.T, deny bool, reason string) *plugintest.Server {
+	t.Helper()
+	srv := plugintest.Start(t, deny, reason)
+	srv.SetVetoDeclare(true)
+	plugintest.Install(t, srv.EntryWithVeto("gate", plugin.EventGameStart))
+	return srv
+}
+
+// TestClientStartVetoedByPlugin 插件否决开局: 不开局, 理由送达发起管理员,
+// 且否决发生在 StartGame 之前
+func TestClientStartVetoedByPlugin(t *testing.T) {
+	isolatePluginBase(t)
+	srv := installStartGatePlugin(t, true, "maintenance window")
+	h, r, ps, cs := setupClientCommands(t, 1)
+	ps[0].IsAdmin = true
+
+	h.HandleMessageWith("/start", ps[0])
+
+	if r.IsStartGame {
+		t.Fatal("否决后不应开局")
+	}
+	if !strings.Contains(cs[0].text(), "maintenance window") {
+		t.Fatalf("否决理由应送达发起管理员: %q", cs[0].text())
+	}
+	if strings.Contains(cs[0].text(), notPortable) {
+		t.Fatal("否决应发生在 StartGame 之前, 不应走到引擎缺失分支")
+	}
+	if n := srv.RequestsOf("/v1/events/game.start"); n != 1 {
+		t.Fatalf("准入咨询应恰好 1 次, got %d", n)
+	}
+}
+
+// TestClientStartAllowedByPlugin 插件放行: 准入通过, 正常进入 StartGame
+func TestClientStartAllowedByPlugin(t *testing.T) {
+	isolatePluginBase(t)
+	srv := installStartGatePlugin(t, false, "")
+	h, _, ps, cs := setupClientCommands(t, 1)
+	ps[0].IsAdmin = true
+
+	h.HandleMessageWith("/start", ps[0])
+
+	// 测试环境无引擎后端: 走到 notPortable 分支即证明准入已放行并
+	// 实际尝试了 StartGame (零回归路径不变)
+	if !strings.Contains(cs[0].text(), notPortable) {
+		t.Fatalf("放行后应进入 StartGame: %q", cs[0].text())
+	}
+	if n := srv.RequestsOf("/v1/events/game.start"); n != 1 {
+		t.Fatalf("准入咨询应恰好 1 次, got %d", n)
+	}
+}
+
+// TestClientStartVetoAutoStartPath 自动开局路径 (param=nil, AutoStartTask
+// 经同一入口): 否决生效, 无玩家侧呈现, 不 panic
+func TestClientStartVetoAutoStartPath(t *testing.T) {
+	isolatePluginBase(t)
+	installStartGatePlugin(t, true, "auto-start blocked")
+	h, r, _, _ := setupClientCommands(t, 1)
+
+	h.HandleMessageWith("/start", nil)
+
+	if r.IsStartGame {
+		t.Fatal("否决后不应开局")
 	}
 }
 
