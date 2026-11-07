@@ -41,6 +41,7 @@ import (
 	"github.com/CoreMatch/Avalon/internal/net/core/server"
 	relaypacket "github.com/CoreMatch/Avalon/internal/net/netconnectprotocol/internal/relay"
 	serverpacket "github.com/CoreMatch/Avalon/internal/net/netconnectprotocol/internal/server"
+	"github.com/CoreMatch/Avalon/internal/plugin"
 	"github.com/CoreMatch/Avalon/internal/util/algorithms"
 	"github.com/CoreMatch/Avalon/internal/util/compression"
 	"github.com/CoreMatch/Avalon/internal/util/emoji"
@@ -1211,6 +1212,22 @@ func (g *GameVersionRelay) newRelayId(id string, mod bool, customRelayData custo
 	maxPlayer := 10
 	if customRelayData.maxPlayerSize != -1 {
 		maxPlayer = customRelayData.maxPlayerSize
+	}
+
+	// 建房准入 (ADR-0006 room.create, kind=relay): 插件可否决 relay 建房,
+	// 否决理由经既有错误信道原样回到请求方; 插件超时/不可达 = 放行
+	// (fail-open), 建房主链路不受影响. 自动生成的房间码此时尚未产生,
+	// code 传空串 (契约已定义该语义).
+	if decision := plugin.AdmitRoomCreate(plugin.RoomCreateRequest{
+		Kind:           plugin.KindRelay,
+		Code:           id,
+		MaxPlayers:     maxPlayer,
+		IsMod:          mod,
+		CreatorName:    g.name,
+		CreatorAddress: g.IP(),
+	}); !decision.Allowed {
+		g.SendRelayServerType(decision.Reason, nil)
+		return
 	}
 
 	// 上游两个分支分别是 RelayRoom.getRelay(playerName=..., id 默认 "") 与

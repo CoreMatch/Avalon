@@ -333,10 +333,14 @@ A plugin that dies, hangs, or lies must not affect the match flow:
 
 ### Ops visibility
 
-A read-only console command `plugin` lists each configured plugin with its
-state (ready/unready/disabled), negotiated events, and counters
-(delivered, retried, dropped, denied, fail-open errors). No mutation from
-the console in v1.
+The upstream `plugin <TEXT...>` console command (a pass-through seam to the
+dead upstream PluginCenter, `internal/command/core.go::registerCorex`) is
+given real behavior instead of registering a duplicate command: the runtime
+wires the seam to a read-only hub status listing — per plugin: state
+(ready/not-ready/disabled), base URL, negotiated manifest id/version, event
+subscriptions, and counters (queued, delivered, retried, dropped, denied,
+fail-open). See `internal/app/runtime.go::deps`. No mutation from the
+console in v1.
 
 ## Backlog (explicitly not v1)
 
@@ -365,24 +369,55 @@ the console in v1.
 
 ## Evidence
 
-- Boot chain and room construction:
+Implementation (Avalon):
+
+- Hub, workers, admission, emit:
+  `/home/lnb/Desktop/HA/Avalon/internal/plugin/hub.go::Load`,
+  `/home/lnb/Desktop/HA/Avalon/internal/plugin/hub.go::AdmitRoomCreate`,
+  `/home/lnb/Desktop/HA/Avalon/internal/plugin/hub.go::EmitGameOver`,
+  `/home/lnb/Desktop/HA/Avalon/internal/plugin/hub.go::Status`
+- Config loading and validation (strict, no silent reset):
+  `/home/lnb/Desktop/HA/Avalon/internal/plugin/config.go::loadConfig`
+- Outbox WAL: `/home/lnb/Desktop/HA/Avalon/internal/plugin/outbox.go::Outbox`
+- Signature scheme:
+  `/home/lnb/Desktop/HA/Avalon/internal/plugin/signature.go::signBody`,
+  `/home/lnb/Desktop/HA/Avalon/internal/plugin/signature.go::verifyResponse`
+- Manifest negotiation:
+  `/home/lnb/Desktop/HA/Avalon/internal/plugin/manifest.go::fetchManifest`
+- Event payloads and ids:
+  `/home/lnb/Desktop/HA/Avalon/internal/plugin/event.go::newEventID`,
+  `/home/lnb/Desktop/HA/Avalon/internal/plugin/event.go::buildRoomCreateEvent`,
+  `/home/lnb/Desktop/HA/Avalon/internal/plugin/event.go::buildGameOverEvent`
+- Global slot and room subscription:
+  `/home/lnb/Desktop/HA/Avalon/internal/plugin/default.go::SetDefault`,
+  `/home/lnb/Desktop/HA/Avalon/internal/plugin/default.go::RegisterRoomEvents`
+- Shared fake-plugin harness for wiring tests:
+  `/home/lnb/Desktop/HA/Avalon/internal/plugin/plugintest/plugintest.go::Start`
+
+Hook points:
+
+- Boot chain, boot-time admission, and game-over subscription:
   `/home/lnb/Desktop/HA/Avalon/internal/app/bootstrap.go::Start`
-- Singleton-room model: `knowledge/0003-single-room-model.md`
+- Console command seam: `/home/lnb/Desktop/HA/Avalon/internal/app/runtime.go::deps`
+- Cascade create-room facade and denial mapping:
+  `/home/lnb/Desktop/HA/Avalon/internal/net/gateway/rooms.go::createRoom`,
+  `/home/lnb/Desktop/HA/Avalon/internal/net/gateway/rooms.go::RoomDeniedError`,
+  `/home/lnb/Desktop/HA/Avalon/internal/net/gateway/control.go::handleCreateRoom`
+- Relay room creation:
+  `/home/lnb/Desktop/HA/Avalon/internal/net/netconnectprotocol/realize/gameversionrelay.go::newRelayId`
 - Game-over fire site:
   `/home/lnb/Desktop/HA/Avalon/internal/game/room/serverroom.go::cleanData`;
   settlement fetch:
   `/home/lnb/Desktop/HA/Avalon/internal/game/manage/callmanage.go::StartCheckThread`
-- Cascade create-room facade:
-  `/home/lnb/Desktop/HA/Avalon/internal/net/gateway/rooms.go::createRoom`;
-  error shape and `FORBIDDEN` code:
-  `/home/lnb/Desktop/HA/Avalon/internal/net/gateway/control.go::writeErr`
-- Relay room creation:
-  `/home/lnb/Desktop/HA/Avalon/internal/net/netconnectprotocol/realize/gameversionrelay.go::newRelayId`
 - Existing room-event subscriber pattern:
   `/home/lnb/Desktop/HA/Avalon/internal/net/httpapi/httpapi.go::RegisterRoomEvents`
 - Player join/leave fire sites (backlog anchors):
   `/home/lnb/Desktop/HA/Avalon/internal/net/gameserver/registry.go::handleHelperEvent`,
   `/home/lnb/Desktop/HA/Avalon/internal/game/room/event.go::registerDefaultEvents`
+
+Context:
+
+- Singleton-room model: `knowledge/0003-single-room-model.md`
 - Contract registration:
   `/home/lnb/Desktop/HA/HA-Contract/docs/api/openapi/avalon-plugin-v1.yaml (field: avalon-plugin/v1)`
 - Ecosystem survey (distribution lesson, isolation survey):
