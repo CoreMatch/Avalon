@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -32,10 +33,12 @@ type Server struct {
 	SecretHex string
 	secret    []byte
 
-	mu       sync.Mutex
-	deny     bool
-	reason   string
-	requests int
+	mu          sync.Mutex
+	deny        bool
+	reason      string
+	vetoDeclare bool // manifest 是否对双模事件声明 veto 能力
+	requests    int
+	byPath      map[string]int
 }
 
 // Start 启动一个假插件: deny 决定 room.create 放行与否决
@@ -50,6 +53,7 @@ func Start(t *testing.T, deny bool, reason string) *Server {
 		secret:    raw,
 		deny:      deny,
 		reason:    reason,
+		byPath:    map[string]int{},
 	}
 	srv := httptest.NewServer(http.HandlerFunc(s.handle))
 	t.Cleanup(srv.Close)
@@ -65,6 +69,13 @@ func (s *Server) SetDeny(deny bool, reason string) {
 	s.mu.Unlock()
 }
 
+// SetVetoDeclare 热切换 manifest 的 veto 能力声明 (下次协商生效)
+func (s *Server) SetVetoDeclare(v bool) {
+	s.mu.Lock()
+	s.vetoDeclare = v
+	s.mu.Unlock()
+}
+
 // Requests 返回收到的请求总数
 func (s *Server) Requests() int {
 	s.mu.Lock()
@@ -72,37 +83,68 @@ func (s *Server) Requests() int {
 	return s.requests
 }
 
+// RequestsOf 返回指定路径收到的请求数
+func (s *Server) RequestsOf(path string) int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.byPath[path]
+}
+
+// vetoPaths 可行使否决的事件路径 (deny 开关对其生效)
+var vetoPaths = map[string]bool{
+	"/v1/events/room.create":    true,
+	"/v1/events/player.join":    true,
+	"/v1/events/unit.operation": true,
+	"/v1/events/factory.build":  true,
+}
+
 func (s *Server) handle(w http.ResponseWriter, r *http.Request) {
 	s.mu.Lock()
 	s.requests++
+	s.byPath[r.URL.Path]++
 	deny := s.deny
 	reason := s.reason
+	vetoDeclare := s.vetoDeclare
 	s.mu.Unlock()
 
-	switch r.URL.Path {
-	case "/v1/manifest":
+	switch {
+	case r.URL.Path == "/v1/manifest":
+		events := map[string]any{}
+		for _, name := range []string{
+			"room.create", "game.over", "player.join", "player.leave",
+			"player.banned", "player.unbanned", "player.ipbanned",
+			"game.start", "player.chat", "unit.operation", "factory.build",
+		} {
+			capability := map[string]any{"versions": []int{1}}
+			if vetoDeclare && name != "room.create" && name != "game.over" {
+				// 双模事件才声明 veto 能力 (其余事件声明无意义)
+				if name == "player.join" || name == "unit.operation" || name == "factory.build" {
+					capability["veto"] = true
+				}
+			}
+			events[name] = capability
+		}
 		out, _ := json.Marshal(map[string]any{
-			"schema":   "avalon-plugin/manifest",
-			"protocol": "avalon-plugin/v1",
-			"id":       "plugintest",
-			"version":  "0.0.0-test",
-			"events": map[string]any{
-				"room.create": map[string]any{"versions": []int{1}},
-				"game.over":   map[string]any{"versions": []int{1}},
-			},
+			"schema":         "avalon-plugin/manifest",
+			"protocol":       "avalon-plugin/v1",
+			"id":             "plugintest",
+			"version":        "0.0.0-test",
+			"events":         events,
 			"timeoutMs":      2000,
 			"maxConcurrency": 1,
 		})
 		s.writeSigned(w, http.StatusOK, out)
 
-	case "/v1/events/room.create":
-		resp := `{"allowed":true}`
-		if deny {
-			resp = fmt.Sprintf(`{"allowed":false,"reason":%q}`, reason)
+	case strings.HasPrefix(r.URL.Path, "/v1/events/"):
+		if vetoPaths[r.URL.Path] && deny {
+			resp := fmt.Sprintf(`{"allowed":false,"reason":%q}`, reason)
+			s.writeSigned(w, http.StatusOK, []byte(resp))
+			return
 		}
-		s.writeSigned(w, http.StatusOK, []byte(resp))
-
-	case "/v1/events/game.over":
+		if vetoPaths[r.URL.Path] {
+			s.writeSigned(w, http.StatusOK, []byte(`{"allowed":true}`))
+			return
+		}
 		s.writeSigned(w, http.StatusOK, []byte(`{}`))
 
 	default:
@@ -130,16 +172,24 @@ func (s *Server) Entry(name string) plugin.Entry {
 	return plugin.Entry{Name: name, BaseURL: s.URL, Secrets: []string{s.SecretHex}}
 }
 
+// EntryWithVeto 生成带否决授权的配置条目 (v2 双模事件须运营显式授权)
+func (s *Server) EntryWithVeto(name string, vetoEvents ...string) plugin.Entry {
+	e := s.Entry(name)
+	e.VetoEvents = vetoEvents
+	return e
+}
+
 // WriteConfig 在当前 file.BasePath 下写 Plugins.json
 func WriteConfig(t *testing.T, entries ...plugin.Entry) {
 	t.Helper()
 	cfg := map[string]any{
-		"version":            1,
-		"admissionTimeoutMs": 2500,
-		"deliveryTimeoutMs":  10000,
-		"outboxCapacity":     128,
-		"maxEventAgeHours":   24,
-		"entries":            entries,
+		"version":               1,
+		"admissionTimeoutMs":    2500,
+		"deliveryTimeoutMs":     10000,
+		"outboxCapacity":        128,
+		"maxEventAgeHours":      24,
+		"gameplayVetoTimeoutMs": 250,
+		"entries":               entries,
 	}
 	b, err := json.Marshal(cfg)
 	if err != nil {

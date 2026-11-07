@@ -127,7 +127,7 @@ func TestOutboxAppendPeekPopPersists(t *testing.T) {
 
 	o := openOutbox(f, 10)
 	for i := 0; i < 3; i++ {
-		if d := o.append(outboxRecord{EventID: "e" + string(rune('a'+i)), Event: EventGameOver, Body: "{}"}); d != 0 {
+		if d := o.append(outboxRecord{EventID: "e" + string(rune('a'+i)), Event: EventGameOver, Body: "{}", Persist: true}); d != 0 {
 			t.Fatalf("未满不应丢弃: %d", d)
 		}
 	}
@@ -154,7 +154,7 @@ func TestOutboxCapacityDropsOldest(t *testing.T) {
 
 	var totalDropped int
 	for i := 0; i < 5; i++ {
-		totalDropped += o.append(outboxRecord{EventID: "e" + string(rune('a'+i)), Event: EventGameOver, Body: "{}"})
+		totalDropped += o.append(outboxRecord{EventID: "e" + string(rune('a'+i)), Event: EventGameOver, Body: "{}", Persist: true})
 	}
 	if totalDropped != 3 {
 		t.Fatalf("累计丢弃 = %d, 期望 3", totalDropped)
@@ -171,9 +171,9 @@ func TestOutboxFilterDrop(t *testing.T) {
 	dir := t.TempDir()
 	f := &file.FileUtils{Path: dir + "/ob.jsonl"}
 	o := openOutbox(f, 10)
-	o.append(outboxRecord{EventID: "1", Event: EventGameOver, Body: "{}"})
-	o.append(outboxRecord{EventID: "2", Event: EventRoomCreate, Body: "{}"})
-	o.append(outboxRecord{EventID: "3", Event: EventGameOver, Body: "{}"})
+	o.append(outboxRecord{EventID: "1", Event: EventGameOver, Body: "{}", Persist: true})
+	o.append(outboxRecord{EventID: "2", Event: EventRoomCreate, Body: "{}", Persist: true})
+	o.append(outboxRecord{EventID: "3", Event: EventGameOver, Body: "{}", Persist: true})
 
 	n := o.filterDrop(func(r outboxRecord) bool { return r.Event != EventGameOver })
 	if n != 1 || o.size() != 2 {
@@ -183,6 +183,34 @@ func TestOutboxFilterDrop(t *testing.T) {
 	o2 := openOutbox(f, 10)
 	if o2.size() != 2 {
 		t.Fatalf("重开 size = %d", o2.size())
+	}
+}
+
+// TestOutboxObserveRecordsNotPersisted observe 档记录不落 WAL: 重启不重放
+func TestOutboxObserveRecordsNotPersisted(t *testing.T) {
+	dir := t.TempDir()
+	f := &file.FileUtils{Path: dir + "/ob.jsonl"}
+	o := openOutbox(f, 10)
+	o.append(outboxRecord{EventID: "o1", Event: EventPlayerChat, Body: "{}"}) // Persist=false
+	o.append(outboxRecord{EventID: "d1", Event: EventGameOver, Body: "{}", Persist: true})
+
+	if got := o.size(); got != 2 {
+		t.Fatalf("size = %d", got)
+	}
+	// 重开: 只剩持久记录
+	o2 := openOutbox(f, 10)
+	if got := o2.size(); got != 1 {
+		t.Fatalf("重开 size = %d, 期望 1 (observe 记录不重放)", got)
+	}
+	if rec, ok := o2.peek(); !ok || rec.EventID != "d1" {
+		t.Fatalf("重开队首 = %+v", rec)
+	}
+	// pop 观察记录不触发落盘 (文件内容不变): 先 pop 掉 d1 之外的... 直接验证
+	// 移除持久记录后文件同步收缩
+	o2.pop()
+	o3 := openOutbox(f, 10)
+	if got := o3.size(); got != 0 {
+		t.Fatalf("移除持久记录后重开 size = %d", got)
 	}
 }
 

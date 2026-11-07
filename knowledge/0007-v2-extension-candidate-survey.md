@@ -2,6 +2,11 @@
 
 - **Status**: proposed (design input for v2 scoping; not a decision record)
 - **Builds on**: ADR-0006 (v1 extension points) and DECISIONS D-25
+- **Superseded in part**: what v2 actually implemented (and what it
+  explicitly did not, including N-column items deferred by the
+  internal/plugin-only scope limit) is recorded in
+  `knowledge/0010-plugin-v2-implementation-status.md`. This entry remains
+  the candidate catalog and the basis for future rounds.
 
 ## Context
 
