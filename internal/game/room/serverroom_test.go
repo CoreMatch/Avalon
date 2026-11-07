@@ -205,6 +205,9 @@ func TestGameOverBackendError(t *testing.T) {
 
 // TestBattleRoom 对应 battleRoom: 恢复 CallTeamTask + cleanData
 func TestBattleRoom(t *testing.T) {
+	// BattleRoom 无 forcedReturn 守卫, 检查线程的并发 Gr() 会与它同时跑
+	// cleanData (高负载/-race 下偶发数据竞态), 先让检查线程空转.
+	quietCheckThread(t)
 	r := newTestRoom(t, &fakeSim{})
 	if err := r.StartGame(); err != nil {
 		t.Fatalf("StartGame: %v", err)

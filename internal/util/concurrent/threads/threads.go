@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/CoreMatch/Avalon/internal/util/log"
 )
@@ -72,6 +73,12 @@ type Pool struct {
 	queue    []func()
 	stopped  bool
 
+	// inFlight 是已取出尚未执行完的任务数, 与 queue 一起构成"排空"判据
+	// (队列空只说明没有排队任务, 还可能有任务正在 worker 手里执行).
+	inFlight int
+	// idle 在池子排空 (queue 空且 inFlight==0) 或关闭时广播, 供 WaitIdle 等待
+	idle *sync.Cond
+
 	workers sync.WaitGroup
 }
 
@@ -88,6 +95,7 @@ func NewFixedThreadPool(n int, name string) *Pool {
 		size:    n,
 	}
 	p.nonEmpty = sync.NewCond(&p.mu)
+	p.idle = sync.NewCond(&p.mu)
 	p.workers.Add(n)
 	for i := 0; i < n; i++ {
 		go p.worker()
@@ -132,9 +140,42 @@ func (p *Pool) ShutdownNow() []func() {
 	dropped := p.queue
 	p.queue = nil
 	p.nonEmpty.Broadcast()
+	p.idle.Broadcast()
 	p.mu.Unlock()
 
 	return dropped
+}
+
+// WaitIdle 阻塞到队列清空且没有任务正在执行, 返回 true; 超时仍未排空返回 false.
+// timeout <= 0 表示不设上限.
+//
+// 对应原版 ExecutorService.awaitTermination 的"等待在途任务"语义, 但不要求先
+// shutdown —— 本池 worker 常驻, 测试用它等待任务排空后再恢复全局状态.
+// ShutdownNow 之后排队任务已被丢弃, 此处只等在执行的任务收尾.
+func (p *Pool) WaitIdle(timeout time.Duration) bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	var deadline time.Time
+	hasDeadline := timeout > 0
+	if hasDeadline {
+		deadline = time.Now().Add(timeout)
+		// sync.Cond 没有带超时的等待, 到点广播一次让自己醒来复查
+		timer := time.AfterFunc(timeout, func() {
+			p.mu.Lock()
+			p.idle.Broadcast()
+			p.mu.Unlock()
+		})
+		defer timer.Stop()
+	}
+
+	for len(p.queue) > 0 || p.inFlight > 0 {
+		p.idle.Wait()
+		if hasDeadline && !time.Now().Before(deadline) {
+			break
+		}
+	}
+	return len(p.queue) == 0 && p.inFlight == 0
 }
 
 // worker 是一条常驻 worker: 从队列头部取任务执行, 队列空且未关闭时等待.
@@ -163,8 +204,24 @@ func (p *Pool) worker() {
 		task := p.queue[0]
 		p.queue[0] = nil // 及时释放闭包引用
 		p.queue = p.queue[1:]
+		p.inFlight++
 		p.mu.Unlock()
 
-		task()
+		p.runOne(task)
 	}
+}
+
+// runOne 执行单条任务并核销在途计数.
+// 计数核销放在 defer 里: 任务 panic 时 (顶层 recover 接住前) 也必须核销,
+// 否则 WaitIdle 永远等不到排空.
+func (p *Pool) runOne(task func()) {
+	defer func() {
+		p.mu.Lock()
+		p.inFlight--
+		if p.inFlight == 0 && len(p.queue) == 0 {
+			p.idle.Broadcast()
+		}
+		p.mu.Unlock()
+	}()
+	task()
 }

@@ -87,6 +87,13 @@ func setup(t *testing.T) (*UpList, *fakeHTTP, *fakeHTTP) {
 	u.rwHttpClient = rwHTTP
 
 	t.Cleanup(func() {
+		// 先等 coreThread 池排空: add/toup 会把 uplist 任务提交进池, 任务里的
+		// buildAddData/tr 读 global.Config/global.I18NBundle 等全局; 在途时恢复
+		// 全局会竞态. 顺序必须在 CloseTimeTask 之前——在途任务收尾时会注册
+		// CustomUpServerListTask, 先删后等会让它注册在删除之后.
+		if !thread.WaitCoreIdle(3 * time.Second) {
+			t.Error("coreThread 池 3s 内未排空, 恢复全局状态可能与在途任务竞态")
+		}
 		thread.CloseTimeTask(thread.CustomUpServerListTask, nil)
 		room.SetDefault(nil)
 		resetDefault()

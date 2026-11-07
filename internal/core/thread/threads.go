@@ -154,3 +154,8 @@ func CloseTimeTaskNamed(name, group string, run func()) bool {
 
 // coreNet 仅供包内测试使用, 用于验证 closeNet 换掉了池子
 func coreNet() *threads.Pool { return coreNetThread }
+
+// WaitCoreIdle 等待 coreThread 池内已提交任务全部执行完 (队列空且无在途任务),
+// 超时未排空返回 false. 测试用: 恢复全局状态前先排空池, 避免在途任务
+// (如 uplist add 提交的 uplist 流程) 与全局变量恢复并发读写.
+func WaitCoreIdle(timeout time.Duration) bool { return coreThread.WaitIdle(timeout) }
