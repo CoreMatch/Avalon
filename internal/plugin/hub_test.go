@@ -342,8 +342,11 @@ func TestGameOverDeliveredAndAcked(t *testing.T) {
 	waitFor(t, 5*time.Second, "game.over delivered", func() bool {
 		return len(fake.requestsOf("/v1/events/game.over")) == 1
 	})
-	waitFor(t, 5*time.Second, "wal cleared", func() bool {
-		return hub.plugins[0].outbox.size() == 0
+	// worker 的顺序是 deliver -> pop -> delivered.Add: 假插件收到请求甚至
+	// WAL 清空之后, delivered 计数仍可能差最后一步. 等计数收敛再断言,
+	// 否则高负载/-race 下会读到在途窗口.
+	waitFor(t, 5*time.Second, "wal cleared & delivered counted", func() bool {
+		return hub.plugins[0].outbox.size() == 0 && hub.Status()[0].Delivered == 1
 	})
 
 	reqs := fake.requestsOf("/v1/events/game.over")
@@ -426,8 +429,10 @@ func TestGameOverRetriesOnFailureThenDelivers(t *testing.T) {
 	waitFor(t, 15*time.Second, "delivered after retries", func() bool {
 		return len(fake.requestsOf("/v1/events/game.over")) >= 3
 	})
-	waitFor(t, 5*time.Second, "wal cleared", func() bool {
-		return hub.plugins[0].outbox.size() == 0
+	// 同 TestGameOverDeliveredAndAcked: 等计数收敛 (pop 在 delivered.Add 之前)
+	waitFor(t, 5*time.Second, "wal cleared & counted", func() bool {
+		st := hub.Status()
+		return st[0].Delivered == 1 && st[0].Retries >= 2
 	})
 	st := hub.Status()
 	if st[0].Delivered != 1 || st[0].Retries < 2 {
@@ -458,8 +463,13 @@ func TestGameOverUnreachableThenRecovery(t *testing.T) {
 
 	// 在同一地址恢复插件
 	fake := newFakePluginOnAddr(t, addr, raw)
+	// 假插件收到请求后 worker 还要 pop + 计数, 等计数收敛再断言
 	waitFor(t, 30*time.Second, "delivered after recovery", func() bool {
-		return len(fake.requestsOf("/v1/events/game.over")) == 1
+		if len(fake.requestsOf("/v1/events/game.over")) != 1 {
+			return false
+		}
+		st := hub.Status()
+		return st[0].Delivered == 1 && st[0].Ready
 	})
 	if st := hub.Status(); st[0].Delivered != 1 || !st[0].Ready {
 		t.Errorf("恢复后状态 = %+v", st[0])
@@ -633,8 +643,10 @@ func TestSecretRotationOverlap(t *testing.T) {
 	}))
 
 	hub.EmitGameOver("R1", nil)
+	// 假插件收到请求后 worker 还要 pop + 计数, 等计数收敛再断言
 	waitFor(t, 5*time.Second, "delivered with rotated keys", func() bool {
-		return len(fake.requestsOf("/v1/events/game.over")) == 1
+		return len(fake.requestsOf("/v1/events/game.over")) == 1 &&
+			hub.Status()[0].Delivered == 1
 	})
 	if st := hub.Status(); st[0].Delivered != 1 {
 		t.Errorf("轮换重叠期应正常投递: %+v", st[0])
@@ -704,10 +716,15 @@ func TestConcurrentAdmissionAndEmit(t *testing.T) {
 	wg.Wait()
 
 	total := 4 * n
-	waitFor(t, 30*time.Second, "all events delivered", func() bool {
-		return len(fake.requestsOf("/v1/events/game.over")) == total
+	// 假插件收齐后 worker 的 pop/计数仍可能差最后一步, 等计数收敛再断言
+	var st []PluginStatus
+	waitFor(t, 30*time.Second, "all events delivered & counted", func() bool {
+		if len(fake.requestsOf("/v1/events/game.over")) != total {
+			return false
+		}
+		st = hub.Status()
+		return st[0].Delivered == int64(total)
 	})
-	st := hub.Status()
 	if st[0].Delivered != int64(total) {
 		t.Errorf("delivered = %d, 期望 %d", st[0].Delivered, total)
 	}
