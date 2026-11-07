@@ -1,0 +1,97 @@
+# Avalon 部署声明（deploy-manifest v1）
+# schema 依据：HA-Services-Deployer internal/manifest/（SchemaVersion=1）
+#
+# 声明形态：无 helper（作者定稿形态）。
+#   - 能启动：不配置 gameHelperPath，服务照常起来（internal/app/simulation.go：
+#     留空回落无后端，与未配置行为一致）；
+#   - 健康检查能过：cascadeEnable=true 起 /v1 控制面，GET /v1/health 的
+#     ready 判据 = 游戏监听已建立；未配置 helper 时不要求 helper 存活
+#     （internal/net/gateway/control.go handleHealth、internal/app/cascade.go
+#     helperReadyProbe、README "控制面端点"表）；
+#   - 不能开局：无游戏模拟后端，开局返回 "game: no simulation backend
+#     available"（README "无 helper" 行、game.ErrNotImplemented）。
+#     接入 helper（Avalon-Helper jar）后才具备开局能力，届时另起声明。
+manifest_version: 1
+kind: service
+project: avalon
+display_name: Avalon
+group: game
+# 未知：仓库无版本 tag，代码无自报版本常量/端点。
+service_version: "unknown"
+
+facts:
+  ports:
+    # 游戏端口：代码默认 5123（internal/data/bean/configs.go NewCoreConfig），
+    # 组合形态下作为 Cascade 边缘代理的后端让出 5123，改用 5124
+    # （Cascade config.example.yaml backends.game_address 示例即 :5124）。
+    # 信任档默认 open：后端端口严禁暴露公网（README 安全提示），声明 loopback。
+    - name: game
+      port: 5124
+      exposure: loopback
+    # /v1 控制面（Cascade-Backend-v1 契约面）：默认 cascadeControlAddr ":5125"。
+    - name: control
+      port: 5125
+      exposure: loopback
+  health:
+    # 控制面健康端点（README "控制面端点"）：游戏监听就绪即 200
+    # {"backendId","status":"ready"}；无 helper 形态不要求 helper。
+    # 前提：cascadeEnable=true（默认 false 时控制面不起，健康面不存在）。
+    http:
+      port_name: control
+      path: /v1/health
+      expect_status: 200
+      timeout_seconds: 5
+      interval_seconds: 30
+      retries: 3
+  smoke:
+    # 部署后冒烟：控制面真的能枚举房间（单房间合规体启动即有默认房间，
+    # internal/net/gateway/rooms.go defaultRoom）。健康只证明监听就绪，
+    # 这条证明控制面在干活。
+    - name: control-rooms
+      method: GET
+      path: /v1/rooms
+      expect_status: 200
+      timeout_seconds: 10
+      assert:
+        json_not_empty: rooms
+        contains: backendId
+  depends_on: []
+  # 无数据库、无 redis、无出站服务依赖（文件存储；无 helper 形态不依赖
+  # Avalon-Helper）。
+  migration:
+    mode: none
+  data_dirs:
+    # 配置与运行数据在 ./data（Config.json 位于 data/ 下，
+    # internal/data/bean/configs.go:171 file.GetFolder("/data").ToFile("Config.json")；
+    # Cascade jti 持久化 data/CascadeJti.bin，README）。
+    - ./data
+  config:
+    # JSON 配置（另有 ConfigServer.json 等一族）；无版本字段。
+    # 无 helper 形态要求：gameHelperPath 留空、cascadeEnable=true、
+    # cascadeControlAddr ":5125"、cascadeBackendId 与 Cascade 侧
+    # default_backend_id 一致。
+    - path: data/Config.json
+      template_version: "unknown"
+  static_assets: ""
+
+baremetal:
+  process:
+    # 纳入编排体系：进程生命周期归 Tinyvisor（作者指令：游戏侧核心组件
+    # 长期不进编排体系说不过去）。
+    manager: tinyvisor
+    tinyvisor:
+      restart_policy: unless-stopped
+      auto_start: true
+  install:
+    # 计划值（非既成事实）：生产尚未部署该服务；按既有命名习惯预定目录。
+    # 首次实际部署时以现场为准。
+    root: /www/wwwroot/avl
+    binary_name: avalon
+  artifact:
+    # 产物尚未构建：go build -o build/avalon ./cmd/avalon（dist/build-dist.sh
+    # 的 Go 二进制部分同款命令）。缺失时 preflight/部署会如实报缺，不静默。
+    source: local_path
+    local_path: /home/lnb/Desktop/HA/Avalon/build/avalon
+
+container:
+  enabled: false
