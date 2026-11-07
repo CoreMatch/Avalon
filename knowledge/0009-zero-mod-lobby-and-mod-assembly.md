@@ -84,8 +84,8 @@ mod 单位由独立的 customUnits 机制在客户端侧校验。两条机制、
 3. 转发：`internal/net/gameserver/gameserver.go::GameVersionServer.ReceivePacket` →
    `internal/game/external/conn.go::Backend.ConnPacket`，负载
    `Data: encodeBase64(p.Bytes)` **原样 Base64 透传**，无解析。
-4. helper 侧：`Helper/.../go/GoBridge.kt::feedPacket` →
-   `Server-Core/.../j/NetEnginePackaging.kt::addPacket` → 引擎 `ad.c(au)` case 110
+4. helper 侧：[xref] `Helper/.../go/GoBridge.kt::feedPacket` →
+   [xref] `Server-Core/.../j/NetEnginePackaging.kt::addPacket` → 引擎 `ad.c(au)` case 110
    才真正解析出 checksum。
 
 模式选择证据：`internal/app/initialization.go::loadService` 中 `core.ServerProtocol →
@@ -108,7 +108,7 @@ ReadString / ReadIsString / ReadString / ReadString`），**同样不解析 chec
 
 - 大厅态：`ad.c(au)` case 110 注册通过后，服务端发 SERVER_INFO(106) + TEAM_LIST(115)，
   客户端进入队伍/大厅界面；开局由 START_GAME(120) →
-  `Helper/.../go/GoBridge.kt::roomStart` → `gameScriptMultiPlayer.multiplayerStart()`
+  [xref] `Helper/.../go/GoBridge.kt::roomStart` → `gameScriptMultiPlayer.multiplayerStart()`
   触发。**单位模拟只在开局后发生**，大厅态无单位 spawn。
 - 大厅态引擎只把 mod 单位**数据**装载在内存（启动期 `loadAllUnits` + 自定义单位装载），
   不进入模拟循环；SERVER_INFO 里写的也只是 customUnits 的"名字 + 校验和"元数据，
@@ -153,7 +153,7 @@ members`。**没有任何模组信息。**
 | `players` / `maxPlayers` / `inGame` | 人数/上限/是否开局 | 已有 | 现有 |
 
 - **谁产生**：模组清单的权威来源是 helper 内的引擎。现有
-  `Server-Core/.../game/manage/ModManage.kt::getModsList` 只返回**模组名**，
+  [xref] `Server-Core/.../game/manage/ModManage.kt::getModsList` 只返回**模组名**，
   **没有哈希/大小**；`load()` 从 `gameUnitData.getUnitData(coreName)` 取数。
   需要在 helper 侧扩展：枚举 `data/mods`（`Data.Plugin_Mods_Path`，
   `FileLoaderRedirections` 把 `mods/units` 前缀重定向到此）下的模组包，计算文件
@@ -182,7 +182,7 @@ members`。**没有任何模组信息。**
 5. **校哈希**：下载物与清单哈希逐一核对通过才允许进入下一步。
 6. **生效**：RW 引擎在**启动期**装载 mod（`loadAllUnits` + 自定义单位装载），
    运行中无标准热重载。服务端侧 `ModManage.reLoadMods` 尚且要 `reBootServer`
-   （`Server-Core/.../ModManage.kt::reLoadMods`），**客户端同理——装配后需要重启
+   （[xref] `Server-Core/.../ModManage.kt::reLoadMods`），**客户端同理——装配后需要重启
    客户端（或等价的引擎重载）才能让新模组集生效**。这是本方案最大的不确定点（§8）。
 7. **进入**：装配并生效后，客户端重连目标模组房间（§6 交接），收 SERVER_INFO 时
    机制②通过。
