@@ -1,4 +1,4 @@
-// Package load 对应 net.rwhps.server.util.file.load.LoadIni / I18NBundle
+// Package load 对应 上游 util.file.load.LoadIni / I18NBundle
 package load
 
 import (

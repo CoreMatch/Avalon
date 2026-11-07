@@ -24,14 +24,14 @@ const (
 // 统一封装 TCP/UDP/Headless/Test 四种连接协议的发送与关闭
 // 注: 为遵循 Go 习惯, 把原 Kotlin 的 `val` 映射为方法 getter.
 type ConnectionAgreement struct {
-	Kind            ChannelKind
-	Channel         *Channel
-	UDPOUT          UDPWriter
-	RwHps           IRwHps
-	UseAgreementStr string
-	isClosed        func() bool
-	closeClean      func()
-	ID              string
+	Kind             ChannelKind
+	Channel          *Channel
+	UDPOUT           UDPWriter
+	ProtocolProvider IProtocolProvider
+	UseAgreementStr  string
+	isClosed         func() bool
+	closeClean       func()
+	ID               string
 
 	IP        string
 	IPLong24  string
@@ -48,61 +48,61 @@ type UDPWriter interface {
 }
 
 // NewTCPConnectionAgreement 对应 TCP-NIO 构造
-func NewTCPConnectionAgreement(ch *Channel, rwHps IRwHps) *ConnectionAgreement {
+func NewTCPConnectionAgreement(ch *Channel, protocolProvider IProtocolProvider) *ConnectionAgreement {
 	remote := ch.Conn.RemoteAddr().String()
 	host := convertIp(remote)
 	c := &ConnectionAgreement{
-		Kind:            KindTCP,
-		Channel:         ch,
-		RwHps:           rwHps,
-		UseAgreementStr: "TCP-NIO",
-		isClosed:        ch.IsClosedChannel,
-		IP:              host,
-		IPLong24:        ip.IpToLong24NoError(host),
-		LocalPort:       ch.LocalPort,
+		Kind:             KindTCP,
+		Channel:          ch,
+		ProtocolProvider: protocolProvider,
+		UseAgreementStr:  "TCP-NIO",
+		isClosed:         ch.IsClosedChannel,
+		IP:               host,
+		IPLong24:         ip.IpToLong24NoError(host),
+		LocalPort:        ch.LocalPort,
 	}
 	c.closeClean = func() { ch.SetTypeConnect(nil) }
 	return c
 }
 
 // NewUDPConnectionAgreement 对应 UDP-BIO 构造
-func NewUDPConnectionAgreement(out UDPWriter, rwHps IRwHps, remote string, localPort int) *ConnectionAgreement {
+func NewUDPConnectionAgreement(out UDPWriter, protocolProvider IProtocolProvider, remote string, localPort int) *ConnectionAgreement {
 	host := convertIp(remote)
 	c := &ConnectionAgreement{
-		Kind:            KindUDP,
-		UDPOUT:          out,
-		RwHps:           rwHps,
-		UseAgreementStr: "UDP-BIO",
-		isClosed:        out.IsClosedUDP,
-		IP:              host,
-		IPLong24:        ip.IpToLong24NoError(host),
-		LocalPort:       localPort,
+		Kind:             KindUDP,
+		UDPOUT:           out,
+		ProtocolProvider: protocolProvider,
+		UseAgreementStr:  "UDP-BIO",
+		isClosed:         out.IsClosedUDP,
+		IP:               host,
+		IPLong24:         ip.IpToLong24NoError(host),
+		LocalPort:        localPort,
 	}
 	c.closeClean = func() {}
 	return c
 }
 
 // NewHeadlessConnectionAgreement 对应 Headless-AI 构造
-func NewHeadlessConnectionAgreement(rwHps IRwHps) *ConnectionAgreement {
+func NewHeadlessConnectionAgreement(protocolProvider IProtocolProvider) *ConnectionAgreement {
 	host := "127.0.0.1"
 	return &ConnectionAgreement{
-		Kind:            KindHeadless,
-		RwHps:           rwHps,
-		UseAgreementStr: "Headless-AI",
-		isClosed:        func() bool { return false },
-		IP:              host,
-		IPLong24:        ip.IpToLong24NoError(host),
+		Kind:             KindHeadless,
+		ProtocolProvider: protocolProvider,
+		UseAgreementStr:  "Headless-AI",
+		isClosed:         func() bool { return false },
+		IP:               host,
+		IPLong24:         ip.IpToLong24NoError(host),
 	}
 }
 
 // NewTestConnectionAgreement 对应 Test 构造
 func NewTestConnectionAgreement() *ConnectionAgreement {
 	return &ConnectionAgreement{
-		Kind:            KindTest,
-		RwHps:           NewNullRwHps(NullProtocol),
-		UseAgreementStr: "Test",
-		isClosed:        func() bool { return false },
-		closeClean:      func() {},
+		Kind:             KindTest,
+		ProtocolProvider: NewNullProtocolProvider(NullProtocol),
+		UseAgreementStr:  "Test",
+		isClosed:         func() bool { return false },
+		closeClean:       func() {},
 	}
 }
 

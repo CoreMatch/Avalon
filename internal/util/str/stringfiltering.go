@@ -1,4 +1,4 @@
-// Package messageformat 对应 net.rwhps.server.util.str.StringFilteringUtil
+// Package messageformat 对应 上游 util.str.StringFilteringUtil
 //
 // 本文件只移植目前有调用方的成员 (cutting), 其余成员等出现消费者时再按需追加.
 package messageformat

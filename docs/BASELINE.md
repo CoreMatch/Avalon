@@ -31,13 +31,13 @@ OpenJDK 17.0.21（`/home/lnb/jdk-17.0.21+9`）。
 
 ## 2. 分发包（`dist/build-dist.sh`）
 
-包：`rwhps-f1049de5-linux-amd64.tar.gz`
+包：`avalon-f1049de5-linux-amd64.tar.gz`
 
 | 项 | 数值 |
 | --- | --- |
 | 压缩体积 | 33,196,595 B（≈32 M） |
 | 解压体积 | 46 M（du） |
-| `rwhps` 二进制（go build -trimpath） | 12,775,204 B |
+| `avalon` 二进制（go build -trimpath） | 12,775,204 B |
 | `avalon-helper.jar` | 23,307,356 B |
 | `data/gameData` | 7,971,187 B（表观）/ ≈12 M（磁盘占用） |
 
@@ -64,7 +64,7 @@ worktree 21.94 s，`-count=2` 稳定。
 | boot_done（进程启动 → 协议循环就绪） | 1,165 ms |
 | engine_socket（→ 引擎网络就绪） | 3,926 ms |
 | 常驻 RSS（就绪后 3 s） | ≈455 MB |
-| 加载类总数 | 5,344（rwhps 类 479） |
+| 加载类总数 | 5,344（avalon 类 479） |
 
 结论维持：启动时间由闭源引擎装载主导（≈3-4 s），jar 瘦身不改变启动速度。
 
@@ -93,7 +93,7 @@ go build ./... && go vet ./... && \
 
 # 分发包 + 干净目录实跑
 AVALON_HELPER_REPO=/tmp/avalon-helper ./dist/build-dist.sh
-mkdir /tmp/run && tar xzf dist/out/rwhps-*.tar.gz -C /tmp/run --strip-components=1
+mkdir /tmp/run && tar xzf dist/out/avalon-*.tar.gz -C /tmp/run --strip-components=1
 cd /tmp/run && ./start.sh     # EULA 确认后: addai / start / gameover / exit
 ```
 

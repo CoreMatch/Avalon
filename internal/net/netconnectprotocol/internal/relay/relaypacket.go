@@ -1,4 +1,4 @@
-// Package relay 对应 net.rwhps.server.net.netconnectprotocol.internal.relay
+// Package relay 对应 上游 net.netconnectprotocol.internal.relay
 // (Kotlin 侧以 @file:JvmName("RelayPacket") @file:JvmMultifileClass 聚合)
 package relay
 

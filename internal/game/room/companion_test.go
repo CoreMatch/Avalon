@@ -351,8 +351,8 @@ func TestSingleRoomIsSingletonAndReopens(t *testing.T) {
 	if a != b {
 		t.Fatal("SingleRoom 必须返回同一个实例")
 	}
-	if a.ID != "RW-HPS Beta Relay" {
-		t.Fatalf("SingleRoom().ID = %q, want %q", a.ID, "RW-HPS Beta Relay")
+	if a.ID != "Avalon Beta Relay" {
+		t.Fatalf("SingleRoom().ID = %q, want %q", a.ID, "Avalon Beta Relay")
 	}
 	if a.InternalID != 0 {
 		t.Fatalf("SingleRoom().InternalID = %d, want 0", a.InternalID)

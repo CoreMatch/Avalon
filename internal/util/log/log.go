@@ -1,4 +1,4 @@
-// Package log 复刻 net.rwhps.server.util.log.Log / LogCore 的行为.
+// Package log 复刻 上游 util.log.Log / LogCore 的行为.
 //
 // 为避免 Go 的循环导入, 本包通过包级变量接收外部依赖:
 //   - LogPath        : 日志文件目录 (默认 /data/log)

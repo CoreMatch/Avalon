@@ -1,4 +1,4 @@
-// Package app 对应 net.rwhps.server.core.Initialization.
+// Package app 对应 上游 core.Initialization.
 package app
 
 import (
@@ -189,11 +189,11 @@ func checkEnvironment() {}
 // 原版注册 5 类服务; Relay 协议族 (TypeRelay / GameVersionRelay) 在里程碑 4
 // 移植后由 manage.SetProvider 按 NetType 装配. RelayMulticastProtocol 上游对应
 // TypeRelayRebroadcast / GameVersionRelayRebroadcast (多播转发), 尚未移植,
-// 暂以普通 Relay 实现承接 (见 netconnectprotocol.NewRelayRwHps 注释).
+// 暂以普通 Relay 实现承接 (见 netconnectprotocol.NewRelayProtocolProvider 注释).
 //
-// IRwHps 一族: 原版 addIRwHps 通过 ServiceLoader.newInstance 创建实例,
+// IProtocolProvider 一族: 原版 addProtocolProvider 通过 ServiceLoader.newInstance 创建实例,
 // 实例来源按 netType 查表 —— ServerProtocol 的实现体 (HeadlessTypeConnect 一族)
-// 已移植为 net/gameserver, Relay 两型为 netconnectprotocol.RelayRwHps.
+// 已移植为 net/gameserver, Relay 两型为 netconnectprotocol.RelayProtocolProvider.
 //
 // 上游对应的注册点:
 //   - GameEngine.kt:118 ServiceLoader.addService(ProtocolType, ServerProtocol, HeadlessTypeConnect)
@@ -209,14 +209,14 @@ func loadService() {
 	// realize 不导入父包 netconnectprotocol (避免循环), getPacketTeamData 在此接线
 	realize.SetPacketTeamDataParser(netconnectprotocol.GetPacketTeamData)
 
-	manage.SetProvider(func(netType core.NetType) core.IRwHps {
+	manage.SetProvider(func(netType core.NetType) core.IProtocolProvider {
 		switch netType {
 		case core.ServerProtocol:
-			return gameserver.NewRwHps(netType)
+			return gameserver.NewProtocolProvider(netType)
 		case core.RelayProtocol, core.RelayMulticastProtocol:
-			return netconnectprotocol.NewRelayRwHps(netType)
+			return netconnectprotocol.NewRelayProtocolProvider(netType)
 		}
-		return core.NewNullRwHps(netType)
+		return core.NewNullProtocolProvider(netType)
 	})
 }
 

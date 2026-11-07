@@ -1,4 +1,4 @@
-// Package log 对应 net.rwhps.server.util.log.LoadLogUtils
+// Package log 对应 上游 util.log.LoadLogUtils
 package log
 
 import (

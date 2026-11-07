@@ -1,4 +1,4 @@
-// Package service 对应 net.rwhps.server.core.ServiceLoader.
+// Package service 对应 上游 core.ServiceLoader.
 //
 // 原版用 反射 + ClassLoader 键 做服务注册; Go 没有类加载器维度, 这里用显式的
 // (Kind, Name) 键, 键的拼接规则与原版一致: Kind + Name.
@@ -18,8 +18,8 @@ type Kind string
 const (
 	// KindCore 对应 ServiceType.Core
 	KindCore Kind = "Core"
-	// KindIRwHps 对应 ServiceType.IRwHps
-	KindIRwHps Kind = "IRwHps"
+	// KindIProtocolProvider 对应 ServiceType.IProtocolProvider
+	KindIProtocolProvider Kind = "IProtocolProvider"
 	// KindProtocolType 对应 ServiceType.ProtocolType
 	KindProtocolType Kind = "ProtocolType"
 	// KindProtocol 对应 ServiceType.Protocol
@@ -130,8 +130,8 @@ func checkKind(k Kind, v any) error {
 		return &ErrTypeMismatch{Kind: k}
 	}
 	switch k {
-	case KindIRwHps:
-		if _, ok := v.(core.IRwHps); !ok {
+	case KindIProtocolProvider:
+		if _, ok := v.(core.IProtocolProvider); !ok {
 			return &ErrTypeMismatch{Kind: k}
 		}
 	case KindProtocolType:

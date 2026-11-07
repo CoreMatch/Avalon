@@ -1,4 +1,4 @@
-// Package command 对应 net.rwhps.server.command
+// Package command 对应 上游 command
 //
 // 包含 CoreCommands (help/stop/version/setlanguage/exit/plugins/plugin/tryupdate)、
 // CommandsEx (hi) 与 HessMain 里的 start, 以及 CoreCommands 的 startrelay 系列.

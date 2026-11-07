@@ -28,9 +28,9 @@ func registerStart(h *cmd.Handler, d *Deps) {
 		log.Set(strings.ToUpper(global.Config.Log))
 
 		// 原版: handler.handleMessage("startnetservice ${NetService.coreID()} true 5201 5500",
-		//         IRwHpsManage.addIRwHps(IRwHps.NetType.RelayProtocol)) //5200 6500
-		iRwHps := manage.AddIRwHps(core.RelayProtocol, "")
-		h.HandleMessageWith("startnetservice "+net.CoreID()+" true 5201 5500", iRwHps)
+		//         ProtocolManage.addProtocolProvider(IProtocolProvider.NetType.RelayProtocol)) //5200 6500
+		protocolProvider := manage.AddProtocolProvider(core.RelayProtocol, "")
+		h.HandleMessageWith("startnetservice "+net.CoreID()+" true 5201 5500", protocolProvider)
 	})
 
 	h.Register("startrelaytest", "serverCommands.start", func(_ []string, _ any) {
@@ -45,13 +45,13 @@ func registerStart(h *cmd.Handler, d *Deps) {
 		log.Set(strings.ToUpper(global.Config.Log))
 
 		// 原版: startnetservice ${NetService.coreID()} true 7000 8000, RelayMulticastProtocol
-		iRwHps := manage.AddIRwHps(core.RelayMulticastProtocol, "")
-		h.HandleMessageWith("startnetservice "+net.CoreID()+" true 7000 8000", iRwHps)
+		protocolProvider := manage.AddProtocolProvider(core.RelayMulticastProtocol, "")
+		h.HandleMessageWith("startnetservice "+net.CoreID()+" true 7000 8000", protocolProvider)
 	})
 
-	// HIDE: 由 startrelay / 启动链内部调用, 参数为 IRwHps 实例
+	// HIDE: 由 startrelay / 启动链内部调用, 参数为 IProtocolProvider 实例
 	h.RegisterWith("startnetservice", "<id> <isPort> [sPort] [ePort]", "HIDE", func(args []string, param any) {
-		proto, _ := param.(core.IRwHps)
+		proto, _ := param.(core.IProtocolProvider)
 		if proto == nil {
 			log.Clog("[Start Service] No parameter")
 			return
@@ -117,8 +117,8 @@ func registerStartGame(h *cmd.Handler, d *Deps) {
 		// 对应 CustomServerSocket.run: 上游引擎就绪后, 由游戏层注册
 		// ServerProtocol 实现并经 startnetservice 开放游戏端口.
 		// Go 版引擎在外部 helper 内, "引擎就绪"即 StartGame 成功.
-		iRwHps := manage.AddIRwHps(core.ServerProtocol, "")
-		global.ServerCommand.HandleMessageWith("startnetservice "+net.CoreID()+" true", iRwHps)
+		protocolProvider := manage.AddProtocolProvider(core.ServerProtocol, "")
+		global.ServerCommand.HandleMessageWith("startnetservice "+net.CoreID()+" true", protocolProvider)
 
 		log.Clog(tr("server.load.headless"))
 		log.Set(strings.ToUpper(global.Config.Log))

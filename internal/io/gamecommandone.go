@@ -4,7 +4,7 @@ import (
 	"github.com/CoreMatch/Avalon/internal/game/enums"
 )
 
-// 本文件对应 net.rwhps.server.io.packet.GameCommandOnePacket 与
+// 本文件对应 上游 io.packet.GameCommandOnePacket 与
 // io.packet.block.GameCommandBlockOperationUnitPacket.
 //
 // 放置位置说明: 上游这两个类在 io.packet 子包, 但 Go 版 internal/io 已导入

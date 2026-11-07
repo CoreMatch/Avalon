@@ -1,4 +1,4 @@
-// Package enums 对应 net.rwhps.server.game.enums
+// Package enums 对应 上游 game.enums
 package enums
 
 // GameExternalUnits 对应 GameExternalUnits 枚举 (外部单位表 (mod / 扩展单位))

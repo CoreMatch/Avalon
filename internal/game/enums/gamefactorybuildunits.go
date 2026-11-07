@@ -1,4 +1,4 @@
-// Package enums 对应 net.rwhps.server.game.enums
+// Package enums 对应 上游 game.enums
 package enums
 
 // GameFactoryBuildUnits 对应 GameFactoryBuildUnits 枚举 (工厂建造单位表, 名称带 u_ 前缀)

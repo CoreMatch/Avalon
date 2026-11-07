@@ -1,4 +1,4 @@
-// Package app 对应 net.rwhps.server.game.EventGlobal 与 PluginManage 里的全局事件总线.
+// Package app 对应 上游 game.EventGlobal 与 PluginManage 里的全局事件总线.
 //
 // 原版的全局事件由 PluginManage 统一持有: addGlobalEventManage 把 EventListenerHost
 // 注册进 EventManage, 再用 @EventListenerHandler 注解的方法名做反射分发.

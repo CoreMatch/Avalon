@@ -1,4 +1,4 @@
-// Package game (Go-Server) 对应 net.rwhps.server.game.GameMaps
+// Package game 对应 上游 game.GameMaps
 package game
 
 import (

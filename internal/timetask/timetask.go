@@ -1,4 +1,4 @@
-// Package timetask 对应 net.rwhps.timetask.task.TimeTaskManage
+// Package timetask 对应上游 TimeTaskManage (Quartz 语义的 Go 重写)
 //
 // 原版基于 Quartz (org.quartz.Scheduler + StdSchedulerFactory), 这是一个第三方
 // Java 库, 无法机械移植. 这里按它的**可观测语义**用 Go 重写:

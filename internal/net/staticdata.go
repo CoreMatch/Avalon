@@ -1,7 +1,7 @@
-// Package net (Go-Server) 对应 net.rwhps.server.data.global.NetStaticData
+// Package net 对应 上游 data.global.NetStaticData
 //
 // Kotlin 版是 object NetStaticData, 持有 GroupNet / RelayRoom / BlackList / netService 列表
-// 以及惰性的 RwHps. Go 版用包级单例 NetStaticData 承载同一组状态.
+// 以及惰性的 ProtocolProvider. Go 版用包级单例 NetStaticData 承载同一组状态.
 //
 // 与原版差异:
 //   - RelayRoom 属于 Relay 批次, 此处未引入
@@ -26,8 +26,8 @@ type NetStatic struct {
 	mu       sync.RWMutex
 	services []*NetService
 
-	rwHpsOnce sync.Once
-	rwHps     core.IRwHps
+	protocolProviderOnce sync.Once
+	protocolProvider     core.IProtocolProvider
 }
 
 // NetStaticData 对应 object NetStaticData
@@ -70,32 +70,32 @@ func (n *NetStatic) Services() []*NetService {
 	return out
 }
 
-// RwHps 对应 NetStaticData.RwHps (by lazy)
+// ProtocolProvider 对应 NetStaticData.ProtocolProvider (by lazy)
 //
-// 原版: IRwHpsManage.firstServer ?: FakeRwHps(classLoader, NullProtocol)
+// 原版: ProtocolManage.firstServer ?: FakeProtocolProvider(classLoader, NullProtocol)
 // 结果缓存一次; 若首次调用时还没有任何服务端协议注册, 后续注册也不会再刷新 —— 与原版 lazy 语义一致.
-func (n *NetStatic) RwHps() core.IRwHps {
-	n.rwHpsOnce.Do(func() {
+func (n *NetStatic) ProtocolProvider() core.IProtocolProvider {
+	n.protocolProviderOnce.Do(func() {
 		if first := manage.FirstServer(); first != nil {
-			n.rwHps = first
+			n.protocolProvider = first
 			return
 		}
-		n.rwHps = core.NewNullRwHps(core.NullProtocol)
+		n.protocolProvider = core.NewNullProtocolProvider(core.NullProtocol)
 	})
-	return n.rwHps
+	return n.protocolProvider
 }
 
-// ResetRwHps 清掉 RwHps 的惰性缓存 (测试与热重载用, 原版无对应)
-func (n *NetStatic) ResetRwHps() {
-	n.rwHpsOnce = sync.Once{}
-	n.rwHps = nil
+// ResetProtocolProvider 清掉 ProtocolProvider 的惰性缓存 (测试与热重载用, 原版无对应)
+func (n *NetStatic) ResetProtocolProvider() {
+	n.protocolProviderOnce = sync.Once{}
+	n.protocolProvider = nil
 }
 
 // CheckServerStartNet 对应 NetStaticData.checkServerStartNet
 //
 // 没有可用的服务端协议时返回 false 且不执行 run; 否则执行 run 并返回 true.
 func CheckServerStartNet(run func()) bool {
-	if _, ok := NetStaticData.RwHps().(*core.NullRwHps); ok {
+	if _, ok := NetStaticData.ProtocolProvider().(*core.NullProtocolProvider); ok {
 		return false
 	}
 	if run != nil {

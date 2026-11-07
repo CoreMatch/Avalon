@@ -31,7 +31,7 @@ func TestI18NBundleLoad(t *testing.T) {
 		t.Fatal("missing server.load.gameCore")
 	}
 	login := bundle.GetInput("server.login")
-	if !strings.Contains(login, "RW-HPS") {
+	if !strings.Contains(login, "Avalon") {
 		t.Errorf("server.login = %q", login)
 	}
 	// 续行与 \n 转义应被还原成换行
@@ -74,10 +74,10 @@ func TestIniKeys(t *testing.T) {
 	if len(keys) == 0 {
 		t.Fatal("no keys")
 	}
-	if keys[0] != "Get.Core.Update.AllVersion" {
+	if keys[0] != "Get.Api.ServerLanguage" {
 		t.Errorf("first key = %q", keys[0])
 	}
-	if got := ini.ReadString("Get.Core.Update.AllVersion", ""); !strings.Contains(got, "api.github.com") {
+	if got := ini.ReadString("Get.Api.ServerLanguage", ""); !strings.Contains(got, "api.data.der.kim") {
 		t.Errorf("ReadString = %q", got)
 	}
 }

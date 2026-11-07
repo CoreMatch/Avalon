@@ -1,4 +1,4 @@
-// Package event 对应 net.rwhps.server.game.event (EventManage + game 事件类).
+// Package event 对应 上游 game.event (EventManage + game 事件类).
 //
 // # 与上游的架构差异
 //

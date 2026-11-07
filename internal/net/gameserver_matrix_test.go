@@ -133,7 +133,7 @@ func runMatrixScenario(t *testing.T, java, jar string, sc matrixScenario, idx in
 		}
 		defer listener.Close()
 		port = listener.Addr().(*net.TCPAddr).Port
-		an := rwnet.NewAbstractNet(gameserver.NewRwHps(core.ServerProtocol))
+		an := rwnet.NewAbstractNet(gameserver.NewProtocolProvider(core.ServerProtocol))
 		go func() {
 			for {
 				serverConn, err := listener.Accept()

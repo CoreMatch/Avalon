@@ -11,7 +11,7 @@ import (
 // HeadlessTypeConnect 对应 HeadlessTypeConnect: 解析 ServerProtocol 协议
 //
 // 与上游一致的两种形态:
-//   - 工厂形态 (con == nil): 由 RwHps 持有, GetTypeConnect 为每条连接实例化处理器,
+//   - 工厂形态 (con == nil): 由 ProtocolProvider 持有, GetTypeConnect 为每条连接实例化处理器,
 //     对应上游 constructor(con: Class<out GameVersionServer>) 的"实例化模板"用途
 //   - 连接形态 (con != nil): 绑定一个 GameVersionServer, ProcessConnect 逐包分发
 type HeadlessTypeConnect struct {
@@ -90,7 +90,7 @@ func (t *HeadlessTypeConnect) AbstractNetConnect() *core.AbstractNetConnect {
 
 // SupportedVersionBeta / SupportedVersionGame / SupportedVersionInt
 // 对应上游 UpListMain.initUpListData 里的
-// `(NetStaticData.RwHps.typeConnect.abstractNetConnect as AbstractNetConnectServer)`
+// `(NetStaticData.ProtocolProvider.typeConnect.abstractNetConnect as AbstractNetConnectServer)`
 // 取 supportedversion* 一段 (UpListMain.kt:145-151).
 //
 // 上游工厂形态的 HeadlessTypeConnect 特意持有一个 dummy GameVersionServer

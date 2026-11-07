@@ -1,4 +1,4 @@
-// Package manage 对应 net.rwhps.server.net.manage
+// Package manage 对应 上游 net.manage
 package manage
 
 import (

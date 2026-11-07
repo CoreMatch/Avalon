@@ -491,7 +491,7 @@ func (c *clientCommands) registerGameCommandX(h *cmd.Handler) {
 			return
 		}
 		_ = p.SendSystemMessage(p.GetInput("status.version",
-			c.room.PlayerManage.PlayerGroup.Size(), 0, global.ServerCoreVersion, "RW-HPS-Hess"))
+			c.room.PlayerManage.PlayerGroup.Size(), 0, global.ServerCoreVersion, "Avalon-Hess"))
 	})
 
 	h.RegisterWith("sync", "<on/off>", "clientCommands.sync", func(args []string, param any) {

@@ -338,10 +338,10 @@ type versionProvider interface {
 // netType 在 [ServerProtocol, ServerTestProtocol] 区间内时取协议实现体的
 // supportedversion*, 否则用 false / "1.15-Other" / 176.
 func (u *UpList) resolveVersion() {
-	rwHps := net.NetStaticData.RwHps()
-	nt := rwHps.NetType()
+	protocolProvider := net.NetStaticData.ProtocolProvider()
+	nt := protocolProvider.NetType()
 	if nt >= core.ServerProtocol && nt <= core.ServerTestProtocol {
-		if vc, ok := rwHps.TypeConnect().(versionProvider); ok {
+		if vc, ok := protocolProvider.TypeConnect().(versionProvider); ok {
 			u.setVersion(vc.SupportedVersionBeta(), vc.SupportedVersionGame(), vc.SupportedVersionInt())
 			return
 		}
@@ -587,7 +587,7 @@ func (u *UpList) gameOver() {
 
 // isRelay 对应上游 isRelay 属性
 func isRelay() bool {
-	nt := net.NetStaticData.RwHps().NetType()
+	nt := net.NetStaticData.ProtocolProvider().NetType()
 	return nt == core.RelayProtocol || nt == core.RelayMulticastProtocol
 }
 

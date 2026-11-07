@@ -77,8 +77,10 @@ func NewAbstractNetConnect(connectionAgreement *ConnectionAgreement) *AbstractNe
 	return a
 }
 
-// RwHps 对应 rwHps
-func (a *AbstractNetConnect) RwHps() IRwHps { return a.ConnectionAgreement.RwHps }
+// ProtocolProvider 对应 protocolProvider
+func (a *AbstractNetConnect) ProtocolProvider() IProtocolProvider {
+	return a.ConnectionAgreement.ProtocolProvider
+}
 
 // IP 获取连接 IP
 func (a *AbstractNetConnect) IP() string { return a.ConnectionAgreement.IP }

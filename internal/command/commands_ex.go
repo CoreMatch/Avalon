@@ -1,4 +1,4 @@
-// Package command 对应 net.rwhps.server.command.CommandsEx
+// Package command 对应 上游 command.CommandsEx
 package command
 
 import (
@@ -22,7 +22,7 @@ func registerPingCommands(h *cmd.Handler, d *Deps) {
 		}
 
 		out := gameio.NewGameOutputStream()
-		rw := net.NetStaticData.RwHps()
+		rw := net.NetStaticData.ProtocolProvider()
 
 		if rw.NetType() == core.NullProtocol {
 			out.WriteString("SERVER CLOSE")

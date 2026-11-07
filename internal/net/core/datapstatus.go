@@ -5,7 +5,7 @@ package core
 // 原版是一个 object, 里面只放三个枚举, 用来标记一条连接当前走到了认证流程的哪一步.
 // Go 没有 object, 这里把三个枚举直接提到包级.
 //
-// 注意: 状态机本身由 TypeConnect 的具体实现推进 (RwHps / TypeRelay),
+// 注意: 状态机本身由 TypeConnect 的具体实现推进 (ProtocolProvider / TypeRelay),
 // 这里只提供状态的命名与顺序, 不实现任何跳转逻辑.
 
 // RelayStatus 对应 DataPermissionStatus.RelayStatus: Relay 连接的认证阶段

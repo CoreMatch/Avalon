@@ -1,4 +1,4 @@
-// Package http 对应 net.rwhps.server.net.core.web.WebFunction 的工具方法
+// Package http 对应 上游 net.core.web.WebFunction 的工具方法
 package http
 
 import "strings"

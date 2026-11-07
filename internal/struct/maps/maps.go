@@ -1,4 +1,4 @@
-// Package maps 对应 net.rwhps.server.struct.map
+// Package maps 对应 上游 struct.map
 //
 // 目录名用 maps 而不是 map: Go 中被导入的包名声明在文件作用域, 会遮蔽宇宙作用域里的
 // 内建标识符. 包若叫 map, 同一文件里的 `map[K]V` 类型声明就会失效.

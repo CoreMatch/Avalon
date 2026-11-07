@@ -101,7 +101,7 @@ func (f *fakeRelayConnect) sentMessages() []string {
 // fakePacketBuilder 是 relayPacketBuilder 的测试实现
 //
 // 把消息原文放进 packet.Bytes, 这样单测不必依赖真实的包编码器 —— 原版走的是
-// NetStaticData.RwHps.abstractNetPacket, 而那是 sync.Once 缓存的单例, 装不进去.
+// NetStaticData.ProtocolProvider.abstractNetPacket, 而那是 sync.Once 缓存的单例, 装不进去.
 type fakePacketBuilder struct {
 	mu        sync.Mutex
 	systemMsg []string
@@ -398,7 +398,7 @@ func TestSendMsgUsesAdmin(t *testing.T) {
 }
 
 // TestSendMsgWithoutBuilderIsNotFatal 固定"没有可用协议实现"时的行为:
-// 原版 NetStaticData.RwHps 是 FakeRwHps, 它的 abstractNetPacket 会抛
+// 原版 NetStaticData.ProtocolProvider 是 FakeProtocolProvider, 它的 abstractNetPacket 会抛
 // ImplementedException, 被 sendMsg 的 catch(Exception) 吞掉. Go 侧对应的是
 // builder 为 nil, 记一条错误日志后返回, 不 panic.
 func TestSendMsgWithoutBuilderIsNotFatal(t *testing.T) {

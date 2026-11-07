@@ -1,4 +1,4 @@
-// Package game 对应 net.rwhps.server.util.game
+// Package game 对应 上游 util.game
 //
 // 原版这里只有 GameOtherUtils 一个 object. 按"只移植有生产调用方的成员"的
 // 约定, 目前只落 getBetaVersion —— 它的唯一生产调用方是 GameVersionRelay.

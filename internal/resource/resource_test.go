@@ -56,7 +56,7 @@ func TestURLIni(t *testing.T) {
 	if err != nil {
 		t.Fatalf("URLIni: %v", err)
 	}
-	if !strings.Contains(string(b), "Get.Core.Update.AllVersion") {
-		t.Error("URLIni missing Get.Core.Update.AllVersion")
+	if !strings.Contains(string(b), "Get.Api.ServerLanguage") {
+		t.Error("URLIni missing Get.Api.ServerLanguage")
 	}
 }

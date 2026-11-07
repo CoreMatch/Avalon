@@ -1,4 +1,4 @@
-// Package room 对应 net.rwhps.server.game.room
+// Package room 对应 上游 game.room
 //
 // 目前只有 RelayRoom. ServerRoom 依赖游戏模拟内核 (Simulation), 属于另一批次.
 package room
@@ -47,7 +47,7 @@ import (
 //     RelayRoom.sendMsg 就是 `admin!!.sendPacket(...getSystemMessagePacket(msg))` ——
 //     发包是连接的通用能力, 不是"发系统消息"这种 Server 风味的专用能力.
 //   - 因此这里改成 SendPacket(*packet.Packet), 由 RelayRoom 自己拼包, 与原版
-//     完全一致 (原版就是 room 自己调 NetStaticData.RwHps.abstractNetPacket 拼的).
+//     完全一致 (原版就是 room 自己调 NetStaticData.ProtocolProvider.abstractNetPacket 拼的).
 type RelayConnect interface {
 	// Name 对应 name
 	Name() string
@@ -89,7 +89,7 @@ type RelayConnect interface {
 	// SendPacket 对应 sendPacket(packet)
 	//
 	// 原版 RelayRoom.sendMsg / sendMsgChat 都是
-	// `admin!!.sendPacket(NetStaticData.RwHps.abstractNetPacket.getXxxPacket(msg))`.
+	// `admin!!.sendPacket(NetStaticData.ProtocolProvider.abstractNetPacket.getXxxPacket(msg))`.
 	SendPacket(p *packet.Packet)
 	// SendRelayServerId 对应 sendRelayServerId(multicast)
 	//
@@ -342,7 +342,7 @@ var (
 //
 // 原版:
 //
-//	val relayRoom = RelayRoom("RW-HPS Beta Relay", groupNet)
+//	val relayRoom = RelayRoom("Avalon Beta Relay", groupNet)
 //	    get() {
 //	        field.closeRoom = false
 //	        return field
@@ -361,7 +361,7 @@ var (
 // room.SingleRoom().
 func SingleRoom() *RelayRoom {
 	singleRoomOnce.Do(func() {
-		singleRoom = newSingleRoom("RW-HPS Beta Relay", net.NetStaticData.GroupNet)
+		singleRoom = newSingleRoom("Avalon Beta Relay", net.NetStaticData.GroupNet)
 	})
 	// 对应原版 getter 里的 `field.closeRoom = false`
 	singleRoom.SetCloseRoom(false)
@@ -443,7 +443,7 @@ func (r *RelayRoom) RemoveAbstractNetConnect(site int32) {
 	r.AbstractNetConnectIntMap.Remove(site)
 }
 
-// relayPacketBuilder 对应 NetStaticData.RwHps.abstractNetPacket 里 room 真正用到的两个方法
+// relayPacketBuilder 对应 NetStaticData.ProtocolProvider.abstractNetPacket 里 room 真正用到的两个方法
 type relayPacketBuilder interface {
 	GetSystemMessagePacket(msg string) (*packet.Packet, error)
 	GetChatMessagePacket(msg string, sendBy string, team int) (*packet.Packet, error)
@@ -451,17 +451,17 @@ type relayPacketBuilder interface {
 
 // abstractNetPacketProvider 取当前服务端协议的包构造器
 //
-// 原版直接写 NetStaticData.RwHps.abstractNetPacket. Go 侧多一层间接, 原因是
-// NetStaticData.RwHps() 是 sync.Once 缓存的单例, 单测里装不进一个假的构造器.
+// 原版直接写 NetStaticData.ProtocolProvider.abstractNetPacket. Go 侧多一层间接, 原因是
+// NetStaticData.ProtocolProvider() 是 sync.Once 缓存的单例, 单测里装不进一个假的构造器.
 //
 // 返回值是 netpacket.AbstractNetPacket 的子集接口, 这样单测只需要实现两个方法.
 var abstractNetPacketProvider = func() relayPacketBuilder {
-	return net.NetStaticData.RwHps().AbstractNetPacket()
+	return net.NetStaticData.ProtocolProvider().AbstractNetPacket()
 }
 
 // SendMsg 对应 sendMsg(msg)
 //
-// 原版: admin!!.sendPacket(NetStaticData.RwHps.abstractNetPacket.getSystemMessagePacket(msg)),
+// 原版: admin!!.sendPacket(NetStaticData.ProtocolProvider.abstractNetPacket.getSystemMessagePacket(msg)),
 // 外面包着 try/catch(Exception) 只 printStackTrace.
 //
 // 拼包在 room 侧完成 (与原版一致), 而不是让连接自己去拼 —— 连接只有

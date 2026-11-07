@@ -1,4 +1,4 @@
-// Package command 对应 net.rwhps.server.command.CoreCommands
+// Package command 对应 上游 command.CoreCommands
 package command
 
 import (
@@ -59,7 +59,7 @@ func registerCore(h *cmd.Handler, d *Deps) {
 	})
 
 	h.Register("version", "serverCommands.version", func(_ []string, _ any) {
-		rw := net.NetStaticData.RwHps()
+		rw := net.NetStaticData.ProtocolProvider()
 		d.print(tr("status.versionS", heapMB(), global.ServerCoreVersion, rw.NetType().String()))
 
 		switch {

@@ -1,4 +1,4 @@
-// Package gameio 对应 net.rwhps.server.io.GameInputStream / GameOutputStream
+// Package gameio 对应 上游 io.GameInputStream / GameOutputStream
 //
 // 关于 ReadByte / WriteByte 的命名: 它们刻意沿用 Java DataInputStream/DataOutputStream
 // 的方法名, 以便与 Kotlin 原版逐行对照 (原版每个调用点都写着 readByte()/writeByte()).

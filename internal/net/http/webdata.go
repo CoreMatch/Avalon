@@ -1,4 +1,4 @@
-// Package http 对应 net.rwhps.server.net.http
+// Package http 对应 上游 net.http
 package http
 
 import "errors"
@@ -37,7 +37,7 @@ var (
 	ErrTabooAdd  = errors.New("[AddWebInstance] TabooA Add, Can not be used WebSocket URL")
 )
 
-// WebData 对应 net.rwhps.server.net.http.WebData
+// WebData 对应 上游 net.http.WebData
 // 路由注册表: 精确匹配 + 单层通配 (`/xxx/*`) + 全通配 (`/prefix**`)。
 type WebData struct {
 	getData           map[string]WebGet

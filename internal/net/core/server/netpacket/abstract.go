@@ -1,4 +1,4 @@
-// Package netpacket 对应 net.rwhps.server.net.core.server.packet
+// Package netpacket 对应 上游 net.core.server.packet
 package netpacket
 
 import (

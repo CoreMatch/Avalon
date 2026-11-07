@@ -1,4 +1,4 @@
-// Package log 对应 net.rwhps.server.util.log.ex.PrintEx
+// Package log 对应 上游 util.log.ex.PrintEx
 package log
 
 import (

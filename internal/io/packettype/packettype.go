@@ -1,4 +1,4 @@
-// Package packettype 对应 net.rwhps.server.io.packet.type
+// Package packettype 对应 上游 io.packet.type
 package packettype
 
 // AbstractPacketType 对应 AbstractPacketType 接口
@@ -125,7 +125,7 @@ func (p PacketType) From(t int) AbstractPacketType {
 	return NOT_RESOLVED
 }
 
-// Resolver 对应 IRwHps.packetType, 由 ServiceLoader 注入.
+// Resolver 对应 IProtocolProvider.packetType, 由 ServiceLoader 注入.
 // 默认使用 PacketType 自身.
 var Resolver AbstractPacketType = INSTANCE
 

@@ -23,7 +23,7 @@ import (
 // findJDK17Java 定位 JDK17 的 java (与 external/realhelper_test 同款逻辑)
 func findJDK17Java(t *testing.T) string {
 	t.Helper()
-	if p := os.Getenv("RWHPS_TEST_JAVA"); p != "" {
+	if p := os.Getenv("AVALON_HELPER_TEST_JAVA"); p != "" {
 		return p
 	}
 	var candidates []string
@@ -98,7 +98,7 @@ func startGoBackend(t *testing.T, java, jar string, km *keyMaterial, gamePort, c
 		t.Fatal(err)
 	}
 	gw, err := gateway.New(gateway.Config{
-		BackendID:      "rwhps-e2e",
+		BackendID:      "avalon-e2e",
 		RoomCode:       "GW01",
 		TLSCert:        km.serverCert,
 		TLSKey:         km.serverKey,
@@ -114,7 +114,7 @@ func startGoBackend(t *testing.T, java, jar string, km *keyMaterial, gamePort, c
 	go func() { _ = gw.ServeControl() }()
 
 	// 游戏口: 网关模式监听
-	an := rwnet.NewAbstractNet(gameserver.NewRwHps(core.ServerProtocol))
+	an := rwnet.NewAbstractNet(gameserver.NewProtocolProvider(core.ServerProtocol))
 	an.SetGateway(gw)
 	ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", gamePort))
 	if err != nil {
@@ -182,9 +182,9 @@ func writeCascadeConfig(t *testing.T, dir string, km *keyMaterial, controlURL, g
 	cfg := fmt.Sprintf(`version: 2
 game_listen_addr: "127.0.0.1:%d"
 http_listen_addr: "127.0.0.1:%d"
-default_backend_id: "rwhps-e2e"
+default_backend_id: "avalon-e2e"
 backends:
-  - id: "rwhps-e2e"
+  - id: "avalon-e2e"
     control_url: "%s"
     game_address: "%s"
     prefixes: ["GW"]

@@ -28,32 +28,32 @@ import (
 	"github.com/CoreMatch/Avalon/internal/util/log"
 )
 
-// RwHps 对应 netconnectprotocol.RwHps: 核心协议实现
+// ProtocolProvider 对应 netconnectprotocol.ProtocolProvider: 核心协议实现
 //
-// 上游实例化路径: IRwHpsManage.addIRwHps -> ServiceLoader(ServiceType.IRwHps)
-// -> RwHps(classLoader, netType), 其 typeConnect / abstractNetPacket 再分别经
+// 上游实例化路径: ProtocolManage.addProtocolProvider -> ServiceLoader(ServiceType.IProtocolProvider)
+// -> ProtocolProvider(classLoader, netType), 其 typeConnect / abstractNetPacket 再分别经
 // ServiceLoader 的 ProtocolType / ProtocolPacket 解析. Go 版把两级反射查找
 // 收敛为构造时的一次装配, 来源不变:
 //
 //	typeConnect       <- HeadlessTypeConnect (上游注册点 GameEngine.kt:118)
 //	abstractNetPacket <- ServiceLoader(ProtocolPacket, netType) 回落 GlobalProtocol
-//	                   (上游 RwHps.kt:54-62 的同款回落)
-type RwHps struct {
+//	                   (上游 ProtocolProvider.kt:54-62 的同款回落)
+type ProtocolProvider struct {
 	netType           core.NetType
 	typeConnect       core.TypeConnect
 	abstractNetPacket netpacket.AbstractNetPacket
 }
 
-// NewRwHps 构造 ServerProtocol 的协议实现
-func NewRwHps(netType core.NetType) *RwHps {
-	return &RwHps{
+// NewProtocolProvider 构造 ServerProtocol 的协议实现
+func NewProtocolProvider(netType core.NetType) *ProtocolProvider {
+	return &ProtocolProvider{
 		netType:           netType,
 		typeConnect:       NewHeadlessTypeConnect(),
 		abstractNetPacket: lookupNetPacket(netType),
 	}
 }
 
-// lookupNetPacket 对应 RwHps.abstractNetPacket 的惰性解析
+// lookupNetPacket 对应 ProtocolProvider.abstractNetPacket 的惰性解析
 //
 // 先按 netType 名查 ProtocolPacket 服务, 查不到回落 GlobalProtocol ——
 // 与上游 try/catch 回落完全一致. 两处都没有时退回 GameVersionPacket 直装,
@@ -71,14 +71,16 @@ func lookupNetPacket(netType core.NetType) netpacket.AbstractNetPacket {
 	return realize.NewGameVersionPacket()
 }
 
-// NetType 实现 core.IRwHps
-func (r *RwHps) NetType() core.NetType { return r.netType }
+// NetType 实现 core.IProtocolProvider
+func (r *ProtocolProvider) NetType() core.NetType { return r.netType }
 
-// TypeConnect 实现 core.IRwHps: 返回连接解析器工厂
-func (r *RwHps) TypeConnect() core.TypeConnect { return r.typeConnect }
+// TypeConnect 实现 core.IProtocolProvider: 返回连接解析器工厂
+func (r *ProtocolProvider) TypeConnect() core.TypeConnect { return r.typeConnect }
 
-// AbstractNetPacket 实现 core.IRwHps: 返回包构造器
-func (r *RwHps) AbstractNetPacket() netpacket.AbstractNetPacket { return r.abstractNetPacket }
+// AbstractNetPacket 实现 core.IProtocolProvider: 返回包构造器
+func (r *ProtocolProvider) AbstractNetPacket() netpacket.AbstractNetPacket {
+	return r.abstractNetPacket
+}
 
 // Version 对应 Data.SERVER_CORE_VERSION 拼接的解析器版本说明 (诊断用)
 func Version() string { return global.ServerCoreVersion + ": 1.0.0" }

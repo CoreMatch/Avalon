@@ -6,7 +6,7 @@ package gateway_test
 //   -> 转发进引擎 -> 真实开局到结算.
 //
 // 前置不满足时跳过 (不失败): 缺 avalon-helper.jar / JDK17 / Cascade 源码 / go 工具链.
-// Cascade 源码默认 /tmp/cascade-ro, 可用 RWHPS_CASCADE_SRC 覆盖.
+// Cascade 源码默认 /tmp/cascade-ro, 可用 AVALON_CASCADE_SRC 覆盖.
 
 import (
 	"crypto/ed25519"
@@ -127,7 +127,7 @@ func genKeyMaterial(t *testing.T) *keyMaterial {
 
 // cascadeSrc 返回 Cascade 源码目录; 不存在返回 ""
 func cascadeSrc() string {
-	if p := os.Getenv("RWHPS_CASCADE_SRC"); p != "" {
+	if p := os.Getenv("AVALON_CASCADE_SRC"); p != "" {
 		return p
 	}
 	return "/tmp/cascade-ro"

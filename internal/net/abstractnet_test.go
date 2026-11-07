@@ -19,7 +19,7 @@ func TestNewAbstractNetKeepsCommandHooks(t *testing.T) {
 		core.PingCommand = nil
 	})
 
-	_ = NewAbstractNet(core.NewNullRwHps(core.ServerProtocol))
+	_ = NewAbstractNet(core.NewNullProtocolProvider(core.ServerProtocol))
 
 	if core.LogCommand != logHandler {
 		t.Error("NewAbstractNet cleared LogCommand")

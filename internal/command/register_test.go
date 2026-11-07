@@ -58,7 +58,7 @@ func resetGlobals(t *testing.T) {
 		for _, s := range net.NetStaticData.Services() {
 			s.Stop()
 		}
-		net.NetStaticData.ResetRwHps()
+		net.NetStaticData.ResetProtocolProvider()
 	})
 }
 
@@ -164,7 +164,7 @@ func TestStopStopsAllServices(t *testing.T) {
 	resetGlobals(t)
 	server, _, _, rec := setup(t)
 
-	ns := net.NewNetService("t", core.NewNullRwHps(core.ServerProtocol))
+	ns := net.NewNetService("t", core.NewNullProtocolProvider(core.ServerProtocol))
 	server.HandleMessage("stop")
 
 	if strings.Contains(rec.text(), "Server does not start") {
@@ -211,7 +211,7 @@ func TestVersionServerProtocol(t *testing.T) {
 	server, _, d, rec := setup(t)
 	withBundle(t)
 
-	// 注册一个服务端协议并让 RwHps 指向它
+	// 注册一个服务端协议并让 ProtocolProvider 指向它
 	manageAddServer(t)
 	d.Session = room.NewServerRoom(game.NewGameSession("room-x", nil))
 
@@ -308,7 +308,7 @@ func TestTryUpdate(t *testing.T) {
 // TestStartRelayStartsService startrelay 注册 RelayProtocol 并经 startnetservice 启动
 //
 // startnetservice 被替换成记录桩, 避免测试真的绑定 5201-5500 端口段;
-// 断言重点是"注册了 RelayProtocol 并把 IRwHps 传给 startnetservice",
+// 断言重点是"注册了 RelayProtocol 并把 IProtocolProvider 传给 startnetservice",
 // 且不再打印"未实现".
 func TestStartRelayStartsService(t *testing.T) {
 	resetGlobals(t)
@@ -319,9 +319,9 @@ func TestStartRelayStartsService(t *testing.T) {
 	global.RelayCommand = cmd.NewHandler(".")
 	t.Cleanup(func() { global.RelayCommand = oldRelayCommand })
 
-	var started core.IRwHps
+	var started core.IProtocolProvider
 	server.RegisterWith("startnetservice", "<id> <isPort> [sPort] [ePort]", "HIDE", func(args []string, param any) {
-		started, _ = param.(core.IRwHps)
+		started, _ = param.(core.IProtocolProvider)
 	})
 
 	server.HandleMessage("startrelay")
@@ -333,7 +333,7 @@ func TestStartRelayStartsService(t *testing.T) {
 		t.Fatalf("startnetservice 未以 RelayProtocol 启动: %v", started)
 	}
 	if _, ok := manage.Get(core.RelayProtocol.String()); !ok {
-		t.Fatal("RelayProtocol 未注册进 IRwHpsManage")
+		t.Fatal("RelayProtocol 未注册进 ProtocolManage")
 	}
 	// Relay 客户端命令已挂到 RelayCommand (前缀 ".", help 可用即代表注册成功)
 	if resp := global.RelayCommand.HandleMessageWith(".help", nil); resp.Type != cmd.Valid {
@@ -350,9 +350,9 @@ func TestStartRelayTestMulticast(t *testing.T) {
 	global.RelayCommand = cmd.NewHandler(".")
 	t.Cleanup(func() { global.RelayCommand = oldRelayCommand })
 
-	var started core.IRwHps
+	var started core.IProtocolProvider
 	server.RegisterWith("startnetservice", "<id> <isPort> [sPort] [ePort]", "HIDE", func(args []string, param any) {
-		started, _ = param.(core.IRwHps)
+		started, _ = param.(core.IProtocolProvider)
 	})
 
 	server.HandleMessage("startrelaytest")
@@ -370,7 +370,7 @@ func TestStartRelayRejectsWhenRunning(t *testing.T) {
 	resetGlobals(t)
 	server, _, _, rec := setup(t)
 
-	net.NewNetService("t", core.NewNullRwHps(core.ServerProtocol))
+	net.NewNetService("t", core.NewNullProtocolProvider(core.ServerProtocol))
 	server.HandleMessage("startrelay")
 
 	if !strings.Contains(rec.text(), "The server is not closed") {
@@ -408,7 +408,7 @@ func TestStartNetserviceNoBind(t *testing.T) {
 	var got core.NetType = core.NullProtocol
 	d.ServerStartType = func(tp core.NetType) { got = tp }
 
-	server.HandleMessageWith("startnetservice abc false", core.NewNullRwHps(core.HttpProtocol))
+	server.HandleMessageWith("startnetservice abc false", core.NewNullProtocolProvider(core.HttpProtocol))
 
 	if got != core.HttpProtocol {
 		t.Fatalf("ServerStartType 收到 %v", got)
@@ -544,13 +544,13 @@ func (stubSim) Stop() error                  { return nil }
 func (stubSim) Running() bool                { return true }
 func (stubSim) PlayerCount() int             { return 1 }
 
-// manageAddServer 注册一个 ServerProtocol 实现, 使 NetStaticData.RwHps() 指向它
+// manageAddServer 注册一个 ServerProtocol 实现, 使 NetStaticData.ProtocolProvider() 指向它
 func manageAddServer(t *testing.T) {
 	t.Helper()
-	manage.AddIRwHps(core.ServerProtocol, "cmdtest")
-	net.NetStaticData.ResetRwHps()
+	manage.AddProtocolProvider(core.ServerProtocol, "cmdtest")
+	net.NetStaticData.ResetProtocolProvider()
 	t.Cleanup(func() {
 		manage.Clear()
-		net.NetStaticData.ResetRwHps()
+		net.NetStaticData.ResetProtocolProvider()
 	})
 }

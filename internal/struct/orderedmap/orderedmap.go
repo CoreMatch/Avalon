@@ -1,4 +1,4 @@
-// Package orderedmap 对应 net.rwhps.server.struct.map.OrderedMap
+// Package orderedmap 对应 上游 struct.map.OrderedMap
 package orderedmap
 
 // Map 保持插入顺序的字符串映射

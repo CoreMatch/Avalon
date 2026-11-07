@@ -1,6 +1,6 @@
 package netconnectprotocol
 
-// TypeRelay 对应 net.rwhps.server.net.netconnectprotocol.TypeRelay:
+// TypeRelay 对应 上游 net.netconnectprotocol.TypeRelay:
 // 解析 RelayProtocol 协议 (227 行的握手状态机 + 分发器).
 //
 // # 依赖方向
@@ -28,7 +28,7 @@ import (
 // TypeRelay 对应 TypeRelay
 //
 // 与上游一致的两种形态:
-//   - 工厂形态 (con == nil): 由 RelayRwHps 持有, GetTypeConnect 为每条连接实例化,
+//   - 工厂形态 (con == nil): 由 RelayProtocolProvider 持有, GetTypeConnect 为每条连接实例化,
 //     对应上游 constructor(con: Class<out GameVersionRelay>) 的"实例化模板"用途
 //   - 连接形态 (con != nil): 绑定一个 GameVersionRelay, ProcessConnect 逐包分发
 //
@@ -259,9 +259,9 @@ func (t *TypeRelay) relayCheck(p *packet.Packet) bool {
 	}
 }
 
-// netPacket 取包构造器, 对应 con.rwHps.abstractNetPacket
+// netPacket 取包构造器, 对应 con.protocolProvider.abstractNetPacket
 func (t *TypeRelay) netPacket() netpacketLike {
-	rw := t.con.RwHps()
+	rw := t.con.ProtocolProvider()
 	if rw == nil {
 		return nil
 	}

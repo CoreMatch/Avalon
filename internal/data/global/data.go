@@ -1,4 +1,4 @@
-// Package global 对应 net.rwhps.server.data.global.Data / NetStaticData
+// Package global 对应 上游 data.global.Data / NetStaticData
 package global
 
 import (
@@ -35,7 +35,7 @@ const (
 	// ServerIDRelayGet RELAY 诱骗 UUID-Hex 时的 UUID
 	ServerIDRelayGet = "net.rwhps.server.relayGetUUIDHex.Dr"
 	// ServerCoreVersion 服务器主版本
-	ServerCoreVersion = "3.0.0"
+	ServerCoreVersion = "1.0.0"
 	// ToptKey 服务器 TOPT 密码
 	ToptKey = "net.rwhps.server.topt # Dr (dr@der.kim)"
 	// ServerRelayUUID RELAY 使用的 UUID
@@ -48,7 +48,7 @@ const (
 	// DefaultEncoding 服务器默认编码
 	DefaultEncoding = "UTF-8"
 
-	HeadlessName = "RW-HPS Core Headless"
+	HeadlessName = "Avalon Core Headless"
 )
 
 const LineSeparator = "\n"

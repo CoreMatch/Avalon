@@ -76,7 +76,7 @@ func TimeoutDetection(ch *core.Channel) bool {
 // AbstractNet 对应 AbstractNet (Go 版: 抽象启动期行为 + 解码器)
 // 与 Netty 版差异: 不用 pipeline, 直接驱动 read 协程 + PacketStream.
 type AbstractNet struct {
-	rwHps core.IRwHps
+	protocolProvider core.IProtocolProvider
 
 	IdleTrigger *AcceptorIdleStateTrigger
 
@@ -102,12 +102,12 @@ type GameGateway interface {
 // SetGateway 装配网关 (仅游戏协议监听器使用)
 func (n *AbstractNet) SetGateway(gw GameGateway) { n.gateway = gw }
 
-// NewAbstractNet 对应 AbstractNet(rwHps).init()
-func NewAbstractNet(rwHps core.IRwHps) *AbstractNet {
+// NewAbstractNet 对应 AbstractNet(protocolProvider).init()
+func NewAbstractNet(protocolProvider core.IProtocolProvider) *AbstractNet {
 	return &AbstractNet{
-		rwHps:       rwHps,
-		IdleTrigger: &AcceptorIdleStateTrigger{},
-		channels:    make(map[*core.Channel]struct{}),
+		protocolProvider: protocolProvider,
+		IdleTrigger:      &AcceptorIdleStateTrigger{},
+		channels:         make(map[*core.Channel]struct{}),
 	}
 }
 
@@ -125,8 +125,8 @@ func (n *AbstractNet) untrackChannel(ch *core.Channel) {
 	n.channelsMu.Unlock()
 }
 
-// RwHps 对应 abstractNet.rwHps
-func (n *AbstractNet) RwHps() core.IRwHps { return n.rwHps }
+// ProtocolProvider 对应 abstractNet.protocolProvider
+func (n *AbstractNet) ProtocolProvider() core.IProtocolProvider { return n.protocolProvider }
 
 // GetConnectSize 对应 abstractNet.getConnectSize
 func (n *AbstractNet) GetConnectSize() int { return n.IdleTrigger.GetConnectSize() }

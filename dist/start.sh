@@ -2,7 +2,7 @@
 # Avalon 启动器 (Go 服务端 + avalon-helper.jar 引擎壳)
 #
 # 布局约定 (见 DISTRIBUTION.md):
-#   ./rwhps        Go 服务端 (运行时主体, 监听 data/Config.json 的 port)
+#   ./avalon        Go 服务端 (运行时主体, 监听 data/Config.json 的 port)
 #   ./avalon-helper.jar   Java 引擎壳 (由 Go 侧按 gameHelperPath 自动拉起)
 #   ./data/        配置与游戏数据 (Config.json / ConfigServer.json / gameData)
 #
@@ -14,4 +14,4 @@ if ! command -v java >/dev/null 2>&1; then
     exit 1
 fi
 
-exec ./rwhps "$@"
+exec ./avalon "$@"

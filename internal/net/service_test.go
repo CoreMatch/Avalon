@@ -27,7 +27,7 @@ func withMixProtocol(t *testing.T, on bool) {
 	t.Cleanup(func() { global.Config.MixProtocolEnable = old })
 }
 
-// TestNewNetServiceRouting 对应构造函数里的 when(rwHps.netType) 分派
+// TestNewNetServiceRouting 对应构造函数里的 when(protocolProvider.netType) 分派
 func TestNewNetServiceRouting(t *testing.T) {
 	resetServices(t)
 	withMixProtocol(t, false)
@@ -46,7 +46,7 @@ func TestNewNetServiceRouting(t *testing.T) {
 		{core.RemoteControlProtocol, NetServiceRemoteControl},
 	}
 	for _, c := range cases {
-		ns := NewNetService("test-"+c.netType.String(), core.NewNullRwHps(c.netType))
+		ns := NewNetService("test-"+c.netType.String(), core.NewNullProtocolProvider(c.netType))
 		if ns.NetType != c.want {
 			t.Fatalf("%s -> %v, want %v", c.netType, ns.NetType, c.want)
 		}
@@ -61,17 +61,17 @@ func TestNewNetServiceStarterTypes(t *testing.T) {
 	resetServices(t)
 	withMixProtocol(t, false)
 
-	httpSvc := NewNetService("http", core.NewNullRwHps(core.HttpProtocol))
+	httpSvc := NewNetService("http", core.NewNullProtocolProvider(core.HttpProtocol))
 	if _, ok := httpSvc.start.(*nethttp.StartHttp); !ok {
 		t.Fatalf("HttpProtocol 应使用 *http.StartHttp, got %T", httpSvc.start)
 	}
 
-	rconSvc := NewNetService("rcon", core.NewNullRwHps(core.RemoteControlProtocol))
+	rconSvc := NewNetService("rcon", core.NewNullProtocolProvider(core.RemoteControlProtocol))
 	if _, ok := rconSvc.start.(*StartRemoteControl); !ok {
 		t.Fatalf("RemoteControlProtocol 应使用 *StartRemoteControl, got %T", rconSvc.start)
 	}
 
-	gameSvc := NewNetService("game", core.NewNullRwHps(core.ServerProtocol))
+	gameSvc := NewNetService("game", core.NewNullProtocolProvider(core.ServerProtocol))
 	if _, ok := gameSvc.start.(*AbstractNet); !ok {
 		t.Fatalf("ServerProtocol 应使用 *AbstractNet, got %T", gameSvc.start)
 	}
@@ -88,7 +88,7 @@ func TestNewNetServiceMix(t *testing.T) {
 		GlobalCache = NewCache()
 	})
 
-	ns := NewNetService("mix", core.NewNullRwHps(core.ServerProtocol))
+	ns := NewNetService("mix", core.NewNullProtocolProvider(core.ServerProtocol))
 	if ns.NetType != NetServiceMix {
 		t.Fatalf("NetType = %v, want %v", ns.NetType, NetServiceMix)
 	}
@@ -112,9 +112,9 @@ func TestNewNetServicePanics(t *testing.T) {
 		fn()
 	}
 
-	mustPanic("nil rwHps", func() { NewNetService("x", nil) })
-	mustPanic("NullProtocol", func() { NewNetService("x", core.NewNullRwHps(core.NullProtocol)) })
-	mustPanic("GlobalProtocol", func() { NewNetService("x", core.NewNullRwHps(core.GlobalProtocol)) })
+	mustPanic("nil protocolProvider", func() { NewNetService("x", nil) })
+	mustPanic("NullProtocol", func() { NewNetService("x", core.NewNullProtocolProvider(core.NullProtocol)) })
+	mustPanic("GlobalProtocol", func() { NewNetService("x", core.NewNullProtocolProvider(core.GlobalProtocol)) })
 }
 
 // TestNetServiceRegistersAndStops 对应 init { netService.add(this) } 与 stop() 的 remove
@@ -122,7 +122,7 @@ func TestNetServiceRegistersAndStops(t *testing.T) {
 	resetServices(t)
 	withMixProtocol(t, false)
 
-	ns := NewNetService("reg", core.NewNullRwHps(core.ServerProtocol))
+	ns := NewNetService("reg", core.NewNullProtocolProvider(core.ServerProtocol))
 
 	found := false
 	for _, s := range NetStaticData.Services() {
@@ -151,13 +151,13 @@ func TestNetServiceSetWebData(t *testing.T) {
 	resetServices(t)
 	withMixProtocol(t, false)
 
-	ns := NewNetService("web", core.NewNullRwHps(core.HttpProtocol))
+	ns := NewNetService("web", core.NewNullProtocolProvider(core.HttpProtocol))
 	if got := ns.SetWebData(nil); got != ns {
 		t.Fatal("SetWebData 应返回自身以便链式调用")
 	}
 
 	// 非 Web 启动器不应 panic
-	game := NewNetService("game", core.NewNullRwHps(core.ServerProtocol))
+	game := NewNetService("game", core.NewNullProtocolProvider(core.ServerProtocol))
 	game.SetWebData(nil)
 }
 

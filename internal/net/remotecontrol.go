@@ -16,7 +16,7 @@ import (
 // 通过将已认证标记存放在 *core.Channel 自定义属性上, 多连接场景相互独立.
 const rconAttrKey = "_rcon_authenticated"
 
-// StartRemoteControl 对应 net.rwhps.server.net.handler.tcp.StartRemoteControl
+// StartRemoteControl 对应 上游 net.handler.tcp.StartRemoteControl
 // 接管嗅探为 RCON 协议的连接:
 //
 //   - 客户端发 SERVERDATA_AUTH (type=3) 进行认证
@@ -31,23 +31,23 @@ const rconAttrKey = "_rcon_authenticated"
 //
 //   - 服务器命令通过 SERVERDATA_EXECCOMMAND (type=2) 下发, body 为一行命令
 type StartRemoteControl struct {
-	rwHps        core.IRwHps
-	rconPasswd   func() string
-	cmdHandler   func(cmd string)
-	connectionWg sync.WaitGroup
+	protocolProvider core.IProtocolProvider
+	rconPasswd       func() string
+	cmdHandler       func(cmd string)
+	connectionWg     sync.WaitGroup
 
 	mu     sync.Mutex
 	conns  map[*core.Channel]struct{}
 	closed bool
 }
 
-// NewStartRemoteControl 对应 StartRemoteControl(rwHps)
-func NewStartRemoteControl(rwHps core.IRwHps) *StartRemoteControl {
+// NewStartRemoteControl 对应 StartRemoteControl(protocolProvider)
+func NewStartRemoteControl(protocolProvider core.IProtocolProvider) *StartRemoteControl {
 	return &StartRemoteControl{
-		rwHps:      rwHps,
-		rconPasswd: func() string { return "" },
-		cmdHandler: func(cmd string) {},
-		conns:      make(map[*core.Channel]struct{}),
+		protocolProvider: protocolProvider,
+		rconPasswd:       func() string { return "" },
+		cmdHandler:       func(cmd string) {},
+		conns:            make(map[*core.Channel]struct{}),
 	}
 }
 

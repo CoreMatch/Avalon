@@ -1,4 +1,4 @@
-// Package global 对应 net.rwhps.server.data.global
+// Package global 对应 上游 data.global
 package global
 
 import (

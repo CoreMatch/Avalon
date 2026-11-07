@@ -1,4 +1,4 @@
-// Package enums 对应 net.rwhps.server.game.enums
+// Package enums 对应 上游 game.enums
 package enums
 
 // GameInternalUnits 对应 GameInternalUnits 枚举 (内部单位表, 用于 gameSummonPacket 等单位名解析)

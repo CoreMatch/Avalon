@@ -1,4 +1,4 @@
-// Package thread 对应 net.rwhps.server.core.thread
+// Package thread 对应 上游 core.thread
 //
 // 包含 CallTimeTask (任务标识枚举) 与 Threads (线程池 + 计时器的统一入口).
 package thread
@@ -65,7 +65,7 @@ var callTimeTaskData = [...]struct {
 	ServerUploadDataCheckTimeTask: {"[RCN]", "超时"},
 	RelayRoomCheckTimeTask:        {"[RCN]", "房间超时机制"},
 	ServerStatusUpdate:            {"[RCN]", "状态更新"},
-	ServerUpStatistics:            {"[RW-HPS]", "统计数据更新"},
+	ServerUpStatistics:            {"[Avalon]", "统计数据更新"},
 }
 
 // Group 对应 CallTimeTask.group

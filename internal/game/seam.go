@@ -1,4 +1,4 @@
-// Package game (Go-Server) 对应 net.rwhps.server.game
+// Package game 对应 上游 game
 //
 // 这是整个复刻工程里唯一无法机械移植的地方, 原因在 Simulation 的注释里说明.
 // 本文件只定义"接缝": 网络层与命令层通过这些接口与游戏模拟内核交互,

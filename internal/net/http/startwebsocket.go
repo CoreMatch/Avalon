@@ -1,9 +1,9 @@
-// Package http 对应 net.rwhps.server.net.http
+// Package http 对应 上游 net.http
 package http
 
 import "sync"
 
-// StartWebSocket 对应 net.rwhps.server.net.handler.tcp.StartWebSocket
+// StartWebSocket 对应 上游 net.handler.tcp.StartWebSocket
 // 由于 Go 不使用 Netty, 这里是抽象出 WebSocket 帧接入 (wsConn) 与广播能力的轻量包装.
 type StartWebSocket struct {
 	handler   WebSocketHandler

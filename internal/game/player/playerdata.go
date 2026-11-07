@@ -1,4 +1,4 @@
-// Package player 对应 net.rwhps.server.game.player.
+// Package player 对应 上游 game.player.
 //
 // 上游 PlayerHess 的私有数据来自 AbstractLinkPlayerData —— 一个指向 JVM 内
 // 游戏引擎的"活链接", 字段实时反映引擎状态. Go 版引擎外置为 helper,

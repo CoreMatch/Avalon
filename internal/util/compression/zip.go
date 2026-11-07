@@ -1,4 +1,4 @@
-// Package compression 对应 net.rwhps.server.util.compression
+// Package compression 对应 上游 util.compression
 package compression
 
 import (

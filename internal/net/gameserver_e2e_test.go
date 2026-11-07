@@ -63,7 +63,7 @@ func e2ePrereqs(t *testing.T) (java, jar, dataDir string) {
 		t.Skipf("仓库缺游戏数据, 跳过端到端测试: %s", gameData)
 	}
 
-	java = os.Getenv("RWHPS_TEST_JAVA")
+	java = os.Getenv("AVALON_HELPER_TEST_JAVA")
 	if java == "" {
 		var candidates []string
 		if home, err := os.UserHomeDir(); err == nil {
@@ -80,7 +80,7 @@ func e2ePrereqs(t *testing.T) (java, jar, dataDir string) {
 		}
 	}
 	if java == "" {
-		t.Skip("未找到 JDK 17 的 java, 跳过端到端测试 (设置 RWHPS_TEST_JAVA 可指定)")
+		t.Skip("未找到 JDK 17 的 java, 跳过端到端测试 (设置 AVALON_HELPER_TEST_JAVA 可指定)")
 	}
 
 	dataDir = t.TempDir()
@@ -172,7 +172,7 @@ func TestE2ERealGameToSettlement(t *testing.T) {
 	defer listener.Close()
 	port := listener.Addr().(*net.TCPAddr).Port
 
-	an := rwnet.NewAbstractNet(gameserver.NewRwHps(core.ServerProtocol))
+	an := rwnet.NewAbstractNet(gameserver.NewProtocolProvider(core.ServerProtocol))
 	go func() {
 		for {
 			serverConn, err := listener.Accept()

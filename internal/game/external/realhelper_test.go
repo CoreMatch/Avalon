@@ -10,7 +10,7 @@ package external
 //
 // 前置条件不满足时跳过 (不失败):
 //   - avalon-helper.jar 未构建 (./gradlew :Helper:jar)
-//   - 找不到 JDK 17 的 java (环境变量 RWHPS_TEST_JAVA 可显式指定)
+//   - 找不到 JDK 17 的 java (环境变量 AVALON_HELPER_TEST_JAVA 可显式指定)
 //   - 仓库缺 data/gameData 游戏数据
 //
 // 单测耗时约 1-2 分钟 (JVM 冷启动 + 引擎载入 + 真实对局推进).
@@ -63,7 +63,7 @@ func realHelperPrereqs(t *testing.T) (java, jar, dataDir string) {
 
 	// JDK: 系统默认的 java 版本可能过新 (引擎与 Kotlin 运行时按 JDK 17 验证),
 	// 优先取环境变量, 其次找本机常见的 17 安装位置, 找不到就跳过.
-	java = os.Getenv("RWHPS_TEST_JAVA")
+	java = os.Getenv("AVALON_HELPER_TEST_JAVA")
 	if java == "" {
 		var candidates []string
 		if home, err := os.UserHomeDir(); err == nil {
@@ -80,7 +80,7 @@ func realHelperPrereqs(t *testing.T) (java, jar, dataDir string) {
 		}
 	}
 	if java == "" || !fileExists(java) {
-		t.Skip("未找到 JDK 17 的 java, 跳过真实集成测试 (设置 RWHPS_TEST_JAVA 可指定)")
+		t.Skip("未找到 JDK 17 的 java, 跳过真实集成测试 (设置 AVALON_HELPER_TEST_JAVA 可指定)")
 	}
 
 	// 数据目录: 每次测试独立, 避免与手工调试目录互相污染

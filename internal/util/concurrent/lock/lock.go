@@ -1,4 +1,4 @@
-// Package lock 对应 net.rwhps.server.util.concurrent.lock
+// Package lock 对应 上游 util.concurrent.lock
 //
 // 原版是两个 Kotlin 属性委托 (ReadWriteProperty), 用 `by` 语法把 Get/Set 包上锁.
 // Go 没有属性委托, 因此落成显式的 Get() / Set() 方法对.

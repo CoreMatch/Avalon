@@ -1,7 +1,7 @@
-// Package core 对应 net.rwhps.server.net.core
+// Package core 对应 上游 net.core
 package core
 
-// NetType 对应 IRwHps.NetType
+// NetType 对应 IProtocolProvider.NetType
 type NetType int
 
 const (
@@ -51,7 +51,7 @@ func (n NetType) String() string {
 	return "NullProtocol"
 }
 
-// NetTypeFrom 对应 IRwHps.NetType.from(type), 找不到返回 NullProtocol
+// NetTypeFrom 对应 IProtocolProvider.NetType.from(type), 找不到返回 NullProtocol
 func NetTypeFrom(typeName string) NetType {
 	for i, name := range netTypeNames {
 		if name == typeName {
@@ -63,7 +63,7 @@ func NetTypeFrom(typeName string) NetType {
 
 // CheckProtocolIsServer 对应 NetStaticData.checkProtocolIsServer
 //
-// 实现放在 core 而非 net: 该判定只依赖 NetType, 而 game.manage (IRwHpsManage.firstServer)
+// 实现放在 core 而非 net: 该判定只依赖 NetType, 而 game.manage (ProtocolManage.firstServer)
 // 也要用它. 若留在 net 包里, net -> game/manage -> net 会构成循环依赖.
 func CheckProtocolIsServer(t NetType) bool {
 	switch t {

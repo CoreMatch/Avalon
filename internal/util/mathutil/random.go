@@ -1,4 +1,4 @@
-// Package mathutil 对应 net.rwhps.server.util.math.RandomUtils
+// Package mathutil 对应 上游 util.math.RandomUtils
 package mathutil
 
 import (

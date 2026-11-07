@@ -33,7 +33,7 @@ var (
 
 // SetHelper 设置连接层使用的外部内核; 传 nil 恢复无后端状态
 //
-// 对应上游 GameEngine.iRwHps 的赋值时机: 引擎就绪时装上, 关闭时清空.
+// 对应上游 GameEngine.protocolProvider 的赋值时机: 引擎就绪时装上, 关闭时清空.
 func SetHelper(h HelperBackend) {
 	helperMu.Lock()
 	helper = h

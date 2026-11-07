@@ -134,7 +134,7 @@ func TestMixKindString(t *testing.T) {
 
 // TestMixPickRouting 验证嗅探结果到启动器的映射
 func TestMixPickRouting(t *testing.T) {
-	m := NewStartMixProtocol(core.NewNullRwHps(core.ServerProtocol))
+	m := NewStartMixProtocol(core.NewNullProtocolProvider(core.ServerProtocol))
 
 	if got := m.pick(MixGame); got != ChannelStarter(m.game) {
 		t.Fatalf("MixGame 应路由到 game, got %T", got)
@@ -159,26 +159,26 @@ func TestNewStartMixProtocolUsesCache(t *testing.T) {
 		GlobalCache = NewCache()
 	})
 
-	_ = NewStartMixProtocol(core.NewNullRwHps(core.ServerProtocol))
+	_ = NewStartMixProtocol(core.NewNullProtocolProvider(core.ServerProtocol))
 
-	if _, ok := GlobalCache.iRwHpsCache["MixRemoteControl"]; !ok {
+	if _, ok := GlobalCache.protocolProviderCache["MixRemoteControl"]; !ok {
 		t.Fatal("MixRemoteControl 未写入 GlobalCache")
 	}
-	if _, ok := GlobalCache.iRwHpsCache["MixHttp"]; !ok {
+	if _, ok := GlobalCache.protocolProviderCache["MixHttp"]; !ok {
 		t.Fatal("MixHttp 未写入 GlobalCache")
 	}
-	// 对应原版 addIRwHps(..., "MixRemoteControlDef") / "MixHttpDef"
+	// 对应原版 addProtocolProvider(..., "MixRemoteControlDef") / "MixHttpDef"
 	if _, ok := manage.Get("MixRemoteControlDef"); !ok {
-		t.Fatal("MixRemoteControlDef 未注册到 IRwHpsManage")
+		t.Fatal("MixRemoteControlDef 未注册到 ProtocolManage")
 	}
 	if _, ok := manage.Get("MixHttpDef"); !ok {
-		t.Fatal("MixHttpDef 未注册到 IRwHpsManage")
+		t.Fatal("MixHttpDef 未注册到 ProtocolManage")
 	}
 
 	// 二次构造应复用缓存, 不重复注册新实例
 	before := len(manage.All())
-	_ = NewStartMixProtocol(core.NewNullRwHps(core.ServerProtocol))
+	_ = NewStartMixProtocol(core.NewNullProtocolProvider(core.ServerProtocol))
 	if after := len(manage.All()); after != before {
-		t.Fatalf("重复构造新增了 %d 个 IRwHps", after-before)
+		t.Fatalf("重复构造新增了 %d 个 IProtocolProvider", after-before)
 	}
 }

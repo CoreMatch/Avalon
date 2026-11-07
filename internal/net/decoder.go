@@ -196,14 +196,14 @@ func NewServerHandler(ch *core.Channel, abstractNet *AbstractNet) func(*packet.P
 
 // newTypeConnect 安全地构造连接处理器, 任一环节缺失时返回 nil 而非 panic
 func newTypeConnect(ch *core.Channel, abstractNet *AbstractNet) (*core.ConnectionAgreement, core.TypeConnect) {
-	if abstractNet == nil || abstractNet.rwHps == nil {
+	if abstractNet == nil || abstractNet.protocolProvider == nil {
 		return nil, nil
 	}
-	factory := abstractNet.rwHps.TypeConnect()
+	factory := abstractNet.protocolProvider.TypeConnect()
 	if factory == nil {
 		return nil, nil
 	}
-	ca := core.NewTCPConnectionAgreement(ch, abstractNet.rwHps)
+	ca := core.NewTCPConnectionAgreement(ch, abstractNet.protocolProvider)
 	tc := factory.GetTypeConnect(ca)
 	if tc == nil {
 		return ca, nil

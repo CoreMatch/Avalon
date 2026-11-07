@@ -1,4 +1,4 @@
-// Package packet 对应 net.rwhps.server.io.packet.Packet
+// Package packet 对应 上游 io.packet.Packet
 package packet
 
 import (

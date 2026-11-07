@@ -1,4 +1,4 @@
-// Package algorithms 对应 net.rwhps.server.util.algorithms.Base64
+// Package algorithms 对应 上游 util.algorithms.Base64
 package algorithms
 
 import "encoding/base64"

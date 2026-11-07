@@ -1,4 +1,4 @@
-// Package threads 对应 net.rwhps.server.util.concurrent.threads
+// Package threads 对应 上游 util.concurrent.threads
 //
 // 只移植了 GetNewThreadPool 里有调用方的两个工厂:
 //
