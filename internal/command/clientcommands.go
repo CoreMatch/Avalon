@@ -233,6 +233,13 @@ func (c *clientCommands) registerGameCoreCommand(h *cmd.Handler) {
 
 	h.Register("start", "clientCommands.start", func(_ []string, param any) {
 		p := asPlayer(param)
+		// 大厅模式 (CascadeLobby): 落点大厅永不开局, 拒绝客户端开局请求.
+		if global.Config.CascadeLobby {
+			if p != nil {
+				_ = p.SendSystemMessage(p.GetInput("err.lobbyNoStart"))
+			}
+			return
+		}
 		if p != nil {
 			if c.isAdmin(p) {
 				if c.room.IsStartGame {

@@ -29,6 +29,25 @@ func startRoom(t *testing.T, steps ...step) *Backend {
 	return b
 }
 
+// TestBackendStartLobbySkipsRoomStart 大厅模式 (MatchConfig.Lobby): 只建房
+// (room.create) 不开局 (room.start), 也不置 running. 脚本里故意不放
+// OpRoomStart 步骤 —— 若误发 room.start, 该请求无人应答, Start 将超时失败.
+func TestBackendStartLobbySkipsRoomStart(t *testing.T) {
+	b, _, _, _ := setup(t,
+		step{wantOp: OpHello, reply: ok()},
+		step{wantOp: OpRoomCreate, reply: ok()},
+	)
+	if err := b.Start(game.MatchConfig{RoomID: "r1", MaxPlayer: 10, Lobby: true}); err != nil {
+		t.Fatalf("Start(lobby): %v", err)
+	}
+	if b.localRunning() {
+		t.Fatal("大厅模式不应置 running")
+	}
+	if got := b.currentRoom(); got != "r1" {
+		t.Fatalf("currentRoom = %q, want r1", got)
+	}
+}
+
 // TestBackendExtAddAI room.addai 往返: 应答带 AI 档案
 func TestBackendExtAddAI(t *testing.T) {
 	pos := 3

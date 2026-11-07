@@ -127,6 +127,10 @@ type MatchConfig struct {
 	MapFile string
 	// MaxPlayer 对应 Data.configServer.maxPlayer
 	MaxPlayer int
+
+	// Lobby 大厅模式 (CascadeLobby): 只建房 (room.create) 不真正开局 (room.start),
+	// 供零模组落点大厅使用. 默认 false, 行为与现网完全一致.
+	Lobby bool
 }
 
 // AIProfile 是 room.addai 成功后 helper 回报的 AI 档案 (v2-ext 扩展).
@@ -250,12 +254,14 @@ func (s *GameSession) simulation() Simulation {
 // 失败时房间保持未开局状态.
 func (s *GameSession) StartGame() error {
 	sim := s.simulation()
+	lobby := global.Config.CascadeLobby
 
 	s.mu.RLock()
 	maps := s.Maps
 	cfg := MatchConfig{
 		RoomID:    s.RoomID,
 		MaxPlayer: s.MaxPlayer,
+		Lobby:     lobby,
 	}
 	if maps != nil {
 		cfg.MapName = maps.MapName
@@ -269,7 +275,8 @@ func (s *GameSession) StartGame() error {
 
 	// 原版 roomStartGame 之前会由地图管理器把地图落到磁盘; 这里先把地图准备好.
 	// 与上游 start 一致: 仅非默认地图需要 readMap (zip 解包落盘).
-	if maps != nil && maps.MapData != nil && maps.MapType != DefaultMap {
+	// 大厅模式不开局, 无需用图, 跳过落盘.
+	if !lobby && maps != nil && maps.MapData != nil && maps.MapType != DefaultMap {
 		if err := maps.MapData.ReadMap(); err != nil {
 			return err
 		}
@@ -277,6 +284,11 @@ func (s *GameSession) StartGame() error {
 
 	if err := sim.Start(cfg); err != nil {
 		return err
+	}
+
+	// 大厅模式: 只建房 (room.create) 不开局, 不进入对局状态.
+	if lobby {
+		return nil
 	}
 
 	now := int64(timeutil.ConcurrentSecond())

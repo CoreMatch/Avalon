@@ -46,6 +46,12 @@ func (b *Backend) Start(cfg game.MatchConfig) error {
 		b.mu.Unlock()
 	}
 
+	// 大厅模式 (CascadeLobby): 只建房 (room.create) 不开局 (room.start).
+	// 引擎起到大厅态, 玩家可连入停留, 但对局永不开始; 也不置 running.
+	if cfg.Lobby {
+		return nil
+	}
+
 	if _, err := b.Request(&Request{
 		Op:        OpRoomStart,
 		Room:      cfg.RoomID,
