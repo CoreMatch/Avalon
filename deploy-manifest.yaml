@@ -33,20 +33,35 @@ facts:
       port: 5125
       exposure: loopback
   health:
-    # 控制面健康端点（README "控制面端点"）：游戏监听就绪即 200
-    # {"backendId","status":"ready"}；无 helper 形态不要求 helper。
+    # 无 helper 形态的健康端点：/v1/rooms（控制面活着且单房间在位即 200；
+    # 2026-11-08 隔离实测）。不用 /v1/health：其 ready 判据是"游戏监听已
+    # 建立"（internal/net/gateway/control.go handleHealth + service.go
+    # SetReady），而游戏监听只在开局成功后开放（startnetservice，
+    # internal/command/start.go）——无 helper 时开局必失败，/v1/health
+    # 恒 503，这是形态边界而非故障（冒烟段把该边界断言成实测结论）。
     # 前提：cascadeEnable=true（默认 false 时控制面不起，健康面不存在）。
     http:
       port_name: control
-      path: /v1/health
+      path: /v1/rooms
       expect_status: 200
       timeout_seconds: 5
       interval_seconds: 30
       retries: 3
   smoke:
-    # 部署后冒烟：控制面真的能枚举房间（单房间合规体启动即有默认房间，
-    # internal/net/gateway/rooms.go defaultRoom）。健康只证明监听就绪，
-    # 这条证明控制面在干活。
+    # 部署后冒烟（两条）：
+    # 1) 形态边界断言：/v1/health 在无 helper 形态下必须是 503
+    #    BACKEND_NOT_READY（游戏监听未建立=不能开局）。若将来接上
+    #    helper，此冒烟会失败——届时形态已变，清单必须同步更新，
+    #    不允许静默漂移。
+    # 2) 控制面真在干活：/v1/rooms 能枚举出本服房间（单房间合规体
+    #    启动即有默认房间，internal/net/gateway/rooms.go defaultRoom）。
+    - name: no-helper-boundary
+      method: GET
+      path: /v1/health
+      expect_status: 503
+      timeout_seconds: 10
+      assert:
+        contains: BACKEND_NOT_READY
     - name: control-rooms
       method: GET
       path: /v1/rooms
