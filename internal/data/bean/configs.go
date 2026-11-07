@@ -287,20 +287,19 @@ func (c *ServerConfig) checkValue() {
 
 // RelayConfig 对应 BeanRelayConfig
 //
-// 已删除的死配置 (2026-11-04): mainServerIP / mainServerPort
-// (relay 主服地址无运行时引用).
+// 已删除的死配置: mainServerIP / mainServerPort (2026-11-04, relay 主服地址
+// 无运行时引用); mainServer (2026-11-07, 唯一消费方是上游恒禁用的多中转
+// 分发跳转分支, 随该死分支一并移除).
 type RelayConfig struct {
-	MainID     string `json:"mainID"`
-	MainServer bool   `json:"mainServer"`
-	UpList     bool   `json:"upList"`
+	MainID string `json:"mainID"`
+	UpList bool   `json:"upList"`
 }
 
 // NewRelayConfig 创建带默认值的 Relay 配置
 func NewRelayConfig() RelayConfig {
 	return RelayConfig{
-		MainID:     "R",
-		MainServer: true,
-		UpList:     true,
+		MainID: "R",
+		UpList: true,
 	}
 }
 

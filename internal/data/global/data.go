@@ -36,8 +36,6 @@ const (
 	ServerIDRelayGet = "net.corematch.avalon.relayGetUUIDHex.Dr"
 	// ServerCoreVersion 服务器主版本
 	ServerCoreVersion = "1.0.0"
-	// ToptKey 服务器 TOPT 密码
-	ToptKey = "net.corematch.avalon.topt # Dr (dr@der.kim)"
 	// ServerRelayUUID RELAY 使用的 UUID
 	ServerRelayUUID = "Dr (dr@der.kim) & Tiexiu.xyz Core Team"
 
