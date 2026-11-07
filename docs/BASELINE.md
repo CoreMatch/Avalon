@@ -94,7 +94,7 @@ go build ./... && go vet ./... && \
 # 分发包 + 干净目录实跑
 AVALON_HELPER_REPO=/tmp/avalon-helper ./dist/build-dist.sh
 mkdir /tmp/run && tar xzf dist/out/avalon-*.tar.gz -C /tmp/run --strip-components=1
-cd /tmp/run && ./start.sh     # EULA 确认后: addai / start / gameover / exit
+cd /tmp/run && ./start.sh     # 首次运行提示后: addai / start / gameover / exit
 ```
 
 对照判据：矩阵三组全过且回放文件按真实地图命名；冷启动 ≤5 s；

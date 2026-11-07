@@ -17,7 +17,7 @@ avalon-<version>-linux-<arch>/
     └── gameData/          # 游戏数据 (引擎必需, 勿删)
 ```
 
-运行时还会在 `data/` 下生成：`Settings.bin`（EULA/语言等状态）、
+运行时还会在 `data/` 下生成：`Settings.bin`（语言等状态）、
 `replays/`（回放文件）、`logs/`。
 
 ## 运行要求
@@ -35,7 +35,7 @@ cd avalon-<version>-linux-<arch>
 ./start.sh            # 或直接 ./avalon
 ```
 
-首次启动会显示 EULA 确认（输入 `Yes` 同意）。随后自动执行默认启动命令
+首次启动会询问是否需要 WEB 面板初始化（任选其一）。随后自动执行默认启动命令
 （`defStartCommand`，默认 `start`）：加载游戏内核（拉起 avalon-helper.jar）→
 监听 `data/Config.json` 里的 `port`（默认 5123）。
 

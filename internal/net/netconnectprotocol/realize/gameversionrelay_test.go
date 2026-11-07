@@ -461,7 +461,7 @@ func TestRelayRegisterConnectionFirstParse(t *testing.T) {
 	g, _ := newTestRelay(t, "127.0.0.1")
 
 	o := gameio.NewGameOutputStream()
-	o.WriteString("net.rwhps.server")
+	o.WriteString("net.corematch.avalon")
 	o.WriteBytes(make([]byte, 12))
 	o.WriteString("tester")
 	o.WriteIsString("")

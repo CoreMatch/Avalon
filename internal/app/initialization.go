@@ -63,7 +63,7 @@ func loadURLData() error {
 // startInit 对应 Initialization.startInit
 func startInit(settings *plugindata.Settings) {
 	initServerLanguage(settings, "")
-	eula(settings)
+	firstRunPrompt(settings)
 }
 
 // initServerLanguage 对应 Initialization.initServerLanguage
@@ -120,29 +120,12 @@ func detectCountry() string {
 	}
 }
 
-// eula 对应 Initialization.eula
+// firstRunPrompt 对应 Initialization.eula (上游 EULA 步骤已移除)
 //
-// 两步交互: 许可版本不匹配时展示 EULA 并要求 Yes, 首次启动时询问是否需要 WEB 面板初始化.
-// 两步都通过 log.WaitLicense 读取 stdin, 与原版一致.
-func eula(settings *plugindata.Settings) {
-	if readString(settings, "eulaVersion") != global.ServerEulaVersion {
-		log.WaitLicense(func() {
-			text, err := resource.EULA(global.ServerCountry)
-			if err != nil {
-				log.Errorf("[EULA]", "{0}", err)
-				return
-			}
-			log.Clog(string(text))
-		}, func() {
-			settings.SetString("eulaVersion", global.ServerEulaVersion)
-		}, func() {
-			// 原版: { Data.core.exit() } —— 拒绝许可直接退出进程
-			if global.Core != nil {
-				global.Core.Exit(nil)
-			}
-		})
-	}
-
+// 首次启动询问是否需要 WEB 面板初始化, 经 log.WaitLicense 读取 stdin.
+// 上游的 EULA 出示文本是原项目的法律文本且原文已失维护, 2026-11-07 移除;
+// 若将来需要用户协议, 属另行起草的产品事项.
+func firstRunPrompt(settings *plugindata.Settings) {
 	if settings.GetBool("initStart", true) {
 		log.WaitLicense(func() {
 			if global.ServerCountry == "CN" {
