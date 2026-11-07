@@ -87,6 +87,12 @@ type CoreConfig struct {
 	// CascadeRoomCode 本后端对 Cascade 暴露的唯一房间码; 空回落 ConfigServer.ServerID
 	CascadeRoomCode string `json:"cascadeRoomCode"`
 
+	// CascadeLobby 大厅模式: 本后端是 Cascade 的零模组落点大厅 —— 起引擎、建房、
+	// 开放游戏端口、允许玩家连入停留, 但永不真正开局 (room.create 而不 room.start),
+	// 并拒绝客户端侧的开局请求. 作为 Cascade 的 default_backend_id 使用.
+	// 关闭 (默认) 时行为与现网完全一致。
+	CascadeLobby bool `json:"cascadeLobby"`
+
 	// ---- 信任三档 (有意修正, 作者已批准, 2026-11-04; DECISIONS D-24) ----
 	// 作者定稿: "默认就是裸奔". 对端身份不再靠 mTLS 强校验与 JWT 验签,
 	// 而是三档可选约束:

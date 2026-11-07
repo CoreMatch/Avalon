@@ -328,6 +328,23 @@ func TestClientStartMinPlayer(t *testing.T) {
 	}
 }
 
+// TestClientStartBlockedInLobby 大厅模式 (CascadeLobby) 拒绝客户端开局, 即便是管理员.
+func TestClientStartBlockedInLobby(t *testing.T) {
+	h, r, ps, cs := setupClientCommands(t, 1)
+	ps[0].IsAdmin = true
+	oldLobby := global.Config.CascadeLobby
+	global.Config.CascadeLobby = true
+	t.Cleanup(func() { global.Config.CascadeLobby = oldLobby })
+
+	h.HandleMessageWith("/start", ps[0])
+	if r.IsStartGame {
+		t.Fatal("大厅模式不应能开局")
+	}
+	if !strings.Contains(cs[0].text(), "err.lobbyNoStart") {
+		t.Fatalf("大厅模式应拒绝开局: %q", cs[0].text())
+	}
+}
+
 // seedCustomMaps 把若干自定义地图放进扫描目录并重新登记, 结束时恢复.
 //
 // 路径常量是 const, 经 file.SetBasePath 把数据根指到临时目录.

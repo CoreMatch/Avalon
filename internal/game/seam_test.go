@@ -185,6 +185,30 @@ func TestStartGameBackendError(t *testing.T) {
 	}
 }
 
+// TestStartGameLobbyMode 大厅模式 (CascadeLobby): 只建房不开局, 不写开局状态.
+// 对应零模组落点大厅 —— 引擎起到大厅态, 玩家可连入, 但对局永不开始.
+func TestStartGameLobbyMode(t *testing.T) {
+	oldLobby := global.Config.CascadeLobby
+	global.Config.CascadeLobby = true
+	t.Cleanup(func() { global.Config.CascadeLobby = oldLobby })
+
+	fs := &fakeSim{}
+	s := NewGameSession("room-lobby", fs)
+
+	if err := s.StartGame(); err != nil {
+		t.Fatalf("StartGame err = %v", err)
+	}
+	if !fs.started {
+		t.Fatal("Simulation.Start 未被调用 (建房)")
+	}
+	if !fs.cfg.Lobby {
+		t.Fatal("大厅模式下 MatchConfig.Lobby 应为 true")
+	}
+	if s.IsStartGame || s.StartTime != 0 || s.EndTime != 0 {
+		t.Fatal("大厅模式不应进入开局状态")
+	}
+}
+
 // TestGameOver 对应 roomStartGame 的逆操作
 func TestGameOver(t *testing.T) {
 	fs := &fakeSim{}

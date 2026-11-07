@@ -289,6 +289,12 @@ func (r *ServerRoom) StartGame() error {
 		return err
 	}
 
+	// 大厅模式 (CascadeLobby): GameSession 只建房不开局, 房间侧也没有开局动作
+	// (不暂停队伍任务、不起对局检查线程), 保持大厅常驻.
+	if global.Config.CascadeLobby {
+		return nil
+	}
+
 	thread.Pause(thread.CallTeamTask)
 	r.PlayerManage.RunPlayerArrayDataRunnable(func(p *player.Player) {
 		p.UpdateDate()
