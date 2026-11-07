@@ -240,10 +240,21 @@ func (g *Gateway) handleCreateRoom(w http.ResponseWriter, r *http.Request) {
 	if err := decodeBody(w, r, &req); err != nil {
 		return
 	}
-	summary, err := g.createRoom(req.Code, req.Title, req.MaxPlayers)
+	addr := ""
+	if ip := remoteIP(r.RemoteAddr); ip != nil {
+		addr = ip.String()
+	}
+	summary, err := g.createRoom(req.Code, req.Title, req.MaxPlayers, addr)
 	if err != nil {
 		if errors.Is(err, ErrRoomConflict) {
 			writeErr(w, http.StatusConflict, CodeRoomConflict, "single-room backend already owns a different room code")
+			return
+		}
+		var denied *RoomDeniedError
+		if errors.As(err, &denied) {
+			// 插件准入否决 (ADR-0006): 复用信任拒绝的 403 FORBIDDEN 码,
+			// 插件的可读理由进 message.
+			writeErr(w, http.StatusForbidden, CodeForbidden, denied.Reason)
 			return
 		}
 		writeErr(w, http.StatusServiceUnavailable, CodeBackendNotReady, err.Error())

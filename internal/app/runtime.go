@@ -15,9 +15,11 @@
 package app
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 
@@ -25,6 +27,7 @@ import (
 	"github.com/CoreMatch/Avalon/internal/data/global"
 	"github.com/CoreMatch/Avalon/internal/game/room"
 	"github.com/CoreMatch/Avalon/internal/net"
+	"github.com/CoreMatch/Avalon/internal/plugin"
 	"github.com/CoreMatch/Avalon/internal/util/console"
 	"github.com/CoreMatch/Avalon/internal/util/log"
 )
@@ -144,5 +147,39 @@ func (r *Runtime) deps() *command.Deps {
 	d.SetLanguage = func(lang string) { initServerLanguage(r.Core.Settings, lang) }
 	d.ServerStartType = r.Events.ServerStartType
 	d.Session = r.Session
+	// 上游 plugin 命令透传给 PluginCenter (插件市场, 已随上游死亡); Go 版
+	// 进程外插件体系 (ADR-0006) 在同一接缝上给出实际行为: 只读状态列表.
+	d.PluginCommand = func(_ string, out func(string)) {
+		hub := plugin.Default()
+		if hub == nil {
+			out("Plugin hub not loaded")
+			return
+		}
+		statuses := hub.Status()
+		if len(statuses) == 0 {
+			out("No plugins configured (data/Plugins.json)")
+			return
+		}
+		for _, s := range statuses {
+			state := "ready"
+			switch {
+			case !s.Enabled:
+				state = "disabled"
+			case !s.Ready:
+				state = "not-ready"
+			}
+			events := "-"
+			if len(s.Events) > 0 {
+				events = strings.Join(s.Events, ",")
+			}
+			manifest := "-"
+			if s.ManifestID != "" {
+				manifest = s.ManifestID + "@" + s.ManifestVersion
+			}
+			out(fmt.Sprintf("%s: state=%s base=%s manifest=%s events=[%s] queued=%d delivered=%d retried=%d dropped=%d denied=%d failOpen=%d",
+				s.Name, state, s.BaseURL, manifest, events,
+				s.Queued, s.Delivered, s.Retries, s.Dropped, s.Denied, s.FailOpen))
+		}
+	}
 	return d
 }

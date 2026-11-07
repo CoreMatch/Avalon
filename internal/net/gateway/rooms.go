@@ -10,6 +10,7 @@ import (
 	"github.com/CoreMatch/Avalon/internal/game/manage"
 	"github.com/CoreMatch/Avalon/internal/game/player"
 	"github.com/CoreMatch/Avalon/internal/game/room"
+	"github.com/CoreMatch/Avalon/internal/plugin"
 	"github.com/CoreMatch/Avalon/internal/util/log"
 	"github.com/CoreMatch/Avalon/internal/util/timeutil"
 )
@@ -27,6 +28,17 @@ var (
 	// ErrPlayerNotFound playerId 不在房间内
 	ErrPlayerNotFound = errors.New("gateway: player not found")
 )
+
+// RoomDeniedError 插件准入否决了建房 (ADR-0006 room.create).
+// Reason 是否决插件给出的可读理由 (已净化), 原样进 403 应答的 message.
+type RoomDeniedError struct {
+	Reason string
+}
+
+// Error 实现 error
+func (e *RoomDeniedError) Error() string {
+	return "gateway: room creation denied by plugin: " + e.Reason
+}
 
 // RoomSummary 对应契约 RoomSummary (openapi RoomSummary schema)
 type RoomSummary struct {
@@ -247,9 +259,22 @@ func applyEngineSettings(r *room.ServerRoom, s *RoomSettings) error {
 
 // createRoom 对应门面 POST /v1/rooms/create (单房间幂等语义, D-20):
 // 与本服房间码一致即接受 (可顺带调整 maxPlayers), 其它码一律冲突.
-func (g *Gateway) createRoom(code, title string, maxPlayers int) (*RoomSummary, error) {
+//
+// ADR-0006: 接受前先过插件建房准入 (kind=cascade). 否决返回
+// *RoomDeniedError (控制面映射 403 FORBIDDEN); 插件超时/不可达按
+// fail-open 放行, 不影响门面可用性.
+func (g *Gateway) createRoom(code, title string, maxPlayers int, remoteAddr string) (*RoomSummary, error) {
 	if code != g.cfg.RoomCode {
 		return nil, ErrRoomConflict
+	}
+	if decision := plugin.AdmitRoomCreate(plugin.RoomCreateRequest{
+		Kind:           plugin.KindCascade,
+		Code:           code,
+		MaxPlayers:     maxPlayers,
+		CreatorName:    "cascade",
+		CreatorAddress: remoteAddr,
+	}); !decision.Allowed {
+		return nil, &RoomDeniedError{Reason: decision.Reason}
 	}
 	r, err := defaultRoom()
 	if err != nil {

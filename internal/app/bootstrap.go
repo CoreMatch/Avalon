@@ -2,6 +2,8 @@
 package app
 
 import (
+	"fmt"
+
 	"github.com/CoreMatch/Avalon/internal/command"
 	"github.com/CoreMatch/Avalon/internal/data/bean"
 	"github.com/CoreMatch/Avalon/internal/data/global"
@@ -13,6 +15,7 @@ import (
 	nethttp "github.com/CoreMatch/Avalon/internal/net/http"
 	"github.com/CoreMatch/Avalon/internal/net/httpapi"
 	"github.com/CoreMatch/Avalon/internal/net/uplist"
+	"github.com/CoreMatch/Avalon/internal/plugin"
 	cmd "github.com/CoreMatch/Avalon/internal/util/game/command"
 	"github.com/CoreMatch/Avalon/internal/util/log"
 )
@@ -61,6 +64,20 @@ func (r *Runtime) Start() error {
 	global.ConfigServer = bean.StringToServerConfig()
 	global.ConfigRelay = bean.StringToRelayConfig()
 
+	// 进程外插件 hub (ADR-0006): 配置校验 + 首轮 manifest 协商 + 启动投递
+	// worker. 配置缺失/非法显式失败; 插件不可达只会在准入时 fail-open,
+	// 不阻塞启动. 未配置插件时 hub 空转, 行为与现网完全一致.
+	hub, err := plugin.Load()
+	if err != nil {
+		return err
+	}
+	plugin.SetDefault(hub)
+	prevPluginHook := global.CloseServerHook
+	global.CloseServerHook = func() {
+		prevPluginHook()
+		hub.Close()
+	}
+
 	// 原版房间由游戏模块加载时创建 (HeadlessModuleManage.hps.room);
 	// Go 版没有游戏模块, 这里建一个绑定 game.Backend 的空房间,
 	// 让 start / hi / version 有确定的对象可读. 没有后端时 start 会返回 ErrNotImplemented.
@@ -82,11 +99,27 @@ func (r *Runtime) Start() error {
 		bean.SaveServerConfig(global.ConfigServer)
 	}
 
+	// 建房准入 (ADR-0006 room.create): 插件可否决启动期单例房间的创建.
+	// 否决 = 启动失败并给出可读理由; 插件超时/不可达 = 放行 (fail-open).
+	// 单房间模型下这是唯一一次 "server" 种类的准入 (其余两条路径在
+	// Cascade 门面与 relay 建房).
+	if decision := plugin.AdmitRoomCreate(plugin.RoomCreateRequest{
+		Kind:        plugin.KindServer,
+		Code:        global.ConfigServer.ServerID,
+		MaxPlayers:  global.ConfigServer.MaxPlayer,
+		CreatorName: "console",
+	}); !decision.Allowed {
+		return fmt.Errorf("room creation vetoed by plugin %q: %s", decision.Plugin, decision.Reason)
+	}
+
 	// ServerRoom 在 GameSession 状态壳之上装配玩家/广播/命令实体链 (里程碑 2).
 	r.Session = room.NewServerRoom(game.NewGameSession(global.ConfigServer.ServerID, game.Backend))
 	// 连接层经 room.Default() 取单例房间, 对应上游
 	// HeadlessModuleManage.hessLoaderMap[classLoader].room 的取用路径.
 	room.SetDefault(r.Session)
+
+	// game.over 订阅 (ADR-0006): 对局结束后把结算事件推给全部插件 (异步).
+	plugin.RegisterRoomEvents(r.Session)
 
 	// Cascade 后端契约装配 (方案 B, DECISIONS D-17~D-21): 启用时建网关并
 	// 起 /v1 控制面; 未启用时无操作. 材料缺失会使启动失败 (显式配置不降级).
