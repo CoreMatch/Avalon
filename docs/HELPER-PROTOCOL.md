@@ -1,4 +1,4 @@
-# Avalon Helper Protocol v2
+# Avalon Helper Protocol v3
 
 Go 服务端与外部游戏内核（helper，一个 Java 进程）之间的通信协议。
 
@@ -7,7 +7,7 @@ Go 服务端与外部游戏内核（helper，一个 Java 进程）之间的通�
 - **helper 侧参考实现**：Avalon-Helper 仓库（SamuelCheston/Avalon-Helper）`Helper/` 模块（`HelperMain.kt` 协议主循环 +
   `GoBridge.kt` 引擎桥接，v2 与 v2-ext 全部操作）。构建与部署见
   `README.md`「安装并接入外部游戏内核」。
-- **协议版本**：`ProtocolVersion = 2`。握手时版本不一致直接失败，不做尽力兼容。
+- **协议版本**：`ProtocolVersion = 3`。握手时版本不一致直接失败，不做尽力兼容。
   升级协议时递增该值。
 
 ---
@@ -34,29 +34,30 @@ Go 服务端与外部游戏内核（helper，一个 Java 进程）之间的通�
 ### Go -> helper（请求）
 
 ```json
-{"v":2,"id":1,"gen":1,"op":"room.start","room":"r1","map":"...","mapPlayer":"...","maxPlayer":10}
+{"v":3,"id":1,"gen":1,"op":"room.start","room":"r1","map":"...","mapPlayer":"...","maxPlayer":10}
 ```
 
 | 字段 | 说明 |
 | --- | --- |
-| `v` | 协议版本，恒为 2 |
+| `v` | 协议版本，恒为 3 |
 | `id` | 请求序号，Go 侧单调递增，与应答的 `id` 对齐（必须为正） |
 | `gen` | 世代号（必须非 0） |
 | `op` | 操作名，见下表 |
 | `room` | 房间 ID（`room.*`/`conn.*` 必填） |
 | `conn` | 连接 ID，房间内唯一（`conn.*` 必填） |
 | `map` / `mapPlayer` / `maxPlayer` | `room.start` 的开局参数 |
+| `mapType` / `mapFile` | `room.start` 可选（v3 新增）：`mapType` 取 `CustomMap`/`SavedGames`，缺省即默认地图；`mapFile` 为非默认地图的文件名（含后缀，如 `MyMap.tmx`）。文件由 Go 侧在开局前保证已落盘（zip 地图先解包），helper 按 `/SD/rusted_warfare_maps/<mapFile>` 交给引擎装载 |
 | `ptype` / `data` | `conn.packet` 的游戏包类型号与 Base64 负载 |
 
 ### helper -> Go（应答 / 主动消息）
 
-所有消息共有判别头 `{"v":2,"type":"...","gen":N}`，按 `type` 分发：
+所有消息共有判别头 `{"v":3,"type":"...","gen":N}`，按 `type` 分发：
 
 ```json
-{"v":2,"type":"response","gen":1,"id":1,"ok":true,"running":true,"players":3,"rooms":1}
-{"v":2,"type":"packet","gen":1,"room":"r1","conn":"c1","ptype":115,"data":"<base64>"}
-{"v":2,"type":"event","gen":1,"event":"player.join","room":"r1","conn":"c1","data":{...}}
-{"v":2,"type":"fatal","gen":1,"error":"...","room":"r1"}
+{"v":3,"type":"response","gen":1,"id":1,"ok":true,"running":true,"players":3,"rooms":1}
+{"v":3,"type":"packet","gen":1,"room":"r1","conn":"c1","ptype":115,"data":"<base64>"}
+{"v":3,"type":"event","gen":1,"event":"player.join","room":"r1","conn":"c1","data":{...}}
+{"v":3,"type":"fatal","gen":1,"error":"...","room":"r1"}
 ```
 
 | type | 说明 |
@@ -77,7 +78,7 @@ Go 服务端与外部游戏内核（helper，一个 Java 进程）之间的通�
 | `hello` | （无 room/conn） | 握手：校验版本，返回状态（`rooms`=当前房间数） |
 | `room.create` | room | 创建房间。**幂等**：已存在则返回 OK 并保持原房间 |
 | `room.destroy` | room | 销毁房间 |
-| `room.start` | room（+map/mapPlayer/maxPlayer） | 开局（对应 ServerRoom.roomStartGame） |
+| `room.start` | room（+map/mapPlayer/maxPlayer；v3 起另可选 mapType/mapFile 选自定义地图） | 开局（对应 ServerRoom.roomStartGame） |
 | `room.stop` | room | 结束当前局（对应 ServerRoom.gr） |
 | `room.status` | room | 查询运行状态（`running`）与人数（`players`） |
 | `conn.open` | room, conn | 登记一条新客户端连接 |
@@ -150,7 +151,7 @@ v2-ext 扩展：`room.addai` 应答里的 AI 档案额外携带 **`position`** �
 
 ### 版本与向后兼容
 
-- **扩展版本记为 v2-ext**：它不是新的线协议版本——`ProtocolVersion` 仍为 `2`，信封、
+- **扩展版本记为 v2-ext**：它不是新的线协议版本——v3 下信封、
   世代号、传输格式与 v2 完全一致，只是**新增**了五个操作名、两个请求字段（`position`、
   `settings`）与两个应答字段（`result`、`ai`）。v2 现有操作不受任何影响。
   （前四项为 D-9 扩展；`room.settings` 与 `ai` 应答字段为 Cascade 对接期补充，
@@ -158,7 +159,7 @@ v2-ext 扩展：`room.addai` 应答里的 AI 档案额外携带 **`position`** �
 - **只实现了 v2 的 helper**（未声明支持 v2-ext）收到这五个操作时，应应答：
 
   ```json
-  {"v":2,"type":"response","gen":1,"id":1,"ok":false,"error":"unsupported"}
+  {"v":3,"type":"response","gen":1,"id":1,"ok":false,"error":"unsupported"}
   ```
 
   Go 侧把 `error:"unsupported"` 归一为 `game.ErrUnsupported` 并**降级为空操作、仅记日志**：
@@ -187,7 +188,7 @@ v2-ext 扩展：`room.addai` 应答里的 AI 档案额外携带 **`position`** �
 | `position` | 仅 `room.removeplayer`：玩家在引擎内的位置（0 基整数）。以指针语义编码——`0` 必须原样上线，不得被当作缺省吞掉 |
 
 ```json
-{"v":2,"id":4,"gen":1,"op":"room.removeplayer","room":"r1","position":3}
+{"v":3,"id":4,"gen":1,"op":"room.removeplayer","room":"r1","position":3}
 ```
 
 | 字段 | 说明 |
@@ -208,7 +209,7 @@ v2-ext 扩展：`room.addai` 应答里的 AI 档案额外携带 **`position`** �
 | `maxUnits` | int | `maxUnit` | 原样写入 |
 
 ```json
-{"v":2,"id":5,"gen":1,"op":"room.settings","room":"r1","settings":{"credits":5000,"fog":1,"disableNuke":true}}
+{"v":3,"id":5,"gen":1,"op":"room.settings","room":"r1","settings":{"credits":5000,"fog":1,"disableNuke":true}}
 ```
 
 ### 应答字段扩展：`ai`
@@ -218,7 +219,7 @@ v2-ext 扩展：`room.addai` 应答里的 AI 档案额外携带 **`position`** �
 Go 侧据此登记入房（DECISIONS D-9）。
 
 ```json
-{"v":2,"type":"response","gen":1,"id":3,"ok":true,"ai":{
+{"v":3,"type":"response","gen":1,"id":3,"ok":true,"ai":{
   "id":"AI-zIp74I0J","name":"AI-Hard","team":0,"ready":true,
   "host":false,"bot":true,"spectator":false,"position":0}}
 ```
@@ -234,7 +235,7 @@ Go 侧据此登记入房（DECISIONS D-9）。
 仅 `game.result` 有效。**字段与上游 `getGameOverData()` 返回的 `GameOverData` 一一对应**：
 
 ```json
-{"v":2,"type":"response","gen":1,"id":5,"ok":true,"result":{
+{"v":3,"type":"response","gen":1,"id":5,"ok":true,"result":{
   "gameTime":600,
   "allPlayerList":["alice","bob"],
   "winPlayerList":["alice"],

@@ -1,10 +1,14 @@
 package game
 
 import (
+	"archive/zip"
 	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/CoreMatch/Avalon/internal/data/global"
+	"github.com/CoreMatch/Avalon/internal/util/file"
 )
 
 // fakeSim 记录调用并按需返回错误
@@ -242,5 +246,119 @@ func TestSnapshot(t *testing.T) {
 	}
 	if got := s.PlayerCount(); got != 3 {
 		t.Fatalf("PlayerCount() = %d, want 3", got)
+	}
+}
+
+// seamMapDirs 把数据根指到临时目录 (地图落在 <tmp>/data/maps), 结束恢复.
+//
+// 路径常量是 const, 只能经 file.SetBasePath 重定向.
+func seamMapDirs(t *testing.T) string {
+	t.Helper()
+	tmp := t.TempDir()
+	oldBase := file.BasePath()
+	file.SetBasePath(tmp)
+	t.Cleanup(func() {
+		file.SetBasePath(oldBase)
+	})
+	dir := filepath.Join(tmp, "data", "maps")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("建 maps 目录: %v", err)
+	}
+	return dir
+}
+
+// TestStartGameDefaultMapUnchanged 默认图回归: 不带地图字段, 行为与 v2 一致
+func TestStartGameDefaultMapUnchanged(t *testing.T) {
+	seamMapDirs(t)
+	sim := &fakeSim{}
+	s := NewGameSession("room-def", sim)
+
+	if err := s.StartGame(); err != nil {
+		t.Fatalf("StartGame err = %v", err)
+	}
+	if sim.cfg.MapType != "" || sim.cfg.MapFile != "" {
+		t.Fatalf("默认图不应携带 mapType/mapFile: %+v", sim.cfg)
+	}
+	if sim.cfg.MapName != DefaultMapName {
+		t.Fatalf("默认图名 = %q, 期望 %q", sim.cfg.MapName, DefaultMapName)
+	}
+}
+
+// TestStartGameCustomMapConfig 自定义图: MatchConfig 携带 mapType/mapFile
+func TestStartGameCustomMapConfig(t *testing.T) {
+	dir := seamMapDirs(t)
+	if err := os.WriteFile(filepath.Join(dir, "My.tmx"), []byte("<map/>"), 0o644); err != nil {
+		t.Fatalf("写地图: %v", err)
+	}
+
+	sim := &fakeSim{}
+	s := NewGameSession("room-custom", sim)
+	s.Maps.MapType = CustomMap
+	s.Maps.MapName = "My"
+	s.Maps.MapPlayer = ""
+	s.Maps.MapData = NewMapData(CustomMap, MapFile, "My")
+
+	if err := s.StartGame(); err != nil {
+		t.Fatalf("StartGame err = %v", err)
+	}
+	if sim.cfg.MapType != "CustomMap" || sim.cfg.MapFile != "My.tmx" {
+		t.Fatalf("MatchConfig 地图字段 = %q/%q, 期望 CustomMap/My.tmx", sim.cfg.MapType, sim.cfg.MapFile)
+	}
+}
+
+// TestStartGameZipMapMaterialized zip 地图开局前解包落盘 (上游 readMap 语义)
+func TestStartGameZipMapMaterialized(t *testing.T) {
+	dir := seamMapDirs(t)
+	zf, err := os.Create(filepath.Join(dir, "pack.zip"))
+	if err != nil {
+		t.Fatalf("建 zip: %v", err)
+	}
+	zw := zip.NewWriter(zf)
+	fw, err := zw.Create("inner.tmx")
+	if err != nil {
+		t.Fatalf("zip 条目: %v", err)
+	}
+	if _, err := fw.Write([]byte("<map/>")); err != nil {
+		t.Fatalf("写 zip 条目: %v", err)
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatalf("关闭 zip writer: %v", err)
+	}
+	if err := zf.Close(); err != nil {
+		t.Fatalf("关闭 zip 文件: %v", err)
+	}
+
+	sim := &fakeSim{}
+	s := NewGameSession("room-zip", sim)
+	s.Maps.MapType = CustomMap
+	s.Maps.MapName = "inner"
+	s.Maps.MapData = NewMapDataZip(CustomMap, MapZip, "inner", "pack.zip")
+
+	if err := s.StartGame(); err != nil {
+		t.Fatalf("StartGame err = %v", err)
+	}
+	if sim.cfg.MapFile != "inner.tmx" {
+		t.Fatalf("MapFile = %q, 期望 inner.tmx", sim.cfg.MapFile)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "inner.tmx")); err != nil {
+		t.Fatalf("zip 内地图未落盘: %v", err)
+	}
+}
+
+// TestStartGameMapMissingFails 地图文件缺失: 开局明确失败, 房间保持未开局
+func TestStartGameMapMissingFails(t *testing.T) {
+	seamMapDirs(t)
+	sim := &fakeSim{}
+	s := NewGameSession("room-missing", sim)
+	s.Maps.MapType = CustomMap
+	s.Maps.MapName = "Ghost"
+	s.Maps.MapData = NewMapData(CustomMap, MapFile, "Ghost")
+
+	err := s.StartGame()
+	if !errors.Is(err, ErrMapSourceUnavailable) {
+		t.Fatalf("StartGame err = %v, 期望 ErrMapSourceUnavailable", err)
+	}
+	if s.IsStartGame || sim.started {
+		t.Fatal("地图缺失时不应开局")
 	}
 }

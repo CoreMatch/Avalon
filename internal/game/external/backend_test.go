@@ -372,7 +372,7 @@ func TestUnmatchedResponseIDIsIgnored(t *testing.T) {
 		step{wantOp: OpHello, reply: ok()},
 		// 先吐一个对不上的 id, 再吐真正的应答
 		step{wantOp: OpRoomStatus, before: func(req *Request, out *os.File) {
-			writeRaw(t, out, `{"v":2,"type":"response","id":9999,"gen":1,"ok":true}`)
+			writeRaw(t, out, `{"v":3,"type":"response","id":9999,"gen":1,"ok":true}`)
 		}, reply: &Response{V: ProtocolVersion, OK: true, Players: 2}},
 	)
 
@@ -394,7 +394,7 @@ func TestUnknownEventIsIgnored(t *testing.T) {
 	b, _, _, _ := setup(t,
 		step{wantOp: OpHello, reply: ok()},
 		step{wantOp: OpRoomStatus, before: func(req *Request, out *os.File) {
-			writeRaw(t, out, `{"v":2,"type":"event","gen":1,"event":"what.is.this","room":"r1"}`)
+			writeRaw(t, out, `{"v":3,"type":"event","gen":1,"event":"what.is.this","room":"r1"}`)
 		}, reply: &Response{V: ProtocolVersion, OK: true, Players: 1}},
 	)
 
@@ -427,7 +427,7 @@ func TestPacketDeliveredToHandler(t *testing.T) {
 	b, _, _, _ := setup(t,
 		step{wantOp: OpHello, reply: ok()},
 		step{wantOp: OpRoomStatus, before: func(req *Request, out *os.File) {
-			writeRaw(t, out, `{"v":2,"type":"packet","gen":1,"room":"r1","conn":"c1","ptype":115,"data":"AQID"}`)
+			writeRaw(t, out, `{"v":3,"type":"packet","gen":1,"room":"r1","conn":"c1","ptype":115,"data":"AQID"}`)
 		}, reply: &Response{V: ProtocolVersion, OK: true}},
 	)
 

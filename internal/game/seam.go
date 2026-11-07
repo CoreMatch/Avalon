@@ -120,6 +120,11 @@ type MatchConfig struct {
 	MapName string
 	// MapPlayer 对应 room.maps.mapPlayer
 	MapPlayer string
+	// MapType 地图类型名 (MapType.String()), 空串等价 DefaultMap
+	MapType string
+	// MapFile 非默认地图的文件名 (含后缀, 如 "MyMap.tmx");
+	// 仅当 MapType 非 DefaultMap 时有值, 由房间在开局前经 ReadMap 落盘保证存在
+	MapFile string
 	// MaxPlayer 对应 Data.configServer.maxPlayer
 	MaxPlayer int
 }
@@ -255,11 +260,16 @@ func (s *GameSession) StartGame() error {
 	if maps != nil {
 		cfg.MapName = maps.MapName
 		cfg.MapPlayer = maps.MapPlayer
+		if maps.MapType != DefaultMap && maps.MapData != nil {
+			cfg.MapType = maps.MapType.String()
+			cfg.MapFile = maps.MapData.MapFileName + maps.MapType.FileType()
+		}
 	}
 	s.mu.RUnlock()
 
-	// 原版 roomStartGame 之前会由地图管理器把地图落到磁盘; 这里先把地图准备好
-	if maps != nil && maps.MapData != nil {
+	// 原版 roomStartGame 之前会由地图管理器把地图落到磁盘; 这里先把地图准备好.
+	// 与上游 start 一致: 仅非默认地图需要 readMap (zip 解包落盘).
+	if maps != nil && maps.MapData != nil && maps.MapType != DefaultMap {
 		if err := maps.MapData.ReadMap(); err != nil {
 			return err
 		}

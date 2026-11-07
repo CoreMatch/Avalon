@@ -320,3 +320,139 @@ func (w *limitedWriter) String() string {
 	defer w.mu.Unlock()
 	return w.buf.String()
 }
+
+// TestDistributionCustomMap 自定义地图全链: 登记 -> mapchange -> 引擎装载 -> 完整对局.
+//
+// 服务器不向客户端传地图 (分发模型不变): 本测试验证服务端自己的引擎
+// 能从 data/maps 装载自定义地图并把对局跑到结算.
+func TestDistributionCustomMap(t *testing.T) {
+	java, jar, gameData := distPrereqs(t)
+	stage := t.TempDir()
+
+	goDir, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatalf("解析模块根目录: %v", err)
+	}
+	build := exec.Command("go", "build", "-trimpath", "-o", filepath.Join(stage, "avalon"), "./cmd/avalon")
+	build.Dir = goDir
+	if out, err := build.CombinedOutput(); err != nil {
+		t.Fatalf("go build 二进制失败: %v\n%s", err, out)
+	}
+	if err := copyFile(jar, filepath.Join(stage, "avalon-helper.jar")); err != nil {
+		t.Fatalf("复制 avalon-helper.jar: %v", err)
+	}
+	for _, d := range []string{"data", "data/maps"} {
+		if err := os.MkdirAll(filepath.Join(stage, d), 0o755); err != nil {
+			t.Fatalf("建 %s 目录: %v", d, err)
+		}
+	}
+	if err := os.Symlink(gameData, filepath.Join(stage, "data", "gameData")); err != nil {
+		t.Skipf("软链游戏数据失败: %v", err)
+	}
+
+	// 自定义地图: 用内置 4p 图充当 (引擎可解析, 瓦片集引用内置资产)
+	srcMap := filepath.Join(gameData, "assets", "maps", "skirmish", "[p4]Desert (4p).tmx")
+	if err := copyFile(srcMap, filepath.Join(stage, "data", "maps", "CustomE2E.tmx")); err != nil {
+		t.Fatalf("复制自定义地图: %v", err)
+	}
+
+	port := freePort(t)
+	configJSON := fmt.Sprintf(`{
+  "port": %d,
+  "log": "WARN",
+  "javaPath": %q,
+  "gameHelperPath": "./avalon-helper.jar",
+  "gameHelperArgs": ["-Xmx512m"]
+}`, port, java)
+	if err := os.WriteFile(filepath.Join(stage, "data", "Config.json"), []byte(configJSON), 0o644); err != nil {
+		t.Fatalf("写 Config.json: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(stage, "data", "ConfigServer.json"),
+		[]byte(`{"enableAI": true, "saveRePlayFile": true}`), 0o644); err != nil {
+		t.Fatalf("写 ConfigServer.json: %v", err)
+	}
+
+	cmd := exec.Command(filepath.Join(stage, "avalon"))
+	cmd.Dir = stage
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		t.Fatalf("StdinPipe: %v", err)
+	}
+	var outBuf limitedWriter
+	outBuf.max = 4 << 20
+	cmd.Stdout = &outBuf
+	cmd.Stderr = &outBuf
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("启动分发二进制: %v", err)
+	}
+	procDone := make(chan error, 1)
+	go func() { procDone <- cmd.Wait() }()
+	defer func() {
+		select {
+		case <-procDone:
+		default:
+			_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+			select {
+			case <-procDone:
+			case <-time.After(10 * time.Second):
+			}
+		}
+	}()
+
+	if _, err := io.WriteString(stdin, "No\n"); err != nil {
+		t.Fatalf("预置首次运行应答: %v", err)
+	}
+
+	addr := fmt.Sprintf("127.0.0.1:%d", port)
+	deadline := time.Now().Add(120 * time.Second)
+	for {
+		conn, err := net.DialTimeout("tcp", addr, time.Second)
+		if err == nil {
+			_ = conn.Close()
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("120 秒内游戏端口 %d 未就绪, 输出:\n%s", port, outBuf.String())
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+
+	console := func(line string) {
+		if _, err := io.WriteString(stdin, line+"\n"); err != nil {
+			t.Fatalf("控制台写 %q: %v", line, err)
+		}
+	}
+	// mapchange 取登记顺序第一张自定义地图 (CustomE2E), 随后正常开局
+	console("mapchange")
+	console("addai")
+	console("addai")
+	console("start")
+	time.Sleep(8 * time.Second)
+	console("gameover")
+
+	replayDir := filepath.Join(stage, "data", "replays")
+	deadline = time.Now().Add(60 * time.Second)
+	var replays []string
+	for {
+		replays = listFiles(t, replayDir)
+		if len(replays) > 0 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("60 秒内未见回放文件 (自定义地图对局未跑到结算), 输出:\n%s", outBuf.String())
+		}
+		time.Sleep(2 * time.Second)
+	}
+	t.Logf("[自定义地图] 对局完成, 回放文件: %v", replays)
+
+	console("exit")
+	select {
+	case err := <-procDone:
+		if err != nil {
+			t.Errorf("分发进程退出码异常: %v, 输出:\n%s", err, outBuf.String())
+		}
+	case <-time.After(60 * time.Second):
+		t.Fatalf("exit 命令后 60 秒未退出, 输出:\n%s", outBuf.String())
+	}
+}

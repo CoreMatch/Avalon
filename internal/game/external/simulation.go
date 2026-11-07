@@ -51,6 +51,8 @@ func (b *Backend) Start(cfg game.MatchConfig) error {
 		Room:      cfg.RoomID,
 		Map:       cfg.MapName,
 		MapPlayer: cfg.MapPlayer,
+		MapType:   cfg.MapType,
+		MapFile:   cfg.MapFile,
 	}); err != nil {
 		return err
 	}

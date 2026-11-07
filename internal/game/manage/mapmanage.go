@@ -2,6 +2,7 @@
 package manage
 
 import (
+	"fmt"
 	"path"
 	"strings"
 
@@ -18,6 +19,12 @@ var Maps = game.NewGameMaps()
 
 // MapsData 对应 MapManage.mapsData: 按地图名索引的可选地图
 var MapsData = map[string]*game.MapData{}
+
+// mapsDataOrder 记录可选地图的登记顺序, 对应上游 ObjectMap mapsData 的键序.
+//
+// 上游按序号取第 N 张地图依赖 ObjectMap 有序; Go 的 map 无序, 用本切片补齐.
+// 序号语义与上游一致: 0 基.
+var mapsDataOrder []string
 
 // GameMaps 对应 MapManage.gameMaps: 内置地图名 -> "显示名@人数标记"
 var GameMaps = map[string]string{}
@@ -88,39 +95,86 @@ func GameMapsOrder() []string {
 	return out
 }
 
+// validMapName 判断地图名是否安全.
+//
+// 地图名会被拼进引擎加载路径 (/SD/rusted_warfare_maps/<名字><后缀>),
+// 必须杜绝路径穿越: 拒绝空名、目录分隔符与 "..".
+func validMapName(name string) bool {
+	if name == "" || name == "." || name == ".." {
+		return false
+	}
+	return !strings.ContainsAny(name, "/\\") && !strings.Contains(name, "..")
+}
+
+// registerMapData 登记一张可选地图并维护顺序表; 名字不合法时拒绝登记.
+func registerMapData(name string, data *game.MapData) {
+	if !validMapName(name) {
+		log.LogError("MAP REGISTER", fmt.Errorf("拒绝不安全的地图名: %q", name))
+		return
+	}
+	if _, ok := MapsData[name]; !ok {
+		mapsDataOrder = append(mapsDataOrder, name)
+	}
+	MapsData[name] = data
+}
+
+// MapDataByIndex 按登记顺序返回第 index (0 基) 张可选地图, 对应上游
+// mapsData.keys.toSeq()[index] 的取法.
+func MapDataByIndex(index int) (string, *game.MapData, bool) {
+	if index < 0 || index >= len(mapsDataOrder) {
+		return "", nil, false
+	}
+	name := mapsDataOrder[index]
+	data, ok := MapsData[name]
+	if !ok {
+		return "", nil, false
+	}
+	return name, data, true
+}
+
+// MapDataCount 返回已登记的可选地图数量
+func MapDataCount() int { return len(mapsDataOrder) }
+
 // ReadMapAndSave 对应 MapManage.readMapAndSave
 //
 // 扫描 maps 目录下的 .tmx/.zip 与 saves 目录下的 .rwsave/.zip, 把可选地图登记到 MapsData.
 // 文件名可能是 Base64 编码的, 先尝试解码.
 func ReadMapAndSave() {
-	readList(file.GetFolder(global.ServerMapsPath), func(name, suffix, fileName string) {
+	MapsData = map[string]*game.MapData{}
+	mapsDataOrder = nil
+
+	mapsFolder := file.GetFolder(global.ServerMapsPath)
+	readList(mapsFolder, func(name, suffix, fileName string) {
 		switch suffix {
 		case ".tmx":
-			MapsData[name] = game.NewMapData(game.CustomMap, game.MapFile, name)
+			registerMapData(name, game.NewMapData(game.CustomMap, game.MapFile, name))
 		case ".zip":
-			zipMaps, err := compression.ZipFileNames(fileName, "tmx")
+			// 上游经 getFolder(ServerMapsPath).toFile(fileName) 取全路径;
+			// 裸文件名只在进程工作目录碰巧等于 maps 目录时才能打开
+			zipMaps, err := compression.ZipFileNames(mapsFolder.ToFile(fileName).PathString(), "tmx")
 			if err != nil {
 				log.LogError("ZIP READ", err)
 				return
 			}
 			for _, zipMapName := range zipMaps {
-				MapsData[zipMapName] = game.NewMapDataZip(game.CustomMap, game.MapZip, zipMapName, name)
+				registerMapData(zipMapName, game.NewMapDataZip(game.CustomMap, game.MapZip, zipMapName, name))
 			}
 		}
 	})
 
-	readList(file.GetFolder(global.ServerSavePath), func(name, suffix, fileName string) {
+	savesFolder := file.GetFolder(global.ServerSavePath)
+	readList(savesFolder, func(name, suffix, fileName string) {
 		switch suffix {
 		case ".rwsave":
-			MapsData[name] = game.NewMapData(game.SavedGames, game.MapFile, name)
+			registerMapData(name, game.NewMapData(game.SavedGames, game.MapFile, name))
 		case ".zip":
-			zipSaves, err := compression.ZipFileNames(fileName, "save")
+			zipSaves, err := compression.ZipFileNames(savesFolder.ToFile(fileName).PathString(), "save")
 			if err != nil {
 				log.LogError("ZIP READ", err)
 				return
 			}
 			for _, zipSaveName := range zipSaves {
-				MapsData[zipSaveName] = game.NewMapDataZip(game.SavedGames, game.MapZip, zipSaveName, name)
+				registerMapData(zipSaveName, game.NewMapDataZip(game.SavedGames, game.MapZip, zipSaveName, name))
 			}
 		}
 	})

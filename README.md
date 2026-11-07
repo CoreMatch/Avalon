@@ -356,10 +356,15 @@ backend_ca_pool: "/run/secrets/ca.pem"                 # 校验 Go 服务端证�
 | `kick <位置> [秒]` / `ban <位置>` / `mute <位置>` | 踢出 / 封禁 / 禁言 |
 | `unban <位置>` | 解除封禁（清除该玩家的 UUID/IP 封禁记录并播报） |
 | `gameover` | 强制结束本局 |
+| `maps` / `mapchange` | 列出 `data/maps` 登记的可选地图 / 切到第一张自定义地图 |
 | `uplist add\|update\|remove\|help` | 服务器列表上报（需 helper/Relay 场景） |
 | `exit` | 退出 |
 
 游戏内聊天命令（玩家侧）以 `.`、`-`、`_` 开头，或 `/` 前缀；Relay 场景用 `.` 前缀。
+
+自定义地图：把 `.tmx`（或内含 tmx 的 `.zip`）放进 `data/maps`，管理员游戏内
+`/map <序号>`（0 基）选图；服务端不向客户端传地图，**客户端须自备同名地图**
+（详见 `knowledge/0008-custom-map-selection.md`）。
 具体清单见 `internal/command/`（ServerCommands/ClientCommands）与
 `internal/command/relay/`、`internal/net/uplist/`。
 

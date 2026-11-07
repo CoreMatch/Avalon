@@ -2,6 +2,7 @@ package command
 
 import (
 	"math/big"
+	"strconv"
 	"strings"
 
 	"github.com/CoreMatch/Avalon/internal/command/ex"
@@ -434,7 +435,7 @@ func (c *clientCommands) registerGameCommandX(h *cmd.Handler) {
 			maps.MapName = data[0]
 			maps.MapType = game.DefaultMap
 		} else {
-			if len(manage.MapsData) == 0 {
+			if manage.MapDataCount() == 0 {
 				_ = p.SendSystemMessage(tr("map.no"))
 				return
 			}
@@ -442,9 +443,19 @@ func (c *clientCommands) registerGameCommandX(h *cmd.Handler) {
 				_ = p.SendSystemMessage(tr("err.noNumber"))
 				return
 			}
-			// 上游按序号取第 N 张自定义地图; Go map 无序, 无法稳定对应同一张
-			_ = p.SendSystemMessage(notPortable)
-			return
+			// 上游按序号 (0 基) 取第 N 张可选地图; 登记顺序由 mapmanage 维护
+			idx, _ := strconv.Atoi(inputMapName)
+			name, data, ok := manage.MapDataByIndex(idx)
+			if !ok {
+				_ = p.SendSystemMessage(tr("map.no"))
+				return
+			}
+			maps.MapData = data
+			maps.MapType = data.MapType
+			maps.MapName = name
+			maps.MapPlayer = ""
+			// 引擎路径在 room.start 时由 helper 按 mapType/mapFile 装载
+			_ = p.SendSystemMessage(tr("map.custom.info"))
 		}
 		c.room.Call.SendSystemMessage(tr("map.to", p.Name(), maps.MapName))
 	})
