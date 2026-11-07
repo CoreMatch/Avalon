@@ -11,6 +11,7 @@ HA-Contract on 2026-11-07; this repository owns its own knowledge entries).
 | [0004](./0004-simulation-state-ownership.md) | Simulation State Ownership | Accepted |
 | [0005](./0005-upstream-lineage-and-derivative-status.md) | Upstream Lineage and Derivative Status (Copycat Audit) | Accepted |
 | [0006](./0006-out-of-process-plugin-extension-points.md) | Out-of-Process Plugin Extension Points (v1) | Accepted |
+| [0007](./0007-v2-extension-candidate-survey.md) | v2 Extension Surface Survey (Candidate Catalog) | Proposed |
 
 Anchor checker: `bash /home/lnb/Desktop/HA/HA-Contract/scripts/check-knowledge-anchors.sh`
 (run from this repository's root).
