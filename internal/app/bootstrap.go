@@ -1,4 +1,4 @@
-// Package app 对应 net.rwhps.server.Main.main.
+// Package app 对应 上游 Main.main.
 package app
 
 import (
@@ -161,7 +161,7 @@ func (r *Runtime) Start() error {
 	// 对应 Threads.newThreadCoreNet { if (Data.config.webPort != 0) { ... } }
 	if global.Config.WebPort != 0 {
 		go func() {
-			web := net.NewNetService(net.CoreID(), manage.AddIRwHps(core.HttpProtocol, "CoreWebService"))
+			web := net.NewNetService(net.CoreID(), manage.AddProtocolProvider(core.HttpProtocol, "CoreWebService"))
 			web.OpenPort(global.Config.WebPort)
 		}()
 	}

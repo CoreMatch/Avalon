@@ -1,4 +1,4 @@
-// Package timeutil 对应 net.rwhps.server.util.Time
+// Package timeutil 对应 上游 util.Time
 package timeutil
 
 import "time"

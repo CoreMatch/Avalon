@@ -1,13 +1,14 @@
 # Avalon
 
-**Avalon** 是 RW-HPS（Rusted Warfare Headless Project Server）游戏服务端的 Go 复刻版，
-运行时主体：网关、房间、玩家与协议处理、控制台、HTTP API、Cascade 对接。
-目标客户端 **1.15 / 协议号 176**。
+**Avalon** 是一个 **Rusted Warfare**（铁锈战争）游戏服务端（目标客户端
+**1.15** / 协议号 **176**），运行时主体为 Go：网关、房间、玩家与协议处理、
+控制台、HTTP API、Cascade 对接。
 
 Java 引擎壳（helper）与游戏数据由
 [Avalon-Helper 仓库](https://github.com/SamuelCheston/Avalon-Helper)提供（`Helper/` 模块与
-`data/gameData`）；Go 版与 Kotlin/Java 版功能对照见
-`/home/lnb/SamuelPortal-docs/RW-HPS-GO-PARITY.md`。
+`data/gameData`）；本仓与 Kotlin/Java 版的功能对照见
+`/home/lnb/SamuelPortal-docs/RW-HPS-GO-PARITY.md`，谱系审计见
+[`knowledge/0005-upstream-lineage-and-derivative-status.md`](knowledge/0005-upstream-lineage-and-derivative-status.md)。
 
 ---
 
@@ -36,10 +37,10 @@ Go 服务端与它之间用一条文本协议（protocol v2，见 `docs/HELPER-P
 需要 Go 1.26.10+（见 go.mod）。
 
 ```bash
-go build -o rwhps ./cmd/rwhps
+go build -o avalon ./cmd/avalon
 ```
 
-产物为当前目录下的 `rwhps` 可执行文件。
+产物为当前目录下的 `avalon` 可执行文件。
 
 开发时的完整校验（提交前必须全绿）：
 
@@ -54,7 +55,7 @@ go test ./...          # 需要时追加 -race
 ## 运行
 
 ```bash
-./rwhps
+./avalon
 ```
 
 可选命令行参数：
@@ -89,7 +90,7 @@ go test ./...          # 需要时追加 -race
 
 - 核心配置前缀 `avalonhelper.config.core`，例如：
   ```bash
-  ./rwhps -Davalonhelper.config.core.port=5123 -Davalonhelper.config.core.log=INFO
+  ./avalon -Davalonhelper.config.core.port=5123 -Davalonhelper.config.core.log=INFO
   ```
 - 也可用同名环境变量（命令行 `-D` 优先）。
 
@@ -100,7 +101,7 @@ go test ./...          # 需要时追加 -race
 | `port` | `5123` | 游戏端口 |
 | `defStartCommand` | `start` | 启动后自动执行的控制台命令 |
 | `log` | `WARN` | 日志等级 |
-| `serverName` / `subtitle` | `RW-HPS` / 空 | 服务器名 / 副标题（空则用地图名） |
+| `serverName` / `subtitle` | `Avalon` / 空 | 服务器名 / 副标题（空则用地图名） |
 | `autoUpList` | `false` | 启动后自动上报服务器列表（Relay 协议） |
 | `webPort` / `webToken` | `0` / 随机 | 不为 0 时启用 HTTP 面板 |
 | `javaPath` | 空 | helper 用的 java 可执行文件；空=用 `PATH` 里的 `java` |
@@ -155,7 +156,7 @@ go test ./...          # 需要时追加 -race
 - `-Davalonhelper.dataPath` 指定 **helper 自己的数据目录**（配置、回放、
   `data/gameData` 等）。该目录下的 `data/gameData` 可软链到 Avalon-Helper 仓库的
   `data/gameData` 以免重复占用空间；缺省时 helper 以 jar 同级目录为数据根。
-- 集成测试用同样的方式拉起 helper（`RWHPS_TEST_JAVA` 环境变量可指定 JDK 17
+- 集成测试用同样的方式拉起 helper（`AVALON_HELPER_TEST_JAVA` 环境变量可指定 JDK 17
   的 java；`AVALON_HELPER_REPO_ROOT` 指向 Avalon-Helper 检出；jar 未构建/缺数据时测试
   自动跳过）。
 
@@ -240,7 +241,7 @@ RegisterPlayer，代理也才因此触发绑定）；RegisterPlayer(110) 及其�
 ```bash
 # 1) 服务端证书 (Go 出示; SAN 须含 Cascade 拨号地址)
 openssl req -x509 -newkey rsa:2048 -nodes -days 365 \
-  -keyout backend.key -out backend.crt -subj "/CN=rwhps-backend" \
+  -keyout backend.key -out backend.crt -subj "/CN=avalon-backend" \
   -addext "subjectAltName=IP:127.0.0.1,DNS:localhost"
 
 # 2) 代理客户端证书 (Cascade 出示, Go 验指纹; 无需 CA 链)
@@ -311,7 +312,7 @@ backend_ca_pool: "/run/secrets/ca.pem"                 # 校验 Go 服务端证�
 > 在有人以 Cascade 公网地址接管这条上报链路之前，关闭自报会让玩家在游戏内
 > 服务器列表看不到本服。设 `uplistEnable=false` 会停用 `uplist` 命令、`toup`/`tonp`
 > 与 `autoUpList`，并在启动日志说明原因。端到端联调测试：`go test ./internal/net/gateway/ -run
-> TestCascadeRealProxyE2E`（需本机有 Cascade 源码，`RWHPS_CASCADE_SRC` 可指定）。
+> TestCascadeRealProxyE2E`（需本机有 Cascade 源码，`AVALON_CASCADE_SRC` 可指定）。
 
 ---
 
@@ -383,7 +384,7 @@ backend_ca_pool: "/run/secrets/ca.pem"                 # 校验 Go 服务端证�
 ## 目录结构
 
 ```
-cmd/rwhps/            程序入口
+cmd/avalon/            程序入口
 internal/
   app/                启动链（对应原版 Main/Initialization/Application）+ 全局事件
   command/            控制台与客户端命令（含 ex/Vote、relay/）
@@ -402,4 +403,6 @@ internal/
 
 ## 许可证
 
-与上游 RW-HPS 一致：GNU AGPLv3。
+GNU AGPLv3（见 [`LICENSE`](LICENSE)）。本程序源自上游 RW-HPS 项目（原仓库已
+删除）；按 AGPL 要求，上游版权声明保留于上游来源的资源文件头部，谱系明细见
+[`knowledge/0005-upstream-lineage-and-derivative-status.md`](knowledge/0005-upstream-lineage-and-derivative-status.md)。

@@ -1,4 +1,4 @@
-// Package net (Go-Server) 对应 net.rwhps.server.net.handler.tcp.StartMixProtocol
+// Package net 对应 上游 net.handler.tcp.StartMixProtocol
 //
 // 嗅探 TCP 首包, 将连接分派到 Game / RCON / HTTP 三个启动器之一.
 //
@@ -65,21 +65,21 @@ type StartMixProtocol struct {
 
 // NewStartMixProtocol 对应 StartMixProtocol(mixData)
 //
-// mixData 在 Go 版由 GlobalCache + manage.AddIRwHps 现场构造:
+// mixData 在 Go 版由 GlobalCache + manage.AddProtocolProvider 现场构造:
 //
-//	GameProtocol          -> 调用方传入的 rwHps
-//	RemoteControlProtocol -> Cache["MixRemoteControl"] -> addIRwHps(..., "MixRemoteControlDef")
-//	HttpProtocol          -> Cache["MixHttp"]          -> addIRwHps(..., "MixHttpDef")
-func NewStartMixProtocol(rwHps core.IRwHps) *StartMixProtocol {
-	remoteProto := GlobalCache.GetOrCreate("MixRemoteControl", func() core.IRwHps {
-		return manage.AddIRwHps(core.RemoteControlProtocol, "MixRemoteControlDef")
+//	GameProtocol          -> 调用方传入的 protocolProvider
+//	RemoteControlProtocol -> Cache["MixRemoteControl"] -> addProtocolProvider(..., "MixRemoteControlDef")
+//	HttpProtocol          -> Cache["MixHttp"]          -> addProtocolProvider(..., "MixHttpDef")
+func NewStartMixProtocol(protocolProvider core.IProtocolProvider) *StartMixProtocol {
+	remoteProto := GlobalCache.GetOrCreate("MixRemoteControl", func() core.IProtocolProvider {
+		return manage.AddProtocolProvider(core.RemoteControlProtocol, "MixRemoteControlDef")
 	})
-	httpProto := GlobalCache.GetOrCreate("MixHttp", func() core.IRwHps {
-		return manage.AddIRwHps(core.HttpProtocol, "MixHttpDef")
+	httpProto := GlobalCache.GetOrCreate("MixHttp", func() core.IProtocolProvider {
+		return manage.AddProtocolProvider(core.HttpProtocol, "MixHttpDef")
 	})
 
 	return &StartMixProtocol{
-		game:   NewAbstractNet(rwHps),
+		game:   NewAbstractNet(protocolProvider),
 		remote: NewStartRemoteControl(remoteProto),
 		http:   nethttp.NewStartHttp(httpProto),
 	}
@@ -149,7 +149,7 @@ func (m *StartMixProtocol) Close() {
 func Sniff(head []byte) MixKind {
 	// 1. Game: [length BE][type BE]
 	//
-	// 关键: 原版是 IRwHps.packetType.from(type).typeInt > 1000, 而不是裸的 type > 1000.
+	// 关键: 原版是 IProtocolProvider.packetType.from(type).typeInt > 1000, 而不是裸的 type > 1000.
 	// from() 对未知协议号返回 NOT_RESOLVED(-1), 所以只有"已知且 >1000"的协议号才算 Game.
 	// 若用裸值比较, RCON 包 (length LE=10 -> BE 0x0A000000, id LE=1 -> BE 0x01000000)
 	// 会因 id 被当作 16777216 而误判成 Game, RCON 分支永远走不到.

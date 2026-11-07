@@ -1,4 +1,4 @@
-// Package app 对应 net.rwhps.server.Main 以及它所编排的 core.Application / core.Initialization.
+// Package app 对应 上游 Main 以及它所编排的 core.Application / core.Initialization.
 //
 // 原版这三部分分别是一个 object (Main)、一个 class (Application, 实例挂在 Data.core)
 // 和一个 class (Initialization, 构造时做静态初始化、伴生对象做启动期初始化)。

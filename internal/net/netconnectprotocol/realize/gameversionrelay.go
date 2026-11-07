@@ -1,6 +1,6 @@
 package realize
 
-// GameVersionRelay 对应 net.rwhps.server.net.netconnectprotocol.realize.GameVersionRelay
+// GameVersionRelay 对应 上游 net.netconnectprotocol.realize.GameVersionRelay
 // (1061 行的 Relay 协议实现体).
 //
 // 上游继承 AbstractNetConnect 并实现 AbstractNetConnectData / AbstractNetConnectRelay;
@@ -171,9 +171,9 @@ func (g *GameVersionRelay) ClientVersion() int { return g.clientVersion }
 // Version 对应 version: "1.15 RELAY"
 func (g *GameVersionRelay) Version() string { return "1.15 RELAY" }
 
-// netPacket 取包构造器, 对应 rwHps.abstractNetPacket
+// netPacket 取包构造器, 对应 protocolProvider.abstractNetPacket
 func (g *GameVersionRelay) netPacket() netpacketLike {
-	rw := g.RwHps()
+	rw := g.ProtocolProvider()
 	if rw == nil {
 		return nil
 	}
@@ -187,7 +187,7 @@ type netpacketLike interface {
 	GetExitPacket() (*packet.Packet, error)
 }
 
-// sendSystemMessage 对应 sendPacket(rwHps.abstractNetPacket.getSystemMessagePacket(msg))
+// sendSystemMessage 对应 sendPacket(protocolProvider.abstractNetPacket.getSystemMessagePacket(msg))
 func (g *GameVersionRelay) sendSystemMessage(msg string) error {
 	np := g.netPacket()
 	if np == nil {
@@ -201,7 +201,7 @@ func (g *GameVersionRelay) sendSystemMessage(msg string) error {
 	return nil
 }
 
-// sendChatMessage 对应 sendPacket(rwHps.abstractNetPacket.getChatMessagePacket(...))
+// sendChatMessage 对应 sendPacket(protocolProvider.abstractNetPacket.getChatMessagePacket(...))
 func (g *GameVersionRelay) sendChatMessage(msg, sendBy string, team int) error {
 	np := g.netPacket()
 	if np == nil {

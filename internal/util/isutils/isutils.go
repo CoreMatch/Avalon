@@ -1,4 +1,4 @@
-// Package isutils 对应 net.rwhps.server.util.IsUtils
+// Package isutils 对应 上游 util.IsUtils
 //
 // 原版是个大 object, 混装了空判断 / 数字判断 / IPv4 判断 / 数学判断等一堆互不相关的
 // 静态方法. 这里遵循本项目"只移植有调用方的成员"的约定, 先把有调用方的三个正则

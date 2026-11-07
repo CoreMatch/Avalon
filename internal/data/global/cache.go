@@ -1,4 +1,4 @@
-// Package global 对应 net.rwhps.server.data.global.Cache
+// Package global 对应 上游 data.global.Cache
 package global
 
 import (

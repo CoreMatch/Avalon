@@ -1,4 +1,4 @@
-// rwhps 主程序入口 (对应 net.rwhps.server.Main)
+// avalon 主程序入口 (对应上游 Main)
 //
 // 整个启动流程在 internal/app 里 (runtime / initialization / bootstrap / console / events),
 // 这里只做两件事: 把命令行参数交给 app.Run, 以及在启动失败时落一条日志.

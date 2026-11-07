@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// 本文件对应 net.rwhps.server.util.algorithms.Game
+// 本文件对应 上游 util.algorithms.Game
 //
 // 原注释: "验证客户端有效性". 这是 Server-Core 自己复现的客户端密钥推导,
 // 用于 PoW 类型 2 的校验 (见 proofofwork.go).

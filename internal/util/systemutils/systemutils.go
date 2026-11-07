@@ -1,4 +1,4 @@
-// Package systemutils 对应 net.rwhps.server.util.SystemUtils
+// Package systemutils 对应 上游 util.SystemUtils
 package systemutils
 
 import (

@@ -1,4 +1,4 @@
-// Package http 对应 net.rwhps.server.net.http
+// Package http 对应 上游 net.http
 package http
 
 import (
@@ -27,22 +27,22 @@ type addrConn interface {
 	RemoteAddr() net.Addr
 }
 
-// StartHttp 对应 net.rwhps.server.net.handler.tcp.StartHttp
+// StartHttp 对应 上游 net.handler.tcp.StartHttp
 // 嗅探首字节: "GET "/POST "/"DELETE "/"HEAD "/"PUT " 即视为 HTTP, 接管该连接.
 // WebSocket (以 "GET /WebSocket" 开头) 升级为 ws:// 协议: 握手与帧编解码见
 // websocket.go (有意修正, 作者已批准, 2026-11-04; DECISIONS D-14).
 type StartHttp struct {
-	rwHps   core.IRwHps
-	webData *WebData
+	protocolProvider core.IProtocolProvider
+	webData          *WebData
 
 	mu     sync.Mutex
 	conns  map[ConnIO]struct{}
 	closed bool
 }
 
-// NewStartHttp 对应 StartHttp(rwHps).init()
-func NewStartHttp(rwHps core.IRwHps) *StartHttp {
-	return &StartHttp{rwHps: rwHps, conns: make(map[ConnIO]struct{})}
+// NewStartHttp 对应 StartHttp(protocolProvider).init()
+func NewStartHttp(protocolProvider core.IProtocolProvider) *StartHttp {
+	return &StartHttp{protocolProvider: protocolProvider, conns: make(map[ConnIO]struct{})}
 }
 
 // SetWebData 对应 setWebData
@@ -323,7 +323,7 @@ func writeResponse(conn io.Writer, req *HttpRequestLite, status int, headers map
 func writeNotFound(conn io.Writer, req *HttpRequestLite, keepAlive bool) {
 	body := []byte("[404] File not found\n")
 	headers := map[string][]string{
-		"Server":         {"RW-HPS/" + global.ServerCoreVersion + " (WebData)"},
+		"Server":         {"Avalon/" + global.ServerCoreVersion + " (WebData)"},
 		"Content-Type":   {"text/html;charset=utf-8"},
 		"Accept-Charset": {"UTF-8"},
 		"Content-Length": {strconv.Itoa(len(body))},
@@ -336,7 +336,7 @@ func writeNotFound(conn io.Writer, req *HttpRequestLite, keepAlive bool) {
 func sendBadRequest(conn io.Writer, req *HttpRequestLite, keepAlive bool) {
 	body := []byte("[400] Bad request\n")
 	headers := map[string][]string{
-		"Server":         {"RW-HPS/" + global.ServerCoreVersion + " (WebData)"},
+		"Server":         {"Avalon/" + global.ServerCoreVersion + " (WebData)"},
 		"Content-Type":   {"text/html;charset=utf-8"},
 		"Accept-Charset": {"UTF-8"},
 		"Content-Length": {strconv.Itoa(len(body))},

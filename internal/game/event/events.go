@@ -5,7 +5,7 @@ import (
 	"github.com/CoreMatch/Avalon/internal/game/player"
 )
 
-// 本文件对应 net.rwhps.server.game.event.game 下的全部事件类.
+// 本文件对应 上游 game.event.game 下的全部事件类.
 //
 // 上游每个事件都携带 gameModule (内核模块), 监听器经它取房间/引擎;
 // Go 版监听器是闭包, 房间在注册时捕获, 事件只保留最小负载 (见包注释).

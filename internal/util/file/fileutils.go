@@ -1,9 +1,9 @@
-// Package file 对应 net.rwhps.server.util.file.FileUtils
+// Package file 对应 上游 util.file.FileUtils
 //
 // 与原版一致: 所有 "绝对" 路径 (以 / 开头) 都相对于程序所在目录 (BasePath),
 // 而不是文件系统根目录. BasePath 的解析顺序:
 //  1. -Davalonhelper.basePath=...
-//  2. 环境变量 RWHPS_BASE_PATH
+//  2. 环境变量 avalonhelper.basePath (与键同名, GetOrEnv 原键查询)
 //  3. 可执行文件所在目录
 //  4. 当前工作目录
 package file

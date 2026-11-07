@@ -1,4 +1,4 @@
-// Package net (Go-Server) 对应 net.rwhps.server.net.NetService
+// Package net 对应 上游 net.NetService
 //
 // NetService 是 RW-HPS 暴露给外部的唯一网络服务入口.
 // 通过 OpenPort / OpenPortRUDP 在指定端口启动协议监听, 并在 Stop 时优雅关闭.
@@ -97,7 +97,7 @@ func (k NetServiceKind) String() string {
 	}
 }
 
-// NewNetService 对应 NetService(id, rwHps)
+// NewNetService 对应 NetService(id, protocolProvider)
 //
 // 启动器选择顺序完全照搬原版构造函数:
 //
@@ -107,8 +107,8 @@ func (k NetServiceKind) String() string {
 //	HttpProtocol                 -> StartHttp
 //	RemoteControlProtocol        -> StartRemoteControl
 //	其余 (含 GlobalProtocol)      -> 原版 TODO(), 这里 panic 以尽早暴露配置错误
-func NewNetService(id string, rwHps core.IRwHps) *NetService {
-	if rwHps == nil || rwHps.NetType() == core.NullProtocol {
+func NewNetService(id string, protocolProvider core.IProtocolProvider) *NetService {
+	if protocolProvider == nil || protocolProvider.NetType() == core.NullProtocol {
 		panic("No find Protocol")
 	}
 
@@ -116,19 +116,19 @@ func NewNetService(id string, rwHps core.IRwHps) *NetService {
 
 	switch {
 	case global.Config.MixProtocolEnable:
-		ns.start = NewStartMixProtocol(rwHps)
-	case core.CheckProtocolIsServer(rwHps.NetType()):
-		ns.start = NewAbstractNet(rwHps)
+		ns.start = NewStartMixProtocol(protocolProvider)
+	case core.CheckProtocolIsServer(protocolProvider.NetType()):
+		ns.start = NewAbstractNet(protocolProvider)
 	default:
-		switch rwHps.NetType() {
+		switch protocolProvider.NetType() {
 		case core.DedicatedToTheBackend:
-			ns.start = NewAbstractNet(rwHps)
+			ns.start = NewAbstractNet(protocolProvider)
 		case core.HttpProtocol:
-			ns.start = nethttp.NewStartHttp(rwHps)
+			ns.start = nethttp.NewStartHttp(protocolProvider)
 		case core.RemoteControlProtocol:
-			ns.start = NewStartRemoteControl(rwHps)
+			ns.start = NewStartRemoteControl(protocolProvider)
 		default:
-			panic("NetService: unsupported protocol " + rwHps.NetType().String())
+			panic("NetService: unsupported protocol " + protocolProvider.NetType().String())
 		}
 	}
 

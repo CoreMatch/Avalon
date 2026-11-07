@@ -122,7 +122,7 @@ func newTestServer(t *testing.T, h HelperBackend) (*GameVersionServer, *captureW
 	t.Cleanup(func() { room.SetDefault(nil) })
 
 	w := &captureWriter{}
-	ca := core.NewUDPConnectionAgreement(w, NewRwHps(core.ServerProtocol), "127.0.0.1:9999", 5123)
+	ca := core.NewUDPConnectionAgreement(w, NewProtocolProvider(core.ServerProtocol), "127.0.0.1:9999", 5123)
 	g := NewGameVersionServer(ca)
 	t.Cleanup(func() { connections.remove(g.connID) })
 	return g, w
@@ -632,8 +632,8 @@ func TestDisconnectDuringGameKeepsPlayerAll(t *testing.T) {
 	}
 }
 
-// --- 注册 (验收: NetStaticData.RwHps() 不再落到 NullRwHps) ---
-// 注册相关测试见 rwhps_test.go.
+// --- 注册 (验收: NetStaticData.ProtocolProvider() 不再落到 NullProtocolProvider) ---
+// 注册相关测试见 protocolprovider_test.go.
 
 // externalPacketMessageForTest 构造一条引擎 -> Go 的包消息
 func externalPacketMessageForTest(conn string, ptype int, data []byte) *external.PacketMessage {

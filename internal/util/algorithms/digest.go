@@ -1,4 +1,4 @@
-// Package algorithms 对应 net.rwhps.server.util.algorithms
+// Package algorithms 对应 上游 util.algorithms
 package algorithms
 
 import (

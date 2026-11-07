@@ -429,7 +429,7 @@ func TestResolveMaterialPath(t *testing.T) {
 	if err != nil {
 		t.Skipf("取不到可执行文件路径: %v", err)
 	}
-	const rel = "rwhps-material-probe.crt"
+	const rel = "avalon-material-probe.crt"
 	nextExe := filepath.Join(filepath.Dir(exe), rel)
 	if err := os.WriteFile(nextExe, []byte("x"), 0o644); err != nil {
 		t.Fatal(err)

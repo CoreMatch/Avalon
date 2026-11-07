@@ -1,4 +1,4 @@
-// Package http 对应 net.rwhps.server.net.http
+// Package http 对应 上游 net.http
 package http
 
 // HttpRequestLite 是解析后的轻量 HTTP 请求结构 (服务端协作用于传递元数据到 WebGet/WebPost/WebSocket)
@@ -26,7 +26,7 @@ func (r *HttpRequestLite) GetHeader(key string) string {
 	return ""
 }
 
-// AcceptWeb 对应 net.rwhps.server.net.http.AcceptWeb
+// AcceptWeb 对应 上游 net.http.AcceptWeb
 type AcceptWeb struct {
 	GetURL  string
 	URLData string

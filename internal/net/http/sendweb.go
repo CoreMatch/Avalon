@@ -1,4 +1,4 @@
-// Package http 对应 net.rwhps.server.net.http
+// Package http 对应 上游 net.http
 package http
 
 import (
@@ -18,7 +18,7 @@ const (
 	StatusNotFound     = 404
 )
 
-// SendWeb 对应 net.rwhps.server.net.http.SendWeb
+// SendWeb 对应 上游 net.http.SendWeb
 // 使用底层 http.ResponseWriter 风格的 WriteFunc 写出响应, 替代 Netty 的 Channel.writeAndFlush.
 type SendWeb struct {
 	mu        sync.Mutex
@@ -48,7 +48,7 @@ func NewSendWeb(writer func(status int, headers map[string][]string, body []byte
 // defaultHeaders 对应 SendWeb 构造时的默认 replaceHeaders
 func defaultHeaders() map[string]string {
 	return map[string]string{
-		"Server":         "RW-HPS/" + global.ServerCoreVersion + " (WebData)",
+		"Server":         "Avalon/" + global.ServerCoreVersion + " (WebData)",
 		"Content-Type":   "text/html;charset=utf-8",
 		"Accept-Charset": "UTF-8",
 	}
@@ -160,9 +160,9 @@ func (s *SendWeb) Send404() {
 	s.SetConnectType("text/html")
 	body := `<p>[404] File not found
     <br>The project is based on
-        <strong>RW-HPS</strong>
+        <strong>Avalon</strong>
         <br>
-            <a href="https://github.com/deng-rui/RW-HPS">RW-HPS Github</a>
+            <a href="https://github.com/CoreMatch/Avalon">Avalon Github</a>
         </p>`
 	s.cacheData = []byte(strings.TrimSpace(body))
 	_ = s.Send()
@@ -174,9 +174,9 @@ func (s *SendWeb) SendBedRequest() {
 	s.SetConnectType("text/html")
 	body := `<p>[400] Can't find a match HOST
     <br>The project is based on
-        <strong>RW-HPS</strong>
+        <strong>Avalon</strong>
         <br>
-            <a href="https://github.com/deng-rui/RW-HPS">RW-HPS Github</a>
+            <a href="https://github.com/CoreMatch/Avalon">Avalon Github</a>
         </p>`
 	s.cacheData = []byte(strings.TrimSpace(body))
 	_ = s.Send()

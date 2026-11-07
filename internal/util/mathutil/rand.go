@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-// Rand 对应 net.rwhps.server.util.math.Rand
+// Rand 对应 上游 util.math.Rand
 //
 // 原注释: "此类实现了 xorshift128+ 算法... 该PRNG的质量比 Random 的质量高得多,
 // 并且其循环长度为 2^128 - 1... RandomXS128 的实例不是线程安全的."

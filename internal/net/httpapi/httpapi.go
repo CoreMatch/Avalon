@@ -15,13 +15,13 @@ import (
 	"github.com/CoreMatch/Avalon/internal/util/timeutil"
 )
 
-// name / cookieName 对应 RwHpsWebApiMain.name / cookieName 常量
+// name / cookieName 对应 ProtocolProviderWebApiMain.name / cookieName 常量
 const (
 	name       = "HttpApi"
 	cookieName = "HttpApi-Authentication"
 )
 
-// Register 对应 RwHpsWebApiMain.onEnable -> Authentication.registerAuthenticationCenter:
+// Register 对应 ProtocolProviderWebApiMain.onEnable -> Authentication.registerAuthenticationCenter:
 // 在 WebData 上注册 AuthCookie (GET/POST) 与 get/post 通配路由.
 //
 // 上游注册点: Main.kt 插件阶段的 runOnEnable. Go 版由启动链在插件接线块调用.
@@ -63,7 +63,7 @@ func Register(webData *nethttp.WebData) {
 	installConsoleHook()
 }
 
-// RegisterRoomEvents 对应 RwHpsWebApiMain.registerEvents -> HttpApiEvent:
+// RegisterRoomEvents 对应 ProtocolProviderWebApiMain.registerEvents -> HttpApiEvent:
 // 监听房间 ServerGameOverEvent, 把非空 GameOverData 序列化进缓存.
 //
 // 上游经插件 runRegisterEvents 挂到房间 eventManage; Go 版由启动链接线.
@@ -165,7 +165,7 @@ func (a *authentication) registerCookie(json map[string]string, accept *nethttp.
 		a.mu.Lock()
 		a.cookiesData[cValue] = int64(timeutil.ConcurrentSecond()) + 86400
 		a.mu.Unlock()
-		send.SetDataString("Hi RW-HPS !")
+		send.SetDataString("Hi Avalon !")
 		_ = send.Send()
 		return
 	}

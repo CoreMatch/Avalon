@@ -1,4 +1,4 @@
-// Package relay 对应 net.rwhps.server.command.relay
+// Package relay 对应 上游 command.relay
 //
 // 上游这个包只有两个类: RelayCommands (注册入口, 函数体几乎为空) 与
 // RelayClientCommands (Relay 客户端命令实体). 调用点在 CoreCommands.startrelay:

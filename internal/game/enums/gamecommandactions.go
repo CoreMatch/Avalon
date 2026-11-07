@@ -1,4 +1,4 @@
-// Package enums 对应 net.rwhps.server.game.enums
+// Package enums 对应 上游 game.enums
 package enums
 
 // GameCommandActions 对应 GameCommandActions 枚举 (游戏命令动作, 序号即协议中的 action ordinal)

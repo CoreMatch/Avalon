@@ -16,7 +16,7 @@ import (
 
 // TestWireRoundTrip 验证 TCP 帧编解码互通
 func TestWireRoundTrip(t *testing.T) {
-	inner := core.NewNullRwHps(core.ServerProtocol)
+	inner := core.NewNullProtocolProvider(core.ServerProtocol)
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("listen: %v", err)
@@ -42,8 +42,8 @@ func TestWireRoundTrip(t *testing.T) {
 	gotCh := make(chan struct{}, 1)
 
 	// 替换 TypeConnect, 让其捕获 server 端首个 packet
-	rwHps := &capturingServerRwHps{
-		rwHps: inner,
+	protocolProvider := &capturingServerProtocolProvider{
+		protocolProvider: inner,
 		onPacket: func(p *packet.Packet) {
 			gotMu.Lock()
 			gotType = p.Type.TypeInt()
@@ -55,7 +55,7 @@ func TestWireRoundTrip(t *testing.T) {
 			}
 		},
 	}
-	an := NewAbstractNet(rwHps)
+	an := NewAbstractNet(protocolProvider)
 
 	var serverWg sync.WaitGroup
 	serverWg.Add(1)
@@ -105,17 +105,17 @@ func TestWireRoundTrip(t *testing.T) {
 	}
 }
 
-// capturingServerRwHps 注入的测试用 IRwHps, 捕获 server 端首个 packet
-type capturingServerRwHps struct {
-	rwHps    core.IRwHps
-	onPacket func(*packet.Packet)
+// capturingServerProtocolProvider 注入的测试用 IProtocolProvider, 捕获 server 端首个 packet
+type capturingServerProtocolProvider struct {
+	protocolProvider core.IProtocolProvider
+	onPacket         func(*packet.Packet)
 }
 
-func (f *capturingServerRwHps) NetType() core.NetType { return f.rwHps.NetType() }
-func (f *capturingServerRwHps) TypeConnect() core.TypeConnect {
+func (f *capturingServerProtocolProvider) NetType() core.NetType { return f.protocolProvider.NetType() }
+func (f *capturingServerProtocolProvider) TypeConnect() core.TypeConnect {
 	return &capturingTypeConnect{onPacket: f.onPacket}
 }
-func (f *capturingServerRwHps) AbstractNetPacket() netpacket.AbstractNetPacket {
+func (f *capturingServerProtocolProvider) AbstractNetPacket() netpacket.AbstractNetPacket {
 	return nil
 }
 

@@ -96,7 +96,7 @@ func TestLoadLang(t *testing.T) {
 	if log.Bundle == nil {
 		t.Fatal("log.Bundle 未注入")
 	}
-	if got := log.Bundle("server.hi"); !strings.Contains(got, "RW-HPS") {
+	if got := log.Bundle("server.hi"); !strings.Contains(got, "Avalon") {
 		t.Fatalf("翻译结果异常: %q", got)
 	}
 }
@@ -372,7 +372,7 @@ func TestStart(t *testing.T) {
 	}
 
 	text := out.String()
-	for _, want := range []string{"Welcome to RW-HPS", "github.com/deng-rui/RW-HPS", "Server loaded"} {
+	for _, want := range []string{"Welcome to Avalon", "github.com/CoreMatch/Avalon", "Server loaded"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("启动输出缺少 %q\n实际输出:\n%s", want, text)
 		}

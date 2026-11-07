@@ -1,4 +1,4 @@
-// Package enums 对应 net.rwhps.server.game.enums
+// Package enums 对应 上游 game.enums
 package enums
 
 // GamePingActions 对应 GamePingActions 枚举 (地图 Ping 动作)

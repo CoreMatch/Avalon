@@ -1,4 +1,4 @@
-// Package algorithms 对应 net.rwhps.server.util.algorithms.HexUtils (含其依赖的 Base16Codec)
+// Package algorithms 对应 上游 util.algorithms.HexUtils (含其依赖的 Base16Codec)
 package algorithms
 
 import (

@@ -1,4 +1,4 @@
-// Package enums 对应 net.rwhps.server.game.enums
+// Package enums 对应 上游 game.enums
 package enums
 
 // GameUnitActions 对应 GameUnitActions 枚举 (单位行为模式 (开火策略))

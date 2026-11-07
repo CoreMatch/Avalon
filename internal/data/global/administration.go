@@ -1,4 +1,4 @@
-// Package global 对应 net.rwhps.server.data.global
+// Package global 对应 上游 data.global
 package global
 
 import (
@@ -18,7 +18,7 @@ type PlayerAdminInfo struct {
 	SuperAdmin bool
 }
 
-// Administration 对应 net.rwhps.server.net.Administration.
+// Administration 对应 上游 net.Administration.
 //
 // 原版把 bannedIPs/bannedIP24/bannedUUIDs/whitelist/banQQ/playerAdminData 以
 // PluginData 的 tag 5 (JVM 序列化对象) 存进 Settings.bin. Go 侧无法解码这种格式,

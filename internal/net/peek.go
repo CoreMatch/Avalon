@@ -1,4 +1,4 @@
-// Package net (Go-Server) 对应 StartMixProtocol.read 的 readerIndex 保存/恢复
+// Package net 对应 StartMixProtocol.read 的 readerIndex 保存/恢复
 package net
 
 import "net"

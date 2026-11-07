@@ -66,7 +66,7 @@ var (
 	colorEnabledMu sync.RWMutex
 )
 
-// SetColorEnabled 对应 System property rwhps.log.color
+// SetColorEnabled 对应 System property avalonhelper.log.color (helper 侧)
 func SetColorEnabled(enabled bool) {
 	colorEnabledMu.Lock()
 	defer colorEnabledMu.Unlock()

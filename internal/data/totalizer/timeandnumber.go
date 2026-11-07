@@ -1,4 +1,4 @@
-// Package totalizer 对应 net.rwhps.server.data.totalizer
+// Package totalizer 对应 上游 data.totalizer
 package totalizer
 
 import (

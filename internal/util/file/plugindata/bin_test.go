@@ -52,7 +52,7 @@ func TestRoundTrip(t *testing.T) {
 	s.SetLong("runPid", 1<<40)
 	s.SetFloat("ratio", 1.5)
 	rawBytes := []byte{0xAC, 0xED, 0x00, 0x01}
-	s.SetRaw("admin", "net.rwhps.server.net.Administration", rawBytes)
+	s.SetRaw("admin", "github.com/CoreMatch/Avalon/internal/net.Administration", rawBytes)
 	if err := s.Save(); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
@@ -80,7 +80,7 @@ func TestRoundTrip(t *testing.T) {
 		t.Errorf("float = %v", got)
 	}
 	v, ok := re.Get("admin")
-	if !ok || v.Kind != KindRaw || v.Raw.Class != "net.rwhps.server.net.Administration" || !bytes.Equal(v.Raw.Bytes, rawBytes) {
+	if !ok || v.Kind != KindRaw || v.Raw.Class != "github.com/CoreMatch/Avalon/internal/net.Administration" || !bytes.Equal(v.Raw.Bytes, rawBytes) {
 		t.Errorf("raw = %+v", v)
 	}
 }

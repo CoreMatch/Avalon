@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-// ParseLog 对应 net.rwhps.server.util.str.Parser.parseLog.
+// ParseLog 对应 上游 util.str.Parser.parseLog.
 //
 // 把 text 里的 {} 依次替换成 args; 支持 \{ \} 转义; 参数用尽时保留花括号内的原文.
 // 与 Kotlin 实现逐分支对应, 包括 "找不到闭合括号就把剩余内容原样输出" 的行为.

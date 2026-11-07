@@ -1,7 +1,7 @@
 package app_test
 
 // 分发自足性验证 (稳定壳收尾, 2026-11-05): 在干净目录组装分发形态
-// (rwhps 二进制 + avalon-helper.jar + data/gameData + 默认配置), 以独立进程实跑
+// (avalon 二进制 + avalon-helper.jar + data/gameData + 默认配置), 以独立进程实跑
 // "启动 -> 客户端直连握手 -> 控制台加 AI/开局/结算 -> 优雅退出", 证明
 // 分发包不依赖仓库环境. 同时验证退出后 Config.json 的 Go 独有键
 // (gameHelperPath) 仍在 —— 否则下次启动装不上游戏内核.
@@ -52,7 +52,7 @@ func distPrereqs(t *testing.T) (java, jar, gameData string) {
 	if info, err := os.Stat(gameData); err != nil || !info.IsDir() {
 		t.Skipf("仓库缺游戏数据: %s", gameData)
 	}
-	java = os.Getenv("RWHPS_TEST_JAVA")
+	java = os.Getenv("AVALON_HELPER_TEST_JAVA")
 	if java == "" {
 		var candidates []string
 		if home, err := os.UserHomeDir(); err == nil {
@@ -69,7 +69,7 @@ func distPrereqs(t *testing.T) (java, jar, gameData string) {
 		}
 	}
 	if java == "" {
-		t.Skip("未找到 JDK 17 的 java (设置 RWHPS_TEST_JAVA 可指定)")
+		t.Skip("未找到 JDK 17 的 java (设置 AVALON_HELPER_TEST_JAVA 可指定)")
 	}
 	return
 }
@@ -84,12 +84,12 @@ func TestDistributionSelfContained(t *testing.T) {
 	if err != nil {
 		t.Fatalf("解析模块根目录: %v", err)
 	}
-	build := exec.Command("go", "build", "-trimpath", "-o", filepath.Join(stage, "rwhps"), "./cmd/rwhps")
+	build := exec.Command("go", "build", "-trimpath", "-o", filepath.Join(stage, "avalon"), "./cmd/avalon")
 	build.Dir = goDir
 	if out, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("go build 二进制失败: %v\n%s", err, out)
 	}
-	binInfo, _ := os.Stat(filepath.Join(stage, "rwhps"))
+	binInfo, _ := os.Stat(filepath.Join(stage, "avalon"))
 	jarInfo, _ := os.Stat(jar)
 	if err := copyFile(jar, filepath.Join(stage, "avalon-helper.jar")); err != nil {
 		t.Fatalf("复制 avalon-helper.jar: %v", err)
@@ -118,7 +118,7 @@ func TestDistributionSelfContained(t *testing.T) {
 	}
 
 	// --- 2. 启动分发二进制 (干净目录, 无仓库依赖) ---
-	cmd := exec.Command(filepath.Join(stage, "rwhps"))
+	cmd := exec.Command(filepath.Join(stage, "avalon"))
 	cmd.Dir = stage
 	// 独立进程组: 超时清理时整组杀 (dist 二进制 + 它拉起的 helper JVM),
 	// 避免孙进程握着管道让 cmd.Wait 挂死.

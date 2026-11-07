@@ -1,4 +1,4 @@
-// Package log 对应 net.rwhps.server.util.log 的输出重定向部分.
+// Package log 对应 上游 util.log 的输出重定向部分.
 //
 // 原版把 System.out 换成了自己的实现, 交互式输出另走 Data.privateOut / JLine terminal.
 // Go 版不需要替换 os.Stdout, 而是把"当前输出目标"收敛成一个可替换的 io.Writer,

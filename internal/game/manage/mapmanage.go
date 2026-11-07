@@ -1,4 +1,4 @@
-// Package manage 对应 net.rwhps.server.game.manage.MapManage
+// Package manage 对应 上游 game.manage.MapManage
 package manage
 
 import (

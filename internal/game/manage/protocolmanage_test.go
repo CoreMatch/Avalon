@@ -13,13 +13,13 @@ func reset(t *testing.T) {
 	t.Cleanup(Clear)
 }
 
-// TestAddIRwHpsDefaultID customID 为空时取 netType 名字 (原版默认参数 customId = value.name)
-func TestAddIRwHpsDefaultID(t *testing.T) {
+// TestAddProtocolProviderDefaultID customID 为空时取 netType 名字 (原版默认参数 customId = value.name)
+func TestAddProtocolProviderDefaultID(t *testing.T) {
 	reset(t)
 
-	got := AddIRwHps(core.ServerProtocol, "")
+	got := AddProtocolProvider(core.ServerProtocol, "")
 	if got == nil {
-		t.Fatal("AddIRwHps 返回 nil")
+		t.Fatal("AddProtocolProvider 返回 nil")
 	}
 	if got.NetType() != core.ServerProtocol {
 		t.Fatalf("NetType() = %v, want ServerProtocol", got.NetType())
@@ -29,11 +29,11 @@ func TestAddIRwHpsDefaultID(t *testing.T) {
 	}
 }
 
-// TestAddIRwHpsCustomID 对应原版 addIRwHps(value, customId)
-func TestAddIRwHpsCustomID(t *testing.T) {
+// TestAddProtocolProviderCustomID 对应原版 addProtocolProvider(value, customId)
+func TestAddProtocolProviderCustomID(t *testing.T) {
 	reset(t)
 
-	AddIRwHps(core.RemoteControlProtocol, "MixRemoteControlDef")
+	AddProtocolProvider(core.RemoteControlProtocol, "MixRemoteControlDef")
 	if _, ok := Get("MixRemoteControlDef"); !ok {
 		t.Fatal("customID 未生效")
 	}
@@ -42,8 +42,8 @@ func TestAddIRwHpsCustomID(t *testing.T) {
 	}
 }
 
-// TestAddIRwHpsPanicsOnNull 对应原版 require(value != NullProtocol)
-func TestAddIRwHpsPanicsOnNull(t *testing.T) {
+// TestAddProtocolProviderPanicsOnNull 对应原版 require(value != NullProtocol)
+func TestAddProtocolProviderPanicsOnNull(t *testing.T) {
 	reset(t)
 
 	defer func() {
@@ -51,10 +51,10 @@ func TestAddIRwHpsPanicsOnNull(t *testing.T) {
 			t.Fatal("NullProtocol 应 panic")
 		}
 	}()
-	AddIRwHps(core.NullProtocol, "x")
+	AddProtocolProvider(core.NullProtocol, "x")
 }
 
-// TestFirstServer 对应 IRwHpsManage.firstServer: 只挑服务端协议
+// TestFirstServer 对应 ProtocolManage.firstServer: 只挑服务端协议
 func TestFirstServer(t *testing.T) {
 	reset(t)
 
@@ -63,13 +63,13 @@ func TestFirstServer(t *testing.T) {
 	}
 
 	// 先注册非服务端协议, 不应被选中
-	AddIRwHps(core.HttpProtocol, "h")
-	AddIRwHps(core.RemoteControlProtocol, "r")
+	AddProtocolProvider(core.HttpProtocol, "h")
+	AddProtocolProvider(core.RemoteControlProtocol, "r")
 	if got := FirstServer(); got != nil {
 		t.Fatalf("只有 HTTP/RCON 时 FirstServer() = %v, want nil", got.NetType())
 	}
 
-	AddIRwHps(core.ServerProtocol, "s")
+	AddProtocolProvider(core.ServerProtocol, "s")
 	got := FirstServer()
 	if got == nil {
 		t.Fatal("FirstServer() = nil, want ServerProtocol")
@@ -83,9 +83,9 @@ func TestFirstServer(t *testing.T) {
 func TestAllKeepsOrder(t *testing.T) {
 	reset(t)
 
-	AddIRwHps(core.ServerProtocol, "a")
-	AddIRwHps(core.RelayProtocol, "b")
-	AddIRwHps(core.HttpProtocol, "c")
+	AddProtocolProvider(core.ServerProtocol, "a")
+	AddProtocolProvider(core.RelayProtocol, "b")
+	AddProtocolProvider(core.HttpProtocol, "c")
 
 	all := All()
 	if len(all) != 3 {
@@ -99,7 +99,7 @@ func TestAllKeepsOrder(t *testing.T) {
 	}
 
 	// 覆盖同名 key 不改变顺序
-	AddIRwHps(core.ServerProtocol, "a")
+	AddProtocolProvider(core.ServerProtocol, "a")
 	if got := len(All()); got != 3 {
 		t.Fatalf("覆盖后 All() 长度 = %d, want 3", got)
 	}
@@ -110,19 +110,19 @@ func TestSetProvider(t *testing.T) {
 	reset(t)
 
 	called := 0
-	SetProvider(func(netType core.NetType) core.IRwHps {
+	SetProvider(func(netType core.NetType) core.IProtocolProvider {
 		called++
-		return core.NewNullRwHps(netType)
+		return core.NewNullProtocolProvider(netType)
 	})
-	AddIRwHps(core.ServerProtocol, "p")
+	AddProtocolProvider(core.ServerProtocol, "p")
 	if called != 1 {
 		t.Fatalf("provider 调用次数 = %d, want 1", called)
 	}
 
 	// 传 nil 恢复默认工厂
 	SetProvider(nil)
-	if got := AddIRwHps(core.ServerProtocol, "q"); got == nil {
-		t.Fatal("恢复默认工厂后 AddIRwHps 返回 nil")
+	if got := AddProtocolProvider(core.ServerProtocol, "q"); got == nil {
+		t.Fatal("恢复默认工厂后 AddProtocolProvider 返回 nil")
 	}
 	if called != 1 {
 		t.Fatalf("恢复默认后不应再调用自定义 provider, called=%d", called)

@@ -3,8 +3,8 @@ package relay
 // RelayClientCommands 单测.
 //
 // 连接与房间全部经 realize 的导出 API 构建 (握手解析 + RelayDirectInspection),
-// 不触碰私有字段; 消息回送经 manage.SetProvider 注入假 IRwHps, 让
-// net.NetStaticData.RwHps().AbstractNetPacket() 把消息原文直接放进包字节,
+// 不触碰私有字段; 消息回送经 manage.SetProvider 注入假 IProtocolProvider, 让
+// net.NetStaticData.ProtocolProvider().AbstractNetPacket() 把消息原文直接放进包字节,
 // 断言不必解析真实聊天包布局.
 
 import (
@@ -127,21 +127,23 @@ func (fakePacketBuilder) GetExitPacket() (*packet.Packet, error) {
 	return packet.NewEmptyPacket(), nil
 }
 
-type fakeRwHps struct{}
+type fakeProtocolProvider struct{}
 
-func (fakeRwHps) NetType() core.NetType                          { return core.RelayProtocol }
-func (fakeRwHps) TypeConnect() core.TypeConnect                  { return nil }
-func (fakeRwHps) AbstractNetPacket() netpacket.AbstractNetPacket { return fakePacketBuilder{} }
+func (fakeProtocolProvider) NetType() core.NetType         { return core.RelayProtocol }
+func (fakeProtocolProvider) TypeConnect() core.TypeConnect { return nil }
+func (fakeProtocolProvider) AbstractNetPacket() netpacket.AbstractNetPacket {
+	return fakePacketBuilder{}
+}
 
-// installFakeRwHps 让 net.NetStaticData.RwHps() 返回假实现 (sendMsg 的消费者)
-func installFakeRwHps(t *testing.T) {
+// installFakeProtocolProvider 让 net.NetStaticData.ProtocolProvider() 返回假实现 (sendMsg 的消费者)
+func installFakeProtocolProvider(t *testing.T) {
 	t.Helper()
-	manage.SetProvider(func(core.NetType) core.IRwHps { return fakeRwHps{} })
-	manage.AddIRwHps(core.RelayProtocol, "")
-	net.NetStaticData.ResetRwHps()
+	manage.SetProvider(func(core.NetType) core.IProtocolProvider { return fakeProtocolProvider{} })
+	manage.AddProtocolProvider(core.RelayProtocol, "")
+	net.NetStaticData.ResetProtocolProvider()
 	t.Cleanup(func() {
 		manage.Clear()
-		net.NetStaticData.ResetRwHps()
+		net.NetStaticData.ResetProtocolProvider()
 	})
 }
 
@@ -158,7 +160,7 @@ func installRelayCommand(t *testing.T) *cmd.Handler {
 func newRelay(t *testing.T, ip string) (*realize.GameVersionRelay, *cmdCaptureWriter) {
 	t.Helper()
 	w := &cmdCaptureWriter{}
-	ca := core.NewUDPConnectionAgreement(w, fakeRwHps{}, ip+":9999", 5123)
+	ca := core.NewUDPConnectionAgreement(w, fakeProtocolProvider{}, ip+":9999", 5123)
 	return realize.NewGameVersionRelay(ca), w
 }
 
@@ -241,7 +243,7 @@ func TestRegisterRelayCommandsRegistersClientSet(t *testing.T) {
 
 // TestRelayCmdHelp 对应 help: 列出全部命令
 func TestRelayCmdHelp(t *testing.T) {
-	installFakeRwHps(t)
+	installFakeProtocolProvider(t)
 	handler := installRelayCommand(t)
 	RegisterRelayCommands(cmd.NewHandler(""))
 
@@ -264,7 +266,7 @@ func TestRelayCmdHelp(t *testing.T) {
 //
 // "aabbcc" -> BigInteger(补码) = -5588020 -> 取反 5588020
 func TestRelayCmdMyId(t *testing.T) {
-	installFakeRwHps(t)
+	installFakeProtocolProvider(t)
 	handler := installRelayCommand(t)
 	RegisterRelayCommands(cmd.NewHandler(""))
 
@@ -280,7 +282,7 @@ func TestRelayCmdMyId(t *testing.T) {
 
 // TestRelayCmdSync 对应 sync: 房主切换重连开关
 func TestRelayCmdSync(t *testing.T) {
-	installFakeRwHps(t)
+	installFakeProtocolProvider(t)
 	handler := installRelayCommand(t)
 	RegisterRelayCommands(cmd.NewHandler(""))
 
@@ -307,7 +309,7 @@ func TestRelayCmdSync(t *testing.T) {
 // TestRelayCmdSyncNonAdminSilent 对应 sync 的 isAdmin(con, false):
 // 非房主使用时静默拒绝 (不发消息).
 func TestRelayCmdSyncNonAdminSilent(t *testing.T) {
-	installFakeRwHps(t)
+	installFakeProtocolProvider(t)
 	handler := installRelayCommand(t)
 	RegisterRelayCommands(cmd.NewHandler(""))
 
@@ -327,7 +329,7 @@ func TestRelayCmdSyncNonAdminSilent(t *testing.T) {
 
 // TestRelayCmdNonAdminGetsNoAdmin 对应 isAdmin 的 err.noAdmin 提示
 func TestRelayCmdNonAdminGetsNoAdmin(t *testing.T) {
-	installFakeRwHps(t)
+	installFakeProtocolProvider(t)
 	handler := installRelayCommand(t)
 	RegisterRelayCommands(cmd.NewHandler(""))
 
@@ -347,7 +349,7 @@ func TestRelayCmdNonAdminGetsNoAdmin(t *testing.T) {
 
 // TestRelayCmdAllMute 对应 allmute: 房主切换全员禁言
 func TestRelayCmdAllMute(t *testing.T) {
-	installFakeRwHps(t)
+	installFakeProtocolProvider(t)
 	handler := installRelayCommand(t)
 	RegisterRelayCommands(cmd.NewHandler(""))
 
@@ -365,7 +367,7 @@ func TestRelayCmdAllMute(t *testing.T) {
 
 // TestRelayCmdKickx 对应 kickx: 踢出目标并记录 60 秒踢出时间
 func TestRelayCmdKickx(t *testing.T) {
-	installFakeRwHps(t)
+	installFakeProtocolProvider(t)
 	handler := installRelayCommand(t)
 	RegisterRelayCommands(cmd.NewHandler(""))
 
@@ -393,7 +395,7 @@ func TestRelayCmdKickx(t *testing.T) {
 // 仍可踢人. (开局超过 10 分钟的拒绝分支依赖私有 startGameTime 的时效,
 // 无法在单测内快进, 由代码走查覆盖.)
 func TestRelayCmdKickxRightAfterStart(t *testing.T) {
-	installFakeRwHps(t)
+	installFakeProtocolProvider(t)
 	handler := installRelayCommand(t)
 	RegisterRelayCommands(cmd.NewHandler(""))
 
@@ -412,7 +414,7 @@ func TestRelayCmdKickxRightAfterStart(t *testing.T) {
 
 // TestRelayCmdBan 对应 ban: 永久踢出并封禁 IP
 func TestRelayCmdBan(t *testing.T) {
-	installFakeRwHps(t)
+	installFakeProtocolProvider(t)
 	handler := installRelayCommand(t)
 	RegisterRelayCommands(cmd.NewHandler(""))
 
@@ -437,7 +439,7 @@ func TestRelayCmdBan(t *testing.T) {
 
 // TestRelayCmdRpNotStarted 对应 rp: 房间未开始时拒绝
 func TestRelayCmdRpNotStarted(t *testing.T) {
-	installFakeRwHps(t)
+	installFakeProtocolProvider(t)
 	handler := installRelayCommand(t)
 	RegisterRelayCommands(cmd.NewHandler(""))
 
@@ -461,7 +463,7 @@ func TestRelayCmdRpNotStarted(t *testing.T) {
 // (RelayClientCommands.kt rp), 恒不命中, 在线目标也会被标记取代.
 // 按作者决定改用 conTg[0] (UUID) 后, 在线目标应被拒绝 (DECISIONS D-12).
 func TestRelayCmdRpOnlineTarget(t *testing.T) {
-	installFakeRwHps(t)
+	installFakeProtocolProvider(t)
 	handler := installRelayCommand(t)
 	RegisterRelayCommands(cmd.NewHandler(""))
 
@@ -497,7 +499,7 @@ func joinPlayerForRp(t *testing.T, host *realize.GameVersionRelay) *realize.Game
 // TestRelayCmdRpOfflineTarget 对应 rp: 开局后离线的目标可被取代,
 // 其 UUID-Hex 记入 replacePlayerHex.
 func TestRelayCmdRpOfflineTarget(t *testing.T) {
-	installFakeRwHps(t)
+	installFakeProtocolProvider(t)
 	handler := installRelayCommand(t)
 	RegisterRelayCommands(cmd.NewHandler(""))
 

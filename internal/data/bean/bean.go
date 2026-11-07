@@ -1,4 +1,4 @@
-// Package bean 对应 net.rwhps.server.data.bean 下的配置类
+// Package bean 对应 上游 data.bean 下的配置类
 package bean
 
 import (

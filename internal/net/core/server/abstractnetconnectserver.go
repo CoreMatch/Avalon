@@ -67,13 +67,13 @@ type AbstractNetConnectServer interface {
 
 	// SendSystemMessage 对应 sendSystemMessage(msg)
 	//
-	// 原实现: sendPacket(rwHps.abstractNetPacket.getSystemMessagePacket(msg))
+	// 原实现: sendPacket(protocolProvider.abstractNetPacket.getSystemMessagePacket(msg))
 	// 编码器一侧已移植为 netpacket.AbstractNetPacket.GetSystemMessagePacket.
 	SendSystemMessage(msg string) error
 
 	// SendChatMessage 对应 sendChatMessage(msg, sendBy, team)
 	//
-	// 原实现: sendPacket(rwHps.abstractNetPacket.getChatMessagePacket(msg, sendBy, team))
+	// 原实现: sendPacket(protocolProvider.abstractNetPacket.getChatMessagePacket(msg, sendBy, team))
 	SendChatMessage(msg, sendBy string, team int) error
 
 	// SendKick 对应 sendKick(reason)

@@ -109,7 +109,7 @@ func TestAuthCookieFlow(t *testing.T) {
 	if c.status != nethttp.StatusOK {
 		t.Fatalf("正确密码应 200, got %d", c.status)
 	}
-	if c.body != "Hi RW-HPS !" {
+	if c.body != "Hi Avalon !" {
 		t.Fatalf("响应体 = %q", c.body)
 	}
 	cookies := c.headers["Set-Cookie"]

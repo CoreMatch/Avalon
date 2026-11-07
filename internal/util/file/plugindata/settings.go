@@ -1,4 +1,4 @@
-// Package plugindata 对应 net.rwhps.server.util.file.plugin.PluginData / AbstractSerializableData.
+// Package plugindata 对应 上游 util.file.plugin.PluginData / AbstractSerializableData.
 //
 // 原版用它持久化 data/Settings.bin (服务端身份、EULA 版本、管理员数据等).
 // 这里只实现 Bin 格式 (gzip + key/tag/value), 因为它是唯一被 Settings.bin 使用的格式;

@@ -91,7 +91,7 @@ func setup(t *testing.T) (*UpList, *fakeHTTP, *fakeHTTP) {
 		room.SetDefault(nil)
 		resetDefault()
 		manage.Clear()
-		net.NetStaticData.ResetRwHps()
+		net.NetStaticData.ResetProtocolProvider()
 		global.Core, global.Config, global.ConfigServer = oldCore, oldCfg, oldCfgS
 		global.URLData, global.I18NBundle, global.I18NBundleMap = oldURL, oldBundle, oldBundleMap
 	})
@@ -327,35 +327,35 @@ func (f *fakeTypeConnect) SupportedVersionBeta() bool                           
 func (f *fakeTypeConnect) SupportedVersionGame() string                              { return f.game }
 func (f *fakeTypeConnect) SupportedVersionInt() int                                  { return f.gameInt }
 
-// fakeRwHps 实现 core.IRwHps
-type fakeRwHps struct {
+// fakeProtocolProvider 实现 core.IProtocolProvider
+type fakeProtocolProvider struct {
 	nt core.NetType
 	tc core.TypeConnect
 }
 
-func (f *fakeRwHps) NetType() core.NetType                          { return f.nt }
-func (f *fakeRwHps) TypeConnect() core.TypeConnect                  { return f.tc }
-func (f *fakeRwHps) AbstractNetPacket() netpacket.AbstractNetPacket { return nil }
+func (f *fakeProtocolProvider) NetType() core.NetType                          { return f.nt }
+func (f *fakeProtocolProvider) TypeConnect() core.TypeConnect                  { return f.tc }
+func (f *fakeProtocolProvider) AbstractNetPacket() netpacket.AbstractNetPacket { return nil }
 
-// registerFakeRwHps 把一个假协议实现注册成 firstServer
-func registerFakeRwHps(t *testing.T, nt core.NetType, tc core.TypeConnect) {
+// registerFakeProtocolProvider 把一个假协议实现注册成 firstServer
+func registerFakeProtocolProvider(t *testing.T, nt core.NetType, tc core.TypeConnect) {
 	t.Helper()
-	manage.SetProvider(func(core.NetType) core.IRwHps { return &fakeRwHps{nt: nt, tc: tc} })
-	manage.AddIRwHps(nt, "uplist-test")
-	net.NetStaticData.ResetRwHps()
+	manage.SetProvider(func(core.NetType) core.IProtocolProvider { return &fakeProtocolProvider{nt: nt, tc: tc} })
+	manage.AddProtocolProvider(nt, "uplist-test")
+	net.NetStaticData.ResetProtocolProvider()
 }
 
 // TestResolveVersion Server 协议族取协议实现体的版本, 其余用 1.15-Other 默认值
 func TestResolveVersion(t *testing.T) {
 	u, _, _ := setup(t)
 
-	registerFakeRwHps(t, core.ServerProtocol, &fakeTypeConnect{beta: true, game: "1.16", gameInt: 180})
+	registerFakeProtocolProvider(t, core.ServerProtocol, &fakeTypeConnect{beta: true, game: "1.16", gameInt: 180})
 	u.resolveVersion()
 	if !u.versionBeta || u.versionGame != "1.16" || u.versionGameInt != 180 {
 		t.Fatalf("Server 协议族应取协议实现版本: %v %v %v", u.versionBeta, u.versionGame, u.versionGameInt)
 	}
 
-	registerFakeRwHps(t, core.RelayProtocol, nil)
+	registerFakeProtocolProvider(t, core.RelayProtocol, nil)
 	u.resolveVersion()
 	if u.versionBeta || u.versionGame != "1.15-Other" || u.versionGameInt != 176 {
 		t.Fatalf("非 Server 协议族应用默认值: %v %v %v", u.versionBeta, u.versionGame, u.versionGameInt)
@@ -807,7 +807,7 @@ func TestUplistConsoleAddEnabled(t *testing.T) {
 	newRoom(t)
 	global.Config.UplistEnable = true
 
-	registerFakeRwHps(t, core.ServerProtocol, &fakeTypeConnect{beta: false, game: "1.15", gameInt: 176})
+	registerFakeProtocolProvider(t, core.ServerProtocol, &fakeTypeConnect{beta: false, game: "1.15", gameInt: 176})
 
 	global.URLData = load.NewIniFromBytes([]byte("Get.Api.UpListData.Bak = http://bak.example/uplist"))
 	coreHTTP.respond = func(string, string) string { return upListJSON() }

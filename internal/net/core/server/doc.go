@@ -1,4 +1,4 @@
-// Package server 对应 net.rwhps.server.net.core.server
+// Package server 对应 上游 net.core.server
 //
 // 原版这个包下有两个文件: AbstractNetConnectServer.kt 与 AbstractNetConnectData.kt,
 // 外加 packet/ 子包 (已移植为本包下的 netpacket).

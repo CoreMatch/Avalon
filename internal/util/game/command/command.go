@@ -1,4 +1,4 @@
-// Package command 对应 net.rwhps.server.util.game.command.CommandHandler
+// Package command 对应 上游 util.game.command.CommandHandler
 package command
 
 import (

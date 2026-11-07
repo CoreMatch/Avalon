@@ -1,4 +1,4 @@
-// Package temp 对应 net.rwhps.server.data.temp
+// Package temp 对应 上游 data.temp
 package temp
 
 import "github.com/CoreMatch/Avalon/internal/data/totalizer"

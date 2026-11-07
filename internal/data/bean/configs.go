@@ -128,7 +128,7 @@ func NewCoreConfig() CoreConfig {
 		Log:             "WARN",
 
 		Port:         5123,
-		ServerName:   "RW-HPS",
+		ServerName:   "Avalon",
 		Subtitle:     "",
 		AutoUpList:   false,
 		UplistEnable: true,
@@ -148,7 +148,7 @@ func NewCoreConfig() CoreConfig {
 		GameHelperArgs: nil,
 
 		CascadeEnable:             false,
-		CascadeBackendID:          "rwhps-backend",
+		CascadeBackendID:          "avalon-backend",
 		CascadeRoomCode:           "",
 		CascadeTrustMode:          "open",
 		TrustedCascadeIPs:         nil,

@@ -1,4 +1,4 @@
-// Package console 对应 net.rwhps.server.util.console (JLine 的最小替代)
+// Package console 对应 上游 util.console (JLine 的最小替代)
 //
 // 原版用 JLine3 的 LineReader: 带 Tab 补全、行内编辑, 并且能 printAbove 把日志
 // 打印到当前提示符上方而不打断输入. Go 版只保留交互所需的最小能力:

@@ -4,7 +4,7 @@ package realize
 // 与关键成员行为.
 //
 // 手法参照 gameserver_test.go: captureWriter 假传输层 (走 UDP 接缝, 不起真实
-// TCP), fakeRwHps 提供包构造器. 每个测试结束前把创建的房间 Re() 掉,
+// TCP), fakeProtocolProvider 提供包构造器. 每个测试结束前把创建的房间 Re() 掉,
 // 避免污染 room 包的全局房间表.
 
 import (
@@ -91,18 +91,20 @@ func (c *captureWriter) lastOfType(t packettype.PacketType) *packet.Packet {
 	return last
 }
 
-// fakeRwHps 为连接提供包构造器 (对应 NetStaticData.RwHps 的测试替身)
-type fakeRwHps struct{}
+// fakeProtocolProvider 为连接提供包构造器 (对应 NetStaticData.ProtocolProvider 的测试替身)
+type fakeProtocolProvider struct{}
 
-func (fakeRwHps) NetType() core.NetType                          { return core.RelayProtocol }
-func (fakeRwHps) TypeConnect() core.TypeConnect                  { return nil }
-func (fakeRwHps) AbstractNetPacket() netpacket.AbstractNetPacket { return NewGameVersionPacket() }
+func (fakeProtocolProvider) NetType() core.NetType         { return core.RelayProtocol }
+func (fakeProtocolProvider) TypeConnect() core.TypeConnect { return nil }
+func (fakeProtocolProvider) AbstractNetPacket() netpacket.AbstractNetPacket {
+	return NewGameVersionPacket()
+}
 
 // newTestRelay 构造绑定假传输层的 GameVersionRelay
 func newTestRelay(t *testing.T, ip string) (*GameVersionRelay, *captureWriter) {
 	t.Helper()
 	w := &captureWriter{}
-	ca := core.NewUDPConnectionAgreement(w, fakeRwHps{}, ip+":9999", 5123)
+	ca := core.NewUDPConnectionAgreement(w, fakeProtocolProvider{}, ip+":9999", 5123)
 	return NewGameVersionRelay(ca), w
 }
 

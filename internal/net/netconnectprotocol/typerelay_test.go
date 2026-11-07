@@ -83,7 +83,7 @@ func (c *relayCaptureWriter) lastOfType(t packettype.PacketType) *packet.Packet 
 func newRelayConnect(t *testing.T, ip string) (*TypeRelay, *realize.GameVersionRelay, *relayCaptureWriter) {
 	t.Helper()
 	w := &relayCaptureWriter{}
-	ca := core.NewUDPConnectionAgreement(w, NewRelayRwHps(core.RelayProtocol), ip+":9999", 5123)
+	ca := core.NewUDPConnectionAgreement(w, NewRelayProtocolProvider(core.RelayProtocol), ip+":9999", 5123)
 	con := realize.NewGameVersionRelay(ca)
 	return NewTypeRelay(con), con, w
 }
@@ -553,7 +553,7 @@ func TestRelayTypeConnectFactoryAndVersion(t *testing.T) {
 	}
 
 	w := &relayCaptureWriter{}
-	ca := core.NewUDPConnectionAgreement(w, NewRelayRwHps(core.RelayProtocol), "127.0.0.1:9999", 5123)
+	ca := core.NewUDPConnectionAgreement(w, NewRelayProtocolProvider(core.RelayProtocol), "127.0.0.1:9999", 5123)
 	tc := factory.GetTypeConnect(ca)
 
 	if tc == nil {
@@ -567,9 +567,9 @@ func TestRelayTypeConnectFactoryAndVersion(t *testing.T) {
 	}
 }
 
-// TestRelayRwHpsShape RelayRwHps 的三件套装配
-func TestRelayRwHpsShape(t *testing.T) {
-	rw := NewRelayRwHps(core.RelayProtocol)
+// TestRelayProtocolProviderShape RelayProtocolProvider 的三件套装配
+func TestRelayProtocolProviderShape(t *testing.T) {
+	rw := NewRelayProtocolProvider(core.RelayProtocol)
 
 	if rw.NetType() != core.RelayProtocol {
 		t.Fatalf("netType = %v", rw.NetType())

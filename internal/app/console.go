@@ -1,4 +1,4 @@
-// Package app 对应 net.rwhps.server.Main.inputMonitor.
+// Package app 对应 上游 Main.inputMonitor.
 package app
 
 import (

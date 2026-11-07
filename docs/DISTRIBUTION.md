@@ -6,10 +6,10 @@
 ## 包内容
 
 ```
-rwhps-<version>-linux-<arch>/
-├── rwhps                  # Go 服务端二进制 (运行时主体: 网关/房间/协议/控制台)
+avalon-<version>-linux-<arch>/
+├── avalon                 # Go 服务端二进制 (运行时主体: 网关/房间/协议/控制台)
 ├── avalon-helper.jar             # Java 引擎壳 (fat jar, 由 Go 侧按需自动拉起)
-├── start.sh               # 启动脚本 (cd 到脚本目录并 exec ./rwhps)
+├── start.sh               # 启动脚本 (cd 到脚本目录并 exec ./avalon)
 ├── DISTRIBUTION.md        # 本文档
 └── data/
     ├── Config.json        # 核心配置 (端口/日志/helper 路径, 见下)
@@ -30,9 +30,9 @@ rwhps-<version>-linux-<arch>/
 ## 启动步骤
 
 ```sh
-tar xzf rwhps-<version>-linux-<arch>.tar.gz
-cd rwhps-<version>-linux-<arch>
-./start.sh            # 或直接 ./rwhps
+tar xzf avalon-<version>-linux-<arch>.tar.gz
+cd avalon-<version>-linux-<arch>
+./start.sh            # 或直接 ./avalon
 ```
 
 首次启动会显示 EULA 确认（输入 `Yes` 同意）。随后自动执行默认启动命令
@@ -59,7 +59,7 @@ cd rwhps-<version>-linux-<arch>
 配置与游戏产物都在 `data/` 目录，升级只替换可执行物：
 
 1. 停服（控制台 `exit`，或 SIGTERM——**不要 SIGKILL**，退出路径含配置保存）；
-2. 用新包覆盖 `rwhps` 与 `avalon-helper.jar` 两个文件；
+2. 用新包覆盖 `avalon` 与 `avalon-helper.jar` 两个文件；
 3. **保留整个 `data/` 目录**（Config.json / ConfigServer.json / Settings.bin /
    replays 都在里面）；
 4. 重新启动。
@@ -80,7 +80,7 @@ cd rwhps-<version>-linux-<arch>
 JAVA_HOME=<jdk17> ./gradlew :Helper:jar
 
 # Avalon 仓库根目录
-AVALON_HELPER_REPO=/path/to/Avalon-Helper ./dist/build-dist.sh   # 产出 dist/out/rwhps-*.tar.gz
+AVALON_HELPER_REPO=/path/to/Avalon-Helper ./dist/build-dist.sh   # 产出 dist/out/avalon-*.tar.gz
 ```
 
 ## 验收记录

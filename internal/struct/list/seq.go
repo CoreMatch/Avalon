@@ -1,4 +1,4 @@
-// Package list 对应 net.rwhps.server.struct.list
+// Package list 对应 上游 struct.list
 package list
 
 import (

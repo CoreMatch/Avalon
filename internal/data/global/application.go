@@ -1,4 +1,4 @@
-// Package global 对应 net.rwhps.server.data.global
+// Package global 对应 上游 data.global
 package global
 
 import (
@@ -22,7 +22,7 @@ var Core *Application
 // CloseServerHook 对应 NetServer.closeServer(), 由 app 层注入
 var CloseServerHook = func() {}
 
-// Application 对应 net.rwhps.server.core.Application
+// Application 对应 上游 core.Application
 type Application struct {
 	// Settings 对应 settings (data/Settings.bin)
 	Settings *plugindata.Settings
@@ -60,7 +60,7 @@ func NewApplication() *Application {
 		Settings: settings,
 		Admin:    NewAdministration(),
 		HTTP:     manage.NewHttpRequestManage(UserAgent),
-		RWHTTP:   manage.NewHttpRequestManage("RW-HPS " + ServerCoreVersion),
+		RWHTTP:   manage.NewHttpRequestManage("Avalon " + ServerCoreVersion),
 	}
 
 	a.ServerConnectUUID = settings.GetString("serverConnectUuid", NewUUID)

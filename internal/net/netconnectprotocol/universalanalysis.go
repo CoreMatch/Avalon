@@ -1,5 +1,5 @@
-// Package netconnectprotocol 对应 net.rwhps.server.net.netconnectprotocol 的顶层部分
-// (UniversalAnalysisOfGamePackages; TypeRelay / RwHps / FakeRwHps 在后续批次)
+// Package netconnectprotocol 对应 上游 net.netconnectprotocol 的顶层部分
+// (UniversalAnalysisOfGamePackages; TypeRelay / ProtocolProvider / FakeProtocolProvider 在后续批次)
 package netconnectprotocol
 
 import (

@@ -1,4 +1,4 @@
-// Package server 对应 net.rwhps.server.net.netconnectprotocol.internal.server
+// Package server 对应 上游 net.netconnectprotocol.internal.server
 // (Kotlin 侧以 @file:JvmName("ServerPacket") @file:JvmMultifileClass 聚合, 此处按函数语义拆分文件)
 package server
 

@@ -1,4 +1,4 @@
-// Package httpapi 对应上游 plugin/beta/http/ (RwHpsWebApiMain 插件, 约 556 行).
+// Package httpapi 对应上游 plugin/beta/http/ (ProtocolProviderWebApiMain 插件, 约 556 行).
 //
 // 上游是插件体系加载的 Web 控制 API 插件 (HttpApi): Cookie 鉴权 + 只读状态查询
 // (SystemInfo/GameInfo/GameOver 结算) + 命令执行 (ServerCommand/ClientCommand)

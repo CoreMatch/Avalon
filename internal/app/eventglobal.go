@@ -1,4 +1,4 @@
-// Package app 对应 net.rwhps.server.game.EventGlobal 的全局事件注册.
+// Package app 对应 上游 game.EventGlobal 的全局事件注册.
 package app
 
 import (

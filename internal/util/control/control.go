@@ -1,4 +1,4 @@
-// Package control 对应 net.rwhps.server.func.Control
+// Package control 对应 上游 func.Control
 package control
 
 // EventNext 决定包/事件是否继续传递

@@ -25,7 +25,7 @@ func TestCallTimeTaskMetadataMatchesOriginal(t *testing.T) {
 		ServerUploadDataCheckTimeTask: {"ServerUploadData_CheckTimeTask", "[RCN]", "超时"},
 		RelayRoomCheckTimeTask:        {"RelayRoom_CheckTimeTask", "[RCN]", "房间超时机制"},
 		ServerStatusUpdate:            {"ServerStatusUpdate", "[RCN]", "状态更新"},
-		ServerUpStatistics:            {"ServerUpStatistics", "[RW-HPS]", "统计数据更新"},
+		ServerUpStatistics:            {"ServerUpStatistics", "[Avalon]", "统计数据更新"},
 	}
 
 	if len(want) != len(callTimeTaskNames) {

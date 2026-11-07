@@ -1,4 +1,4 @@
-// Package realize 对应 net.rwhps.server.net.netconnectprotocol.realize
+// Package realize 对应 上游 net.netconnectprotocol.realize
 package realize
 
 import (

@@ -194,9 +194,9 @@ func isAdmin(con *realize.GameVersionRelay, sendMsgFlag bool) bool {
 
 // sendMsg 对应 private sendMsg(con, msg)
 //
-// 上游: con.sendPacket(NetStaticData.RwHps.abstractNetPacket.getChatMessagePacket(msg, "RELAY-CN", 5))
+// 上游: con.sendPacket(NetStaticData.ProtocolProvider.abstractNetPacket.getChatMessagePacket(msg, "RELAY-CN", 5))
 func sendMsg(con *realize.GameVersionRelay, msg string) {
-	rw := net.NetStaticData.RwHps()
+	rw := net.NetStaticData.ProtocolProvider()
 	if rw == nil || rw.AbstractNetPacket() == nil {
 		return
 	}

@@ -1,8 +1,8 @@
 #!/bin/bash
 # build-dist.sh —— 构建可独立运行的分发包 (Linux 优先)
 #
-# 产物: dist/out/rwhps-<git短hash>-linux-<arch>.tar.gz
-# 内容: rwhps 二进制 + avalon-helper.jar + data/gameData + 默认配置 + 启动脚本
+# 产物: dist/out/avalon-<git短hash>-linux-<arch>.tar.gz
+# 内容: avalon 二进制 + avalon-helper.jar + data/gameData + 默认配置 + 启动脚本
 #
 # 前置:
 #   - 本仓 (Avalon): Go 二进制
@@ -18,14 +18,14 @@ case $ARCH in
     x86_64) ARCH=amd64 ;;
     aarch64) ARCH=arm64 ;;
 esac
-NAME=rwhps-$VERSION-linux-$ARCH
+NAME=avalon-$VERSION-linux-$ARCH
 STAGE=$OUT/$NAME
 
 rm -rf "$STAGE"
 mkdir -p "$STAGE/data"
 
 # 1. Go 二进制 (运行时主体)
-(cd "$REPO" && go build -trimpath -o "$STAGE/rwhps" ./cmd/rwhps)
+(cd "$REPO" && go build -trimpath -o "$STAGE/avalon" ./cmd/avalon)
 
 # 2. avalon-helper.jar (Java 引擎壳, 来自 Avalon-Helper 仓, 需预先 ./gradlew :Helper:jar)
 if [ -z "$AVALON_HELPER_REPO" ]; then
@@ -47,7 +47,7 @@ cp -r "$AVALON_HELPER_REPO/data/gameData" "$STAGE/data/gameData"
 cp "$REPO/dist/Config.json" "$STAGE/data/Config.json"
 cp "$REPO/dist/ConfigServer.json" "$STAGE/data/ConfigServer.json"
 cp "$REPO/dist/start.sh" "$STAGE/start.sh"
-chmod +x "$STAGE/start.sh" "$STAGE/rwhps"
+chmod +x "$STAGE/start.sh" "$STAGE/avalon"
 cp "$REPO/docs/DISTRIBUTION.md" "$STAGE/DISTRIBUTION.md"
 
 # 5. 打包

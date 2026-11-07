@@ -8,7 +8,7 @@ import (
 	netpacket "github.com/CoreMatch/Avalon/internal/net/core/server/netpacket"
 )
 
-// fakeProtocol 实现 core.IRwHps
+// fakeProtocol 实现 core.IProtocolProvider
 type fakeProtocol struct{ t core.NetType }
 
 func (f *fakeProtocol) NetType() core.NetType                          { return f.t }
@@ -17,7 +17,7 @@ func (f *fakeProtocol) AbstractNetPacket() netpacket.AbstractNetPacket { return 
 
 // TestKey 拼接规则与原版一致 (Kind + Name)
 func TestKey(t *testing.T) {
-	if got := Key(KindIRwHps, "ServerProtocol"); got != "IRwHpsServerProtocol" {
+	if got := Key(KindIProtocolProvider, "ServerProtocol"); got != "IProtocolProviderServerProtocol" {
 		t.Errorf("Key = %q", got)
 	}
 }
@@ -28,22 +28,22 @@ func TestRegisterLookup(t *testing.T) {
 	a := &fakeProtocol{t: core.HttpProtocol}
 	b := &fakeProtocol{t: core.RemoteControlProtocol}
 
-	if err := r.RegisterDefault(KindIRwHps, "HttpProtocol", a); err != nil {
+	if err := r.RegisterDefault(KindIProtocolProvider, "HttpProtocol", a); err != nil {
 		t.Fatalf("register: %v", err)
 	}
 	// 重复注册默认不覆盖 (对应 cover=false)
-	if err := r.RegisterDefault(KindIRwHps, "HttpProtocol", b); err != nil {
+	if err := r.RegisterDefault(KindIProtocolProvider, "HttpProtocol", b); err != nil {
 		t.Fatalf("register again: %v", err)
 	}
-	v, ok := r.Lookup(KindIRwHps, "HttpProtocol")
+	v, ok := r.Lookup(KindIProtocolProvider, "HttpProtocol")
 	if !ok || v.(*fakeProtocol) != a {
 		t.Error("first registration should win")
 	}
 	// cover=true 覆盖
-	if err := r.Register(KindIRwHps, "HttpProtocol", b, true); err != nil {
+	if err := r.Register(KindIProtocolProvider, "HttpProtocol", b, true); err != nil {
 		t.Fatalf("cover: %v", err)
 	}
-	v, _ = r.Lookup(KindIRwHps, "HttpProtocol")
+	v, _ = r.Lookup(KindIProtocolProvider, "HttpProtocol")
 	if v.(*fakeProtocol) != b {
 		t.Error("cover should replace")
 	}
@@ -66,10 +66,10 @@ func TestLookupMissing(t *testing.T) {
 func TestTypeMismatch(t *testing.T) {
 	r := New()
 	var wrong *ErrTypeMismatch
-	if err := r.RegisterDefault(KindIRwHps, "X", "not a protocol"); !errors.As(err, &wrong) {
+	if err := r.RegisterDefault(KindIProtocolProvider, "X", "not a protocol"); !errors.As(err, &wrong) {
 		t.Errorf("err = %v, want ErrTypeMismatch", err)
 	}
-	if err := r.RegisterDefault(KindIRwHps, "X", nil); !errors.As(err, &wrong) {
+	if err := r.RegisterDefault(KindIProtocolProvider, "X", nil); !errors.As(err, &wrong) {
 		t.Errorf("nil err = %v, want ErrTypeMismatch", err)
 	}
 }
@@ -77,10 +77,10 @@ func TestTypeMismatch(t *testing.T) {
 // TestNames 按 Kind 前缀列出
 func TestNames(t *testing.T) {
 	r := New()
-	_ = r.RegisterDefault(KindIRwHps, "A", &fakeProtocol{})
-	_ = r.RegisterDefault(KindIRwHps, "B", &fakeProtocol{})
+	_ = r.RegisterDefault(KindIProtocolProvider, "A", &fakeProtocol{})
+	_ = r.RegisterDefault(KindIProtocolProvider, "B", &fakeProtocol{})
 	_ = r.RegisterDefault(KindCore, "C", "x")
-	names := r.Names(KindIRwHps)
+	names := r.Names(KindIProtocolProvider)
 	if len(names) != 2 {
 		t.Errorf("names = %v", names)
 	}

@@ -187,9 +187,9 @@ func (g *GameVersionServer) SupportedVersionInt() int { return supportedVersionI
 // Version 对应 version: "1.15 RW-HPS"
 func (g *GameVersionServer) Version() string { return serverVersionString }
 
-// netPacket 取包构造器, 对应 rwHps.abstractNetPacket
+// netPacket 取包构造器, 对应 protocolProvider.abstractNetPacket
 func (g *GameVersionServer) netPacket() netpacket.AbstractNetPacket {
-	rw := g.RwHps()
+	rw := g.ProtocolProvider()
 	if rw == nil {
 		return nil
 	}

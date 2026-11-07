@@ -1,4 +1,4 @@
-// Package player 对应 net.rwhps.server.game.player
+// Package player 对应 上游 game.player
 //
 // 原版这个包下有 AiPlayer / PlayerHess / PlayerRelay 与 unofficial 子包.
 // 本包目前只移植 PlayerRelay: 它是 Relay 依赖图里的叶子类, 而 PlayerHess 依赖

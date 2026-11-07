@@ -14,7 +14,7 @@ import (
 )
 
 // registerServerProtocol 复刻启动链的注册关系 (见 app.loadService 与 start 命令):
-// provider 按 netType 装配 + AddIRwHps 登记实例 + ProtocolPacket 服务就位.
+// provider 按 netType 装配 + AddProtocolProvider 登记实例 + ProtocolPacket 服务就位.
 func registerServerProtocol(t *testing.T) {
 	t.Helper()
 
@@ -23,32 +23,32 @@ func registerServerProtocol(t *testing.T) {
 		t.Fatalf("注册 ProtocolPacket: %v", err)
 	}
 
-	manage.SetProvider(func(netType core.NetType) core.IRwHps {
+	manage.SetProvider(func(netType core.NetType) core.IProtocolProvider {
 		if netType == core.ServerProtocol {
-			return NewRwHps(netType)
+			return NewProtocolProvider(netType)
 		}
-		return core.NewNullRwHps(netType)
+		return core.NewNullProtocolProvider(netType)
 	})
-	manage.AddIRwHps(core.ServerProtocol, "")
+	manage.AddProtocolProvider(core.ServerProtocol, "")
 
-	net.NetStaticData.ResetRwHps()
+	net.NetStaticData.ResetProtocolProvider()
 	t.Cleanup(func() {
 		manage.Clear()
-		net.NetStaticData.ResetRwHps()
+		net.NetStaticData.ResetProtocolProvider()
 		service.Default.Remove(service.KindProtocolPacket, core.GlobalProtocol.String())
 	})
 }
 
-// TestNetStaticDataRwHpsIsServerProtocol 验收: NetStaticData.RwHps() 不再落到 NullRwHps
+// TestNetStaticDataProtocolProviderIsServerProtocol 验收: NetStaticData.ProtocolProvider() 不再落到 NullProtocolProvider
 //
-// 上游对应关系: 引擎启动时 CustomServerSocket.run 调 IRwHpsManage.addIRwHps(ServerProtocol),
-// 之后 NetStaticData.RwHps (by lazy) 取到的就是真实协议实现 (firstServer).
-func TestNetStaticDataRwHpsIsServerProtocol(t *testing.T) {
+// 上游对应关系: 引擎启动时 CustomServerSocket.run 调 ProtocolManage.addProtocolProvider(ServerProtocol),
+// 之后 NetStaticData.ProtocolProvider (by lazy) 取到的就是真实协议实现 (firstServer).
+func TestNetStaticDataProtocolProviderIsServerProtocol(t *testing.T) {
 	registerServerProtocol(t)
 
-	rw := net.NetStaticData.RwHps()
-	if _, ok := rw.(*core.NullRwHps); ok {
-		t.Fatal("NetStaticData.RwHps() 仍是 NullRwHps")
+	rw := net.NetStaticData.ProtocolProvider()
+	if _, ok := rw.(*core.NullProtocolProvider); ok {
+		t.Fatal("NetStaticData.ProtocolProvider() 仍是 NullProtocolProvider")
 	}
 	if rw.NetType() != core.ServerProtocol {
 		t.Fatalf("NetType = %v", rw.NetType())
@@ -71,7 +71,7 @@ func TestNetStaticDataRwHpsIsServerProtocol(t *testing.T) {
 func TestTypeConnectFactoryCreatesPerConnectionHandler(t *testing.T) {
 	registerServerProtocol(t)
 
-	factory := net.NetStaticData.RwHps().TypeConnect()
+	factory := net.NetStaticData.ProtocolProvider().TypeConnect()
 
 	SetHelper(nil)
 	room.SetDefault(room.NewServerRoom(game.NewGameSession("room-factory", nil)))
@@ -104,11 +104,11 @@ func TestTypeConnectFactoryCreatesPerConnectionHandler(t *testing.T) {
 
 // TestAbstractNetPacketFromGlobalService 包构造器来自 ProtocolPacket 服务 (GlobalProtocol 回落)
 //
-// 对应上游 RwHps.abstractNetPacket 的 ServiceLoader 查找 + 回落.
+// 对应上游 ProtocolProvider.abstractNetPacket 的 ServiceLoader 查找 + 回落.
 func TestAbstractNetPacketFromGlobalService(t *testing.T) {
 	registerServerProtocol(t)
 
-	rw := net.NetStaticData.RwHps()
+	rw := net.NetStaticData.ProtocolProvider()
 	np := rw.AbstractNetPacket()
 	if np == nil {
 		t.Fatal("AbstractNetPacket 为 nil")
@@ -117,20 +117,20 @@ func TestAbstractNetPacketFromGlobalService(t *testing.T) {
 	var _ netpacket.AbstractNetPacket = np
 }
 
-// TestOtherNetTypesStayNullProvider 非 ServerProtocol 仍回落到 NullRwHps 等价物
+// TestOtherNetTypesStayNullProvider 非 ServerProtocol 仍回落到 NullProtocolProvider 等价物
 //
 // Relay 等协议属于后续批次, 不能提前伪造实现.
 func TestOtherNetTypesStayNullProvider(t *testing.T) {
-	manage.SetProvider(func(netType core.NetType) core.IRwHps {
+	manage.SetProvider(func(netType core.NetType) core.IProtocolProvider {
 		if netType == core.ServerProtocol {
-			return NewRwHps(netType)
+			return NewProtocolProvider(netType)
 		}
-		return core.NewNullRwHps(netType)
+		return core.NewNullProtocolProvider(netType)
 	})
 	t.Cleanup(func() { manage.Clear() })
 
-	rw := manage.AddIRwHps(core.RelayProtocol, "relay-test")
-	if _, ok := rw.(*core.NullRwHps); !ok {
-		t.Fatalf("RelayProtocol 应为 NullRwHps 等价物, 得到 %T", rw)
+	rw := manage.AddProtocolProvider(core.RelayProtocol, "relay-test")
+	if _, ok := rw.(*core.NullProtocolProvider); !ok {
+		t.Fatalf("RelayProtocol 应为 NullProtocolProvider 等价物, 得到 %T", rw)
 	}
 }

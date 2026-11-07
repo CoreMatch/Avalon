@@ -110,7 +110,7 @@ func TestWireHandshakeRoundTrip(t *testing.T) {
 	defer listener.Close()
 	port := listener.Addr().(*net.TCPAddr).Port
 
-	an := rwnet.NewAbstractNet(gameserver.NewRwHps(core.ServerProtocol))
+	an := rwnet.NewAbstractNet(gameserver.NewProtocolProvider(core.ServerProtocol))
 	serverDone := make(chan struct{})
 	go func() {
 		defer close(serverDone)
@@ -191,7 +191,7 @@ func TestWireVersionRejection(t *testing.T) {
 	defer listener.Close()
 	port := listener.Addr().(*net.TCPAddr).Port
 
-	an := rwnet.NewAbstractNet(gameserver.NewRwHps(core.ServerProtocol))
+	an := rwnet.NewAbstractNet(gameserver.NewProtocolProvider(core.ServerProtocol))
 	go func() {
 		serverConn, err := listener.Accept()
 		if err != nil {

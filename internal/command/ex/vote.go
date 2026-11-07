@@ -1,4 +1,4 @@
-// Package ex 对应 net.rwhps.server.command.ex
+// Package ex 对应 上游 command.ex
 package ex
 
 import (
