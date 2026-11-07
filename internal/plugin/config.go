@@ -68,9 +68,10 @@ type Entry struct {
 	// Enabled 是否启用; 缺省 (null) 视为 true, false 显式停用
 	Enabled *bool `json:"enabled"`
 	// VetoEvents 否决授权清单 (v2 新增): 仅 player.join / unit.operation /
-	// factory.build 需要授权 (默认拒绝); room.create 沿用 v1 语义 (订阅即
-	// 参与准入), 不在此列. 插件还须在 manifest 里声明对应事件的 veto 能力,
-	// 两者同时满足才进入否决模式, 否则按观察模式投递.
+	// factory.build / connection.new / game.start 需要授权 (默认拒绝);
+	// room.create 沿用 v1 语义 (订阅即参与准入), 不在此列. 插件还须在
+	// manifest 里声明对应事件的 veto 能力, 两者同时满足才进入否决模式,
+	// 否则按观察模式投递 (connection.new 无观察模式: 未授权即不参与).
 	VetoEvents []string `json:"vetoEvents"`
 }
 

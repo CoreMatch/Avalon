@@ -21,6 +21,14 @@ var ErrNetDomain = errors.New("[ERROR_DOMAIN] Error Domain")
 // ErrNetConnectClosed 对应 NetException("[CONNECT_CLOSE] Connect disconnect")
 var ErrNetConnectClosed = errors.New("[CONNECT_CLOSE] Connect disconnect")
 
+// OnKicked 是踢出咽喉点的审计观察钩子: KickPlayer 的踢出动作生效后
+// (重进锁定已置、踢出包已尝试发送) 报告被踢玩家、理由与锁定时长 (秒).
+// 由插件接线层注册 (plugin.RegisterPlayerKickAudit), nil 无操作.
+//
+// 钩子只记录动作: 即使踢出包发送失败也会触发 —— 治理动作已经发生,
+// 审计不撤销、不重放踢出.
+var OnKicked func(p *Player, reason string, durationSec int)
+
 // PlayerConnect 是玩家实体对连接的最小依赖面 (消费方定义的接缝).
 //
 // 上游 PlayerHess.con 的类型是 AbstractNetConnectServer (net.core.server),
@@ -268,6 +276,9 @@ func (p *Player) KickPlayer(text string, timeSec int) {
 	p.mu.Unlock()
 	if err := con.SendKick(text); err != nil {
 		log.Errorf("[Player]", "kick send: {0}", err)
+	}
+	if OnKicked != nil {
+		OnKicked(p, text, timeSec)
 	}
 }
 

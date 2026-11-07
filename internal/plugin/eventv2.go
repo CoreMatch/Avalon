@@ -4,14 +4,15 @@ import (
 	"time"
 )
 
-// v2 事件目录 (契约 avalon-plugin-v1 v1.1.0, 三档: observe / veto / deliver).
+// v2 事件目录 (契约 avalon-plugin-v1 v1.2.0, 三档: observe / veto / deliver).
 //
 // 档位语义:
 //   - deliver: WAL 持久 + 重试 + 至少一次 (仅 game.over, v1 既有)
 //   - observe: 尽力投递 —— 内存队列、满则丢最旧、失败不重试、重启不重放
 //     (观察类事件过期即无价值, 不做持久化)
 //   - veto:    同步准入, 有界超时, 超时/错误 fail-open (room.create 为 v1 既有;
-//     v2 新增 player.join / unit.operation / factory.build, 后三者须运营授权)
+//     v2 新增 player.join / unit.operation / factory.build / connection.new /
+//     game.start, 后五者须运营授权)
 const (
 	EventPlayerJoin     = "player.join"
 	EventPlayerLeave    = "player.leave"
@@ -22,6 +23,14 @@ const (
 	EventPlayerChat     = "player.chat"
 	EventUnitOperation  = "unit.operation"
 	EventFactoryBuild   = "factory.build"
+
+	// EventConnectionNew 连接级准入 (v1.2.0): 首包时刻、协议状态之前咨询.
+	// 仅 veto 档 (无观察模式): 载荷只有连接层信息, 否决 = 裸断连,
+	// 理由只进服务端日志 (对端尚未进入协议, 无呈现通道).
+	EventConnectionNew = "connection.new"
+	// EventPlayerKicked 踢出审计 (v1.2.0): observe 档, 单一踢出咽喉点
+	// (player.KickPlayer) 发射, 携带理由与重进锁定时长.
+	EventPlayerKicked = "player.kicked"
 )
 
 // allEventNames 是协商与投递共用的事件全集 (版本协商逐个事件取交集)
@@ -37,6 +46,8 @@ var allEventNames = []string{
 	EventPlayerChat,
 	EventUnitOperation,
 	EventFactoryBuild,
+	EventConnectionNew,
+	EventPlayerKicked,
 }
 
 // vetoGrantEvents 是需要运营显式授权才可进入否决模式的事件.
@@ -45,6 +56,8 @@ var vetoGrantEvents = map[string]bool{
 	EventPlayerJoin:    true,
 	EventUnitOperation: true,
 	EventFactoryBuild:  true,
+	EventConnectionNew: true,
+	EventGameStart:     true,
 }
 
 // Tier 是事件投递档位
@@ -280,5 +293,64 @@ func buildFactoryBuildEvent(roomCode string, info PlayerInfo, actionID string, n
 		Room:         serverRoomRef(roomCode),
 		Player:       info,
 		ActionID:     actionID,
+	}
+}
+
+// connectionNewEvent 契约 ConnectionNewEvent (v1.2.0): 仅连接层信息.
+// 首包时刻尚无协议状态与玩家身份, 载荷不设占位字段; 也不带 room 段 ——
+// 连接此时不归属任何房间.
+type connectionNewEvent struct {
+	EventID      string      `json:"eventId"`
+	Event        string      `json:"event"`
+	EventVersion int         `json:"eventVersion"`
+	OccurredAt   string      `json:"occurredAt"`
+	Server       eventServer `json:"server"`
+	Connection   struct {
+		Address   string `json:"address"`
+		IpLong24  string `json:"ipLong24"`
+		Transport string `json:"transport"`
+	} `json:"connection"`
+}
+
+func buildConnectionNewEvent(address, ipLong24, transport string, now time.Time) *connectionNewEvent {
+	e := &connectionNewEvent{
+		EventID:      newEventID(now),
+		Event:        EventConnectionNew,
+		EventVersion: emitVersion,
+		OccurredAt:   now.UTC().Format(time.RFC3339Nano),
+		Server:       currentServer(),
+	}
+	e.Connection.Address = address
+	e.Connection.IpLong24 = ipLong24
+	e.Connection.Transport = transport
+	return e
+}
+
+// playerKickedEvent 契约 PlayerKickedEvent (v1.2.0, observe 审计档)
+type playerKickedEvent struct {
+	EventID      string      `json:"eventId"`
+	Event        string      `json:"event"`
+	EventVersion int         `json:"eventVersion"`
+	OccurredAt   string      `json:"occurredAt"`
+	Server       eventServer `json:"server"`
+	Room         roomRef     `json:"room"`
+	Player       PlayerInfo  `json:"player"`
+	// Reason 踢出文案 (发射前经 sanitizeReason 净化)
+	Reason string `json:"reason"`
+	// DurationSec 重进锁定秒数; 0 = 只踢不锁
+	DurationSec int `json:"durationSec"`
+}
+
+func buildPlayerKickedEvent(roomCode string, info PlayerInfo, reason string, durationSec int, now time.Time) *playerKickedEvent {
+	return &playerKickedEvent{
+		EventID:      newEventID(now),
+		Event:        EventPlayerKicked,
+		EventVersion: emitVersion,
+		OccurredAt:   now.UTC().Format(time.RFC3339Nano),
+		Server:       currentServer(),
+		Room:         serverRoomRef(roomCode),
+		Player:       info,
+		Reason:       sanitizeReason(reason),
+		DurationSec:  durationSec,
 	}
 }

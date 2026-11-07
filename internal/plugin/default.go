@@ -43,6 +43,66 @@ func AdmitRoomCreate(req RoomCreateRequest) Decision {
 	return Decision{Allowed: true}
 }
 
+// AdmitConnectionNew 是连接级准入的统一入口 (v1.2.0): 无 hub 或无授权
+// 插件时立即放行, 零网络 I/O. 否决 = 调用方断开连接并把理由记日志
+// (首包时刻对端无呈现通道).
+func AdmitConnectionNew(address, ipLong24, transport string) Decision {
+	h := Default()
+	if h == nil || !h.HasVetoConsult(EventConnectionNew) {
+		return Decision{Allowed: true}
+	}
+	return h.AdmitConnectionNew(address, ipLong24, transport)
+}
+
+// AdmitGameStart 是开局前准入的统一入口 (v1.2.0): 无 hub 或无授权
+// 插件时立即放行. 载荷为开局前房间快照 (startTime=0); 否决理由的呈现
+// 由调用方决定 (发起管理员可见, 自动开局只进日志).
+func AdmitGameStart(r *room.ServerRoom) Decision {
+	h := Default()
+	if h == nil || r == nil || !h.HasVetoConsult(EventGameStart) {
+		return Decision{Allowed: true}
+	}
+	return h.AdmitGameStart(r.GameSession.RoomID, matchInfoOf(r))
+}
+
+// matchInfoOf 取房间当前快照 (game.start 的观察档与开局前准入共用,
+// 保证两档载荷同形; 开局前 StartTime 为 0)
+func matchInfoOf(r *room.ServerRoom) MatchInfo {
+	match := MatchInfo{
+		MaxPlayers: r.MaxPlayer,
+		StartTime:  r.GetStartTime(),
+	}
+	if r.Maps != nil {
+		match.MapName = r.Maps.MapName
+		match.MapPlayer = r.Maps.MapPlayer
+	}
+	// PlayerGroup = 当前在房的玩家 (PlayerAll 还含对局中途离开的残留档案)
+	r.PlayerManage.PlayerGroup.EachAll(func(p *player.Player) {
+		match.Players = append(match.Players, PlayerInfoOf(p))
+	})
+	return match
+}
+
+// RegisterPlayerKickAudit 把踢出审计钩子挂到单一踢出咽喉点
+// (player.KickPlayer -> player.kicked observe 档, v1.2.0). 由启动链在
+// SetDefault 后调用; 重复调用幂等 (覆盖同一闭包).
+//
+// 房间码在踢出时刻经 room.Default() 取 (单房间模型); 无房间时为空串.
+// 钩子只记录动作: 投递失败按 observe 档丢弃计数, 绝不反作用到踢出本身.
+func RegisterPlayerKickAudit() {
+	player.OnKicked = func(p *player.Player, reason string, durationSec int) {
+		h := Default()
+		if h == nil || p == nil {
+			return
+		}
+		roomCode := ""
+		if r := room.Default(); r != nil {
+			roomCode = r.GameSession.RoomID
+		}
+		h.EmitPlayerKicked(roomCode, PlayerInfoOf(p), reason, durationSec)
+	}
+}
+
 // EmitGameOver 是对局结束事件的唯一发射入口; 无 hub 时为空操作
 func EmitGameOver(roomCode string, data *event.GameOverData) {
 	if h := Default(); h != nil {
@@ -162,24 +222,15 @@ func RegisterRoomEvents(r *room.ServerRoom) {
 	})
 
 	// --- v2: game.start (观察, 开局时刻房间快照) ---
+	//
+	// 开局前准入 (v1.2.0 veto 档) 不在此处: 它挂在 start 命令的
+	// StartGame 之前 (internal/command/clientcommands.go), 经包级
+	// AdmitGameStart 进入; 否决的开局不会 fire ServerGameStartEvent,
+	// 因此观察档不会为被否决的开局发出通知.
 	event.Register(r.EventManage, func(*event.ServerGameStartEvent) {
-		h := Default()
-		if h == nil {
-			return
+		if h := Default(); h != nil {
+			h.EmitGameStart(r.GameSession.RoomID, matchInfoOf(r))
 		}
-		match := MatchInfo{
-			MaxPlayers: r.MaxPlayer,
-			StartTime:  r.GetStartTime(),
-		}
-		if r.Maps != nil {
-			match.MapName = r.Maps.MapName
-			match.MapPlayer = r.Maps.MapPlayer
-		}
-		// PlayerGroup = 当前在房的玩家 (PlayerAll 还含对局中途离开的残留档案)
-		r.PlayerManage.PlayerGroup.EachAll(func(p *player.Player) {
-			match.Players = append(match.Players, PlayerInfoOf(p))
-		})
-		h.EmitGameStart(r.GameSession.RoomID, match)
 	})
 
 	// --- v2: player.chat (观察; 消息已过内置过滤, 禁言消息不会到达) ---

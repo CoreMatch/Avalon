@@ -25,9 +25,10 @@ type Manifest struct {
 // EventCapability 单个事件的受支持版本与模式声明
 type EventCapability struct {
 	Versions []int `json:"versions"`
-	// Veto 仅对双模事件 (player.join / unit.operation / factory.build)
-	// 有意义: 插件声明希望进入否决模式. 是否生效还取决于运营授权
-	// (Entry.VetoEvents, 默认拒绝); 未授权时按观察模式投递.
+	// Veto 仅对双模事件 (player.join / unit.operation / factory.build /
+	// game.start) 与仅否决档的 connection.new 有意义: 插件声明希望进入
+	// 否决模式. 是否生效还取决于运营授权 (Entry.VetoEvents, 默认拒绝);
+	// 双模事件未授权时按观察模式投递, connection.new 未授权时不参与.
 	Veto bool `json:"veto"`
 }
 

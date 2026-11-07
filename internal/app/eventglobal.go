@@ -5,6 +5,8 @@ import (
 	"github.com/CoreMatch/Avalon/internal/data/global"
 	"github.com/CoreMatch/Avalon/internal/game/player"
 	"github.com/CoreMatch/Avalon/internal/net/core"
+	"github.com/CoreMatch/Avalon/internal/plugin"
+	"github.com/CoreMatch/Avalon/internal/util/log"
 	"github.com/CoreMatch/Avalon/internal/util/timeutil"
 )
 
@@ -35,12 +37,25 @@ func (r *Runtime) registerEventGlobal() {
 	})
 
 	// registerNetConnectNewEvent: 新连接的 IP /24 段在黑名单内则拒绝
-	// (上游经事件 result = true 表达; Go 版钩子返回 true 即拒绝)
+	// (上游经事件 result = true 表达; Go 版钩子返回 true 即拒绝),
+	// 随后是插件连接级准入 (契约 v1.2.0 connection.new, 仅授权否决插件参与):
+	//   - 内建 IP/24 ban 先行, 命中即断连, 不再咨询插件;
+	//   - 插件否决 = 裸断连, 理由只进服务端日志 (首包时刻对端尚未进入
+	//     协议, 无呈现通道, 契约已如实声明);
+	//   - 插件超时/不可达/畸形应答 = fail-open 放行 (与其他否决档一致);
+	//   - 无授权插件时零网络 I/O, 行为与未启用一致.
 	core.NetConnectNewEventHook = func(ca *core.ConnectionAgreement) bool {
-		if ca == nil || global.Core == nil || global.Core.Admin == nil {
+		if ca == nil {
 			return false
 		}
-		return global.Core.Admin.IsIP24Banned(ca.IPLong24)
+		if global.Core != nil && global.Core.Admin != nil && global.Core.Admin.IsIP24Banned(ca.IPLong24) {
+			return true
+		}
+		if d := plugin.AdmitConnectionNew(ca.IP, ca.IPLong24, ca.UseAgreementStr); !d.Allowed {
+			log.Warnf("[Plugin]", "connection.new vetoed by {0}: {1} (address={2})", d.Plugin, d.Reason, ca.IP)
+			return true
+		}
+		return false
 	}
 
 	// registerServerStartTypeEvent: Relay 协议且开启 autoUpList 时自动上架
