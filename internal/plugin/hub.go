@@ -51,12 +51,16 @@ type Plugin struct {
 	entry    Entry
 	secrets  [][]byte
 	disabled bool
-	hub      *Hub
+	// vetoGrant 运营授权的否决事件集 (默认拒绝; room.create 不需要授权)
+	vetoGrant map[string]bool
+	hub       *Hub
 
 	mu         sync.Mutex
 	ready      bool
 	manifest   *Manifest
 	negotiated map[string]int
+	// vetoDeclared manifest 里声明了 veto 能力的事件集 (生效还须 vetoGrant)
+	vetoDeclared map[string]bool
 
 	outbox *Outbox
 	notify chan struct{}
@@ -93,10 +97,14 @@ func Load() (*Hub, error) {
 
 	for _, e := range cfg.Entries {
 		p := &Plugin{
-			entry:    e,
-			disabled: !e.enabled(),
-			hub:      h,
-			notify:   make(chan struct{}, 1),
+			entry:     e,
+			disabled:  !e.enabled(),
+			hub:       h,
+			notify:    make(chan struct{}, 1),
+			vetoGrant: make(map[string]bool, len(e.VetoEvents)),
+		}
+		for _, name := range e.VetoEvents {
+			p.vetoGrant[name] = true
 		}
 		for _, s := range e.Secrets {
 			raw, _ := hex.DecodeString(s) // validate 已保证可解码
@@ -118,12 +126,12 @@ func Load() (*Hub, error) {
 			defer bootWG.Done()
 			ctx, cancel := context.WithTimeout(context.Background(), h.admissionTimeout())
 			defer cancel()
-			negotiated, m, err := p.fetchManifest(ctx)
+			negotiated, vetoDeclared, m, err := p.fetchManifest(ctx)
 			if err != nil {
 				log.Warnf("[Plugin]", "{0}: manifest negotiation failed at boot: {1} (retrying in background)", p.entry.Name, err)
 				return
 			}
-			p.applyManifest(m, negotiated)
+			p.applyManifest(m, negotiated, vetoDeclared)
 		}(p)
 	}
 	bootWG.Wait()
@@ -171,6 +179,10 @@ func (h *Hub) deliveryTimeout() time.Duration {
 	return time.Duration(h.cfg.DeliveryTimeoutMs) * time.Millisecond
 }
 
+func (h *Hub) gameplayVetoTimeout() time.Duration {
+	return time.Duration(h.cfg.GameplayVetoTimeoutMs) * time.Millisecond
+}
+
 // --- 插件运行时 ---
 
 func (p *Plugin) isReady() bool {
@@ -199,11 +211,12 @@ func (p *Plugin) markUnready() {
 }
 
 // applyManifest 协商成功: 置 ready, 丢弃版本不匹配的积压事件, 唤醒 worker
-func (p *Plugin) applyManifest(m *Manifest, negotiated map[string]int) {
+func (p *Plugin) applyManifest(m *Manifest, negotiated map[string]int, vetoDeclared map[string]bool) {
 	p.mu.Lock()
 	p.ready = true
 	p.manifest = m
 	p.negotiated = negotiated
+	p.vetoDeclared = vetoDeclared
 	p.mu.Unlock()
 
 	if n := p.outbox.filterDrop(func(r outboxRecord) bool {
@@ -214,11 +227,11 @@ func (p *Plugin) applyManifest(m *Manifest, negotiated map[string]int) {
 		log.Warnf("[Plugin]", "{0}: dropped {1} buffered event(s) not covered by the negotiated manifest", p.entry.Name, n)
 	}
 	if m.MaxConcurrency > 1 {
-		log.Warnf("[Plugin]", "{0}: maxConcurrency={1} is reserved in v1, using 1 worker", p.entry.Name, m.MaxConcurrency)
+		log.Warnf("[Plugin]", "{0}: maxConcurrency={1} is reserved, using 1 worker", p.entry.Name, m.MaxConcurrency)
 	}
 
 	names := make([]string, 0, len(negotiated))
-	for _, name := range []string{EventRoomCreate, EventGameOver} {
+	for _, name := range allEventNames {
 		if _, ok := negotiated[name]; ok {
 			names = append(names, name)
 		}
@@ -241,7 +254,7 @@ func (p *Plugin) run() {
 
 		if !p.isReady() {
 			ctx, cancel := context.WithTimeout(context.Background(), p.hub.admissionTimeout())
-			negotiated, m, err := p.fetchManifest(ctx)
+			negotiated, vetoDeclared, m, err := p.fetchManifest(ctx)
 			cancel()
 			if err != nil {
 				log.Warnf("[Plugin]", "{0}: manifest retry failed: {1}", p.entry.Name, err)
@@ -252,7 +265,7 @@ func (p *Plugin) run() {
 				continue
 			}
 			manifestBackoff = initialManifestBackoff
-			p.applyManifest(m, negotiated)
+			p.applyManifest(m, negotiated, vetoDeclared)
 			continue
 		}
 
@@ -287,14 +300,21 @@ func (p *Plugin) run() {
 			continue
 		}
 
-		p.retries.Add(1)
 		if isConnError(err) {
 			// 连接级失败 = 进程可能已死/重启: 回到协商路径 (含其自身退避),
-			// 重新协商也会刷新版本约定.
+			// 重新协商也会刷新版本约定. 对 observe 档不额外重试.
 			log.Warnf("[Plugin]", "{0}: connection lost ({1}), renegotiating manifest", p.entry.Name, err)
 			p.markUnready()
 			continue
 		}
+		if !rec.Persist {
+			// observe 档: 尽力投递, 失败即弃 (不重试 —— 过期观察无价值)
+			p.outbox.pop()
+			p.dropped.Add(1)
+			log.Warnf("[Plugin]", "{0}: observe delivery of {1} failed: {2} (dropped)", p.entry.Name, rec.EventID, err)
+			continue
+		}
+		p.retries.Add(1)
 		log.Warnf("[Plugin]", "{0}: delivery of {1} failed: {2} (retrying)", p.entry.Name, rec.EventID, err)
 		if deliverBackoff == 0 {
 			deliverBackoff = initialDeliverBackoff
@@ -378,9 +398,7 @@ func (p *Plugin) wake() {
 	}
 }
 
-// admissionTimeout 单插件准入调用上限 = min(manifest 自报, Avalon 上限)
-func (p *Plugin) admissionTimeout() time.Duration {
-	cap := p.hub.admissionTimeout()
+func (p *Plugin) cappedTimeout(cap time.Duration) time.Duration {
 	if m := p.getManifest(); m != nil && m.TimeoutMs > 0 {
 		if self := time.Duration(m.TimeoutMs) * time.Millisecond; self < cap {
 			return self
@@ -389,30 +407,82 @@ func (p *Plugin) admissionTimeout() time.Duration {
 	return cap
 }
 
-// --- 两个扩展点的对外语义 ---
+// vetoConsulted 该插件是否参与某事件的否决咨询:
+// 须就绪、协商通过; room.create 沿用 v1 语义 (订阅即参与),
+// 其余可否决事件须 manifest 声明 veto 且运营已授权 (默认拒绝).
+func (p *Plugin) vetoConsulted(eventName string) bool {
+	if eventName == EventRoomCreate {
+		return true
+	}
+	if !vetoGrantEvents[eventName] {
+		return false
+	}
+	p.mu.Lock()
+	declared := p.vetoDeclared[eventName]
+	p.mu.Unlock()
+	return declared && p.vetoGrant[eventName]
+}
 
-// Decision 是建房准入的结论
+// --- 否决档 (veto) 对外语义 ---
+
+// Decision 是否决咨询的结论
 type Decision struct {
 	// Allowed 是否放行
 	Allowed bool
-	// Reason 否决理由 (已净化: 去控制符、截断 200 rune); 放行时为空
+	// Reason 否决理由 (已净化: 去控制符、截断 200 rune, 带插件名前缀); 放行时为空
 	Reason string
 	// Plugin 首个否决的插件名 (放行时为空)
 	Plugin string
 }
 
-// admissionOutcome 单插件准入调用结果 (零值 = 放行贡献)
+// admissionOutcome 单插件否决调用结果 (零值 = 放行贡献)
 type admissionOutcome struct {
 	denied     bool
 	denyReason string
 }
 
-// AdmitRoomCreate 并行咨询全部就绪且订阅 room.create 的插件.
-//
-// 语义 (契约 "room.create"): 任一有效否决即否决 (理由串联); 超时/不可达/
-// 畸形应答/无理由拒绝一律 fail-open 放行并计数告警; 未就绪插件跳过并计
-// fail-open (它本应参与准入). 至多一次, 不重试.
+// AdmitRoomCreate 建房准入 (v1 语义不变): 并行咨询全部就绪且订阅
+// room.create 的插件, 不需要额外授权.
 func (h *Hub) AdmitRoomCreate(req RoomCreateRequest) Decision {
+	body := []byte(jsonutil.ToJSON(buildRoomCreateEvent(req, time.Now())))
+	return h.admitCore(EventRoomCreate, body, h.admissionTimeout())
+}
+
+// AdmitPlayerJoinBody 玩家进入准入 (v2): 咨询已授权否决的插件.
+// 正文由调用方预构造 (在玩家注册的原始时刻生成 eventId/occurredAt).
+func (h *Hub) AdmitPlayerJoinBody(body []byte) Decision {
+	return h.admitCore(EventPlayerJoin, body, h.admissionTimeout())
+}
+
+// AdmitUnitOperationBody 对局内单位指令否决 (v2): 紧超时档.
+// 返回否决时调用方应拦截该指令包; 否决理由只进日志, 无玩家侧呈现通道.
+func (h *Hub) AdmitUnitOperationBody(body []byte) Decision {
+	return h.admitCore(EventUnitOperation, body, h.gameplayVetoTimeout())
+}
+
+// AdmitFactoryBuildBody 对局内工厂建造否决 (v2): 紧超时档
+func (h *Hub) AdmitFactoryBuildBody(body []byte) Decision {
+	return h.admitCore(EventFactoryBuild, body, h.gameplayVetoTimeout())
+}
+
+// HasVetoConsult 是否存在被授予某事件否决权的启用插件 (监听器快速路径:
+// 无授权插件时不产生任何网络调用). 不要求插件就绪 —— 未就绪的授权插件
+// 会在 admitCore 里按 fail-open 计数, 与 room.create 的 v1 语义一致.
+func (h *Hub) HasVetoConsult(eventName string) bool {
+	for _, p := range h.plugins {
+		if !p.disabled && p.vetoGrant[eventName] {
+			return true
+		}
+	}
+	return false
+}
+
+// admitCore 并行咨询全部候选插件.
+//
+// 语义 (契约 veto 档): 任一有效否决即否决 (理由串联); 超时/不可达/畸形应答/
+// 无理由拒绝一律 fail-open 放行并计数告警; 未就绪插件跳过并计 fail-open
+// (它本应参与准入). 至多一次, 不重试.
+func (h *Hub) admitCore(eventName string, body []byte, capTimeout time.Duration) Decision {
 	candidates := make([]*Plugin, 0, len(h.plugins))
 	for _, p := range h.plugins {
 		if p.disabled {
@@ -420,19 +490,20 @@ func (h *Hub) AdmitRoomCreate(req RoomCreateRequest) Decision {
 		}
 		if !p.isReady() {
 			p.failOpen.Add(1)
-			log.Warnf("[Plugin]", "{0}: not ready, room.create admission skipped (fail-open)", p.entry.Name)
+			log.Warnf("[Plugin]", "{0}: not ready, {1} admission skipped (fail-open)", p.entry.Name, eventName)
 			continue
 		}
-		if _, ok := p.negotiatedFor(EventRoomCreate); !ok {
+		if _, ok := p.negotiatedFor(eventName); !ok {
 			continue // 未订阅: 不参与准入, 也不算失败
+		}
+		if !p.vetoConsulted(eventName) {
+			continue // 订阅但按观察模式参与: 不进否决咨询
 		}
 		candidates = append(candidates, p)
 	}
 	if len(candidates) == 0 {
 		return Decision{Allowed: true}
 	}
-
-	body := []byte(jsonutil.ToJSON(buildRoomCreateEvent(req, time.Now())))
 
 	results := make([]admissionOutcome, len(candidates))
 	var wg sync.WaitGroup
@@ -445,7 +516,7 @@ func (h *Hub) AdmitRoomCreate(req RoomCreateRequest) Decision {
 					log.Errorf("[Plugin]", "{0} admission panic: {1}", p.entry.Name, r)
 				}
 			}()
-			results[i] = p.callAdmission(body)
+			results[i] = p.callVeto(eventName, body, capTimeout)
 		}(i, p)
 	}
 	wg.Wait()
@@ -467,18 +538,19 @@ func (h *Hub) AdmitRoomCreate(req RoomCreateRequest) Decision {
 	return Decision{Allowed: true}
 }
 
-// callAdmission 对单个插件执行一次准入调用; 任何异常路径都 fail-open
-func (p *Plugin) callAdmission(body []byte) admissionOutcome {
+// callVeto 对单个插件执行一次否决调用; 任何异常路径都 fail-open
+func (p *Plugin) callVeto(eventName string, body []byte, capTimeout time.Duration) admissionOutcome {
 	fail := func(err error) admissionOutcome {
 		p.failOpen.Add(1)
-		log.Warnf("[Plugin]", "{0}: room.create admission failed open: {1}", p.entry.Name, err)
+		log.Warnf("[Plugin]", "{0}: {1} admission failed open: {2}", p.entry.Name, eventName, err)
 		return admissionOutcome{}
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), p.admissionTimeout())
+	timeout := p.cappedTimeout(capTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.eventURL(EventRoomCreate), bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.eventURL(eventName), bytes.NewReader(body))
 	if err != nil {
 		return fail(err)
 	}
@@ -525,38 +597,99 @@ func (p *Plugin) callAdmission(body []byte) admissionOutcome {
 	return admissionOutcome{denied: true, denyReason: reason}
 }
 
-// EmitGameOver 把对局结束事件入队到全部启用的插件 (非阻塞).
+// EmitGameOver 把对局结束事件入队到全部启用的插件 (非阻塞, deliver 档).
 //
 // 就绪且已声明不订阅 game.over 的插件直接跳过; 未就绪插件先入队, 协商
 // 成功后补投 (版本不匹配时在 applyManifest 里丢弃并计数).
 // 同一事件的多个插件副本共享同一 eventId 与正文.
 func (h *Hub) EmitGameOver(roomCode string, data *event.GameOverData) {
+	ev := buildGameOverEvent(roomCode, data, time.Now())
+	h.enqueueEvent(EventGameOver, ev.EventID, jsonutil.ToJSON(ev), TierDeliver)
+}
+
+// enqueueEvent 按档位把已构造好的事件正文入队到全部相关插件 (非阻塞).
+//
+// 就绪且协商表里没有该事件的插件跳过; 未就绪插件先入队, 协商成功后补投
+// (版本不匹配在 applyManifest 里丢弃并计数). 同一事件的多插件副本共享
+// 同一 eventId 与正文.
+func (h *Hub) enqueueEvent(eventName, eventID, body string, tier Tier) {
 	if len(h.plugins) == 0 {
 		return
 	}
-	ev := buildGameOverEvent(roomCode, data, time.Now())
-	body := jsonutil.ToJSON(ev)
 	rec := outboxRecord{
-		EventID:      ev.EventID,
-		Event:        EventGameOver,
+		EventID:      eventID,
+		Event:        eventName,
 		EnqueuedAtMs: timeutil.ConcurrentMillis(),
 		Body:         body,
+		Persist:      tier == TierDeliver,
 	}
 	for _, p := range h.plugins {
 		if p.disabled {
 			continue
 		}
 		if p.isReady() {
-			if _, ok := p.negotiatedFor(EventGameOver); !ok {
+			if _, ok := p.negotiatedFor(eventName); !ok {
 				continue
 			}
 		}
 		if dropped := p.outbox.append(rec); dropped > 0 {
 			p.dropped.Add(int64(dropped))
-			log.Warnf("[Plugin]", "{0}: outbox full, dropped {1} oldest event(s)", p.entry.Name, dropped)
+			log.Warnf("[Plugin]", "{0}: queue full, dropped {1} oldest event(s)", p.entry.Name, dropped)
 		}
 		p.wake()
 	}
+}
+
+// --- v2 观察档 (observe) 发射入口 ---
+//
+// 观察档尽力投递: 只进内存队列, 失败即弃, 不重试不重放 (契约 v1.1.0 三档).
+
+// EmitPlayerJoinObserve 玩家进入观察通知 (否决通过后由接线层调用)
+func (h *Hub) EmitPlayerJoinObserve(roomCode string, info PlayerInfo) {
+	ev := buildPlayerJoinEvent(roomCode, info, time.Now())
+	h.enqueueEvent(EventPlayerJoin, ev.EventID, jsonutil.ToJSON(ev), TierObserve)
+}
+
+// EmitPlayerJoinPrebuilt 入队一份预构造的进入事件正文 (准入路径复用,
+// 保证 eventId/occurredAt 与玩家注册时刻一致)
+func (h *Hub) EmitPlayerJoinPrebuilt(eventID, body string) {
+	h.enqueueEvent(EventPlayerJoin, eventID, body, TierObserve)
+}
+
+// EmitPlayerLeave 玩家离开观察通知
+func (h *Hub) EmitPlayerLeave(roomCode string, info PlayerInfo, banRemainingMs int64, inGame bool) {
+	ev := buildPlayerLeaveEvent(roomCode, info, banRemainingMs, inGame, time.Now())
+	h.enqueueEvent(EventPlayerLeave, ev.EventID, jsonutil.ToJSON(ev), TierObserve)
+}
+
+// EmitPlayerAction 封禁/解封类观察通知 (banned/unbanned/ipbanned 同形)
+func (h *Hub) EmitPlayerAction(eventName, roomCode string, info PlayerInfo) {
+	ev := buildPlayerActionEvent(eventName, roomCode, info, time.Now())
+	h.enqueueEvent(eventName, ev.EventID, jsonutil.ToJSON(ev), TierObserve)
+}
+
+// EmitGameStart 开局观察通知 (开局时刻的房间快照)
+func (h *Hub) EmitGameStart(roomCode string, match MatchInfo) {
+	ev := buildGameStartEvent(roomCode, match, time.Now())
+	h.enqueueEvent(EventGameStart, ev.EventID, jsonutil.ToJSON(ev), TierObserve)
+}
+
+// EmitPlayerChat 聊天观察通知 (正文为内置过滤后的文本)
+func (h *Hub) EmitPlayerChat(roomCode string, info PlayerInfo, message string) {
+	ev := buildPlayerChatEvent(roomCode, info, message, time.Now())
+	h.enqueueEvent(EventPlayerChat, ev.EventID, jsonutil.ToJSON(ev), TierObserve)
+}
+
+// EmitUnitOperation 单位指令观察通知
+func (h *Hub) EmitUnitOperation(roomCode string, info PlayerInfo, action, unitName string, x, y float32) {
+	ev := buildUnitOperationEvent(roomCode, info, action, unitName, x, y, time.Now())
+	h.enqueueEvent(EventUnitOperation, ev.EventID, jsonutil.ToJSON(ev), TierObserve)
+}
+
+// EmitFactoryBuild 工厂建造观察通知
+func (h *Hub) EmitFactoryBuild(roomCode string, info PlayerInfo, actionID string) {
+	ev := buildFactoryBuildEvent(roomCode, info, actionID, time.Now())
+	h.enqueueEvent(EventFactoryBuild, ev.EventID, jsonutil.ToJSON(ev), TierObserve)
 }
 
 // --- 运维可见性 ---

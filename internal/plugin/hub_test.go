@@ -624,8 +624,8 @@ func TestSecretRotationOverlap(t *testing.T) {
 	_, oldRaw := testSecret(t)
 
 	fake := newFakePlugin(t)
-	fake.secret = newRaw        // 插件用新密钥验证请求
-	fake.respSecret = oldRaw    // 但应答仍用旧密钥签名 (轮换重叠期)
+	fake.secret = newRaw     // 插件用新密钥验证请求
+	fake.respSecret = oldRaw // 但应答仍用旧密钥签名 (轮换重叠期)
 	hub := loadTestHub(t, configWith(Entry{
 		Name:    "rotating",
 		BaseURL: fake.baseURL,

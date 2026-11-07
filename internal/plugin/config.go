@@ -25,10 +25,11 @@ import (
 
 // 默认阈值 (ADR-0006 "Sync/async semantics")
 const (
-	DefaultAdmissionTimeoutMs = 2500
-	DefaultDeliveryTimeoutMs  = 10000
-	DefaultOutboxCapacity     = 128
-	DefaultMaxEventAgeHours   = 24
+	DefaultAdmissionTimeoutMs    = 2500
+	DefaultDeliveryTimeoutMs     = 10000
+	DefaultOutboxCapacity        = 128
+	DefaultMaxEventAgeHours      = 24
+	DefaultGameplayVetoTimeoutMs = 250
 
 	// minSecretBytes 共享密钥最小长度 (16 字节, 32 个 hex 字符)
 	minSecretBytes = 16
@@ -39,14 +40,18 @@ type Config struct {
 	// Version 配置 schema 版本, 当前必须为 1
 	Version int `json:"version"`
 
-	// AdmissionTimeoutMs room.create 单次调用与启动期 manifest 协商的绝对上限
+	// AdmissionTimeoutMs room.create / player.join 单次准入调用与启动期
+	// manifest 协商的绝对上限
 	AdmissionTimeoutMs int `json:"admissionTimeoutMs"`
-	// DeliveryTimeoutMs game.over 单次投递尝试的上限
+	// DeliveryTimeoutMs 异步事件单次投递尝试的上限
 	DeliveryTimeoutMs int `json:"deliveryTimeoutMs"`
-	// OutboxCapacity 每插件 outbox 容量, 满则丢最旧
+	// OutboxCapacity 每插件队列容量, 满则丢最旧
 	OutboxCapacity int `json:"outboxCapacity"`
 	// MaxEventAgeHours 超过该年龄的事件在投递时丢弃
 	MaxEventAgeHours int `json:"maxEventAgeHours"`
+	// GameplayVetoTimeoutMs 对局内否决 (unit.operation / factory.build) 的
+	// 绝对上限 —— 这类否决阻塞发起者的指令流, 预算远小于建房准入 (v2 新增)
+	GameplayVetoTimeoutMs int `json:"gameplayVetoTimeoutMs"`
 
 	Entries []Entry `json:"entries"`
 }
@@ -62,6 +67,11 @@ type Entry struct {
 	Secrets []string `json:"secrets"`
 	// Enabled 是否启用; 缺省 (null) 视为 true, false 显式停用
 	Enabled *bool `json:"enabled"`
+	// VetoEvents 否决授权清单 (v2 新增): 仅 player.join / unit.operation /
+	// factory.build 需要授权 (默认拒绝); room.create 沿用 v1 语义 (订阅即
+	// 参与准入), 不在此列. 插件还须在 manifest 里声明对应事件的 veto 能力,
+	// 两者同时满足才进入否决模式, 否则按观察模式投递.
+	VetoEvents []string `json:"vetoEvents"`
 }
 
 func (e Entry) enabled() bool { return e.Enabled == nil || *e.Enabled }
@@ -74,11 +84,12 @@ func PluginsFile() *file.FileUtils {
 // NewConfig 创建带默认值的配置 (空 entries)
 func NewConfig() Config {
 	return Config{
-		Version:            1,
-		AdmissionTimeoutMs: DefaultAdmissionTimeoutMs,
-		DeliveryTimeoutMs:  DefaultDeliveryTimeoutMs,
-		OutboxCapacity:     DefaultOutboxCapacity,
-		MaxEventAgeHours:   DefaultMaxEventAgeHours,
+		Version:               1,
+		AdmissionTimeoutMs:    DefaultAdmissionTimeoutMs,
+		DeliveryTimeoutMs:     DefaultDeliveryTimeoutMs,
+		OutboxCapacity:        DefaultOutboxCapacity,
+		MaxEventAgeHours:      DefaultMaxEventAgeHours,
+		GameplayVetoTimeoutMs: DefaultGameplayVetoTimeoutMs,
 	}
 }
 
@@ -123,6 +134,9 @@ func (c *Config) validate() error {
 	if c.MaxEventAgeHours <= 0 {
 		c.MaxEventAgeHours = DefaultMaxEventAgeHours
 	}
+	if c.GameplayVetoTimeoutMs <= 0 {
+		c.GameplayVetoTimeoutMs = DefaultGameplayVetoTimeoutMs
+	}
 
 	seen := make(map[string]bool, len(c.Entries))
 	for i, e := range c.Entries {
@@ -148,6 +162,17 @@ func (c *Config) validate() error {
 			raw, err := hex.DecodeString(s)
 			if err != nil || len(raw) < minSecretBytes {
 				return fmt.Errorf("plugin: entry %q: secret %d must be hex of at least %d bytes", e.Name, j, minSecretBytes)
+			}
+		}
+
+		// 否决授权白名单校验: 只接受可授权事件; room.create 走 v1 语义
+		// (订阅即准入), 写进授权表说明配置者理解错了, 显式报错.
+		for _, name := range e.VetoEvents {
+			if name == EventRoomCreate {
+				return fmt.Errorf("plugin: entry %q: room.create follows v1 admission semantics and must not appear in vetoEvents", e.Name)
+			}
+			if !vetoGrantEvents[name] {
+				return fmt.Errorf("plugin: entry %q: vetoEvents contains unknown or non-vetoable event %q", e.Name, name)
 			}
 		}
 	}

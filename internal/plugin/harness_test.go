@@ -45,12 +45,12 @@ type fakePlugin struct {
 	baseURL string
 
 	mu          sync.Mutex
-	manifest    *Manifest            // nil -> manifest 端点回 500
-	manifestRaw []byte               // 非 nil 时原样提供 (测畸形 manifest)
+	manifest    *Manifest // nil -> manifest 端点回 500
+	manifestRaw []byte    // 非 nil 时原样提供 (测畸形 manifest)
 	handlers    map[string]eventHandler
 	requests    []fakeRequest
-	signResp    bool // 是否给应答签名 (默认 true)
-	verifyReq   bool // 是否校验请求签名 (默认 true)
+	signResp    bool   // 是否给应答签名 (默认 true)
+	verifyReq   bool   // 是否校验请求签名 (默认 true)
 	respSecret  []byte // 应答签名密钥; 为空时用 secret (测轮换重叠)
 	badReqSig   int    // 请求签名校验失败计数
 }
@@ -92,6 +92,44 @@ func defaultTestManifest() *Manifest {
 		},
 		TimeoutMs:      2000,
 		MaxConcurrency: 1,
+	}
+}
+
+// v2TestManifest 全事件目录的 manifest; vetoEvents 里的事件声明 veto 能力
+func v2TestManifest(vetoEvents ...string) *Manifest {
+	m := &Manifest{
+		Schema:   ManifestSchema,
+		Protocol: ProtocolV1,
+		ID:       "fake-plugin-v2",
+		Version:  "2.0.0-test",
+		Events:   map[string]EventCapability{},
+	}
+	vetoSet := map[string]bool{}
+	for _, name := range vetoEvents {
+		vetoSet[name] = true
+	}
+	for _, name := range allEventNames {
+		m.Events[name] = EventCapability{Versions: []int{1}, Veto: vetoSet[name]}
+	}
+	return m
+}
+
+// observeAckHandlers 给全部观察档事件装默认 200 应答 (room.create 放行)
+func observeAckHandlers(f *fakePlugin) {
+	f.handlers[EventRoomCreate] = func(_ []byte) (int, []byte) {
+		return http.StatusOK, []byte(`{"allowed":true}`)
+	}
+	f.handlers[EventGameOver] = func(_ []byte) (int, []byte) {
+		return http.StatusOK, []byte(`{}`)
+	}
+	for _, name := range []string{
+		EventPlayerJoin, EventPlayerLeave, EventPlayerBanned, EventPlayerUnbanned,
+		EventPlayerIpBanned, EventGameStart, EventPlayerChat,
+		EventUnitOperation, EventFactoryBuild,
+	} {
+		f.handlers[name] = func(_ []byte) (int, []byte) {
+			return http.StatusOK, []byte(`{}`)
+		}
 	}
 }
 

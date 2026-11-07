@@ -40,6 +40,10 @@ func matrixEndpoints() []matrixEndpoint {
 		{"kick", http.MethodPost, "/v1/rooms/GW01/kick", map[string]string{"playerId": "nope"}, http.StatusNotFound},
 		{"ban", http.MethodPost, "/v1/rooms/GW01/ban", map[string]string{"playerId": "nope"}, http.StatusNotFound},
 		{"players", http.MethodGet, "/v1/rooms/GW01/players", nil, http.StatusOK},
+		// v1.3 模组清单/文件端点: 清单恒 200 (测试环境无 mods 时为空清单);
+		// 文件端点取 404 (未收录文件) —— 证明请求穿过了信任层.
+		{"room mods", http.MethodGet, "/v1/rooms/GW01/mods", nil, http.StatusOK},
+		{"room mod file", http.MethodGet, "/v1/rooms/GW01/mods/matrix-none.zip", nil, http.StatusNotFound},
 	}
 }
 
