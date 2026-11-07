@@ -1,6 +1,8 @@
 package command
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -9,9 +11,11 @@ import (
 	"github.com/CoreMatch/Avalon/internal/data/global"
 	"github.com/CoreMatch/Avalon/internal/game"
 	"github.com/CoreMatch/Avalon/internal/game/event"
+	"github.com/CoreMatch/Avalon/internal/game/manage"
 	"github.com/CoreMatch/Avalon/internal/game/player"
 	"github.com/CoreMatch/Avalon/internal/game/room"
 	"github.com/CoreMatch/Avalon/internal/io/packet"
+	"github.com/CoreMatch/Avalon/internal/util/file"
 	cmd "github.com/CoreMatch/Avalon/internal/util/game/command"
 )
 
@@ -321,5 +325,99 @@ func TestClientStartMinPlayer(t *testing.T) {
 	h.HandleMessageWith("/start", ps[0])
 	if !strings.Contains(cs[0].text(), "start.playerNo") {
 		t.Fatalf("人数不足应拒绝: %q", cs[0].text())
+	}
+}
+
+// seedCustomMaps 把若干自定义地图放进扫描目录并重新登记, 结束时恢复.
+//
+// 路径常量是 const, 经 file.SetBasePath 把数据根指到临时目录.
+func seedCustomMaps(t *testing.T, names ...string) {
+	t.Helper()
+	tmp := t.TempDir()
+	oldBase := file.BasePath()
+	file.SetBasePath(tmp)
+	if err := os.MkdirAll(filepath.Join(tmp, "data", "maps"), 0o755); err != nil {
+		t.Fatalf("建 maps 目录: %v", err)
+	}
+	for _, n := range names {
+		if err := os.WriteFile(filepath.Join(tmp, "data", "maps", n+".tmx"), []byte("<map/>"), 0o644); err != nil {
+			t.Fatalf("写地图 %q: %v", n, err)
+		}
+	}
+	manage.ReadMapAndSave()
+	t.Cleanup(func() {
+		file.SetBasePath(oldBase)
+		manage.ReadMapAndSave() // 用恢复后的路径重扫, 清空测试登记
+	})
+}
+
+// TestClientMapDefaultRegression 默认图回归: DEF 与内置图名行为不变
+func TestClientMapDefaultRegression(t *testing.T) {
+	h, r, ps, _ := setupClientCommands(t, 1)
+	ps[0].IsAdmin = true
+
+	h.HandleMessageWith("/map DEF", ps[0])
+	if r.Maps.MapType != game.DefaultMap || r.Maps.MapName != "Crossing Large (10p)" {
+		t.Fatalf("DEF 应回到默认图: %v / %q", r.Maps.MapType, r.Maps.MapName)
+	}
+
+	h.HandleMessageWith("/map SmallIsland(2p)", ps[0])
+	if r.Maps.MapType != game.DefaultMap || r.Maps.MapName != "Small_Island (2p)" {
+		t.Fatalf("内置图名应选中默认图: %v / %q", r.Maps.MapType, r.Maps.MapName)
+	}
+}
+
+// TestClientMapCustomSelect 自定义图按序号 (0 基) 选中
+func TestClientMapCustomSelect(t *testing.T) {
+	seedCustomMaps(t, "CustomA", "CustomB")
+	h, r, ps, cs := setupClientCommands(t, 1)
+	ps[0].IsAdmin = true
+
+	h.HandleMessageWith("/map 0", ps[0])
+	if r.Maps.MapType != game.CustomMap || r.Maps.MapName != "CustomA" || r.Maps.MapData == nil {
+		t.Fatalf("map 0 应选中第一张自定义图: %v / %q / data=%v", r.Maps.MapType, r.Maps.MapName, r.Maps.MapData)
+	}
+	if !strings.Contains(cs[0].text(), "map.custom.info") {
+		t.Fatalf("应提示自定义地图注意事项: %q", cs[0].text())
+	}
+}
+
+// TestClientMapCustomBadInput 非法输入: 越界序号与非数字
+func TestClientMapCustomBadInput(t *testing.T) {
+	seedCustomMaps(t, "CustomA")
+	h, r, ps, cs := setupClientCommands(t, 1)
+	ps[0].IsAdmin = true
+
+	h.HandleMessageWith("/map 99", ps[0])
+	if !strings.Contains(cs[0].text(), "map.no") {
+		t.Fatalf("越界序号应回 map.no: %q", cs[0].text())
+	}
+	if r.Maps.MapType == game.CustomMap {
+		t.Fatal("越界序号不应改变房间地图")
+	}
+
+	h.HandleMessageWith("/map abc", ps[0])
+	if !strings.Contains(cs[0].text(), "err.noNumber") {
+		t.Fatalf("非数字应回 err.noNumber: %q", cs[0].text())
+	}
+}
+
+// TestClientMapSwitchConsecutive 连续换图: 自定义 -> 自定义 -> 默认
+func TestClientMapSwitchConsecutive(t *testing.T) {
+	seedCustomMaps(t, "CustomA", "CustomB")
+	h, r, ps, _ := setupClientCommands(t, 1)
+	ps[0].IsAdmin = true
+
+	h.HandleMessageWith("/map 0", ps[0])
+	if r.Maps.MapName != "CustomA" {
+		t.Fatalf("第一张应为 CustomA: %q", r.Maps.MapName)
+	}
+	h.HandleMessageWith("/map 1", ps[0])
+	if r.Maps.MapType != game.CustomMap || r.Maps.MapName != "CustomB" {
+		t.Fatalf("第二张应为 CustomB: %v / %q", r.Maps.MapType, r.Maps.MapName)
+	}
+	h.HandleMessageWith("/map DEF", ps[0])
+	if r.Maps.MapType != game.DefaultMap {
+		t.Fatalf("DEF 应切回默认图: %v", r.Maps.MapType)
 	}
 }

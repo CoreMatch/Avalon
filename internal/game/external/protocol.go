@@ -23,16 +23,22 @@ import (
 //   - 增加玩家档案、聊天与命令转发、致命错误三类主动消息.
 //   - 每一条消息都带世代号 (gen), 用于识别"上一代 helper 迟到的消息".
 //
+// v3 相对 v2 的变化:
+//   - room.start 新增可选字段 mapType ("CustomMap"/"SavedGames"; 缺省即默认地图)
+//     与 mapFile (非默认地图的文件名, 含后缀), 让 helper 引擎桥装载自定义地图.
+//   - 版本号本身是兼容闸门: 新旧两侧握手时版本不一致直接失败,
+//     避免旧 helper 把自定义地图请求静默当成默认地图处理.
+//
 // 线格式: 每行一条 JSON, LF 结尾, UTF-8.
 //
 //	Go -> helper (请求):
-//	  {"v":2,"id":1,"op":"room.start","room":"r1","map":"...","gen":1}
+//	  {"v":3,"id":1,"op":"room.start","room":"r1","map":"...","gen":1}
 //
 //	helper -> Go (应答/主动消息):
-//	  {"v":2,"type":"response","id":1,"ok":true,"running":true,"players":3,"gen":1}
-//	  {"v":2,"type":"packet","room":"r1","conn":"c1","ptype":115,"data":"<base64>","gen":1}
-//	  {"v":2,"type":"event","event":"chat","room":"r1","data":{...},"gen":1}
-//	  {"v":2,"type":"fatal","error":"...","gen":1}
+//	  {"v":3,"type":"response","id":1,"ok":true,"running":true,"players":3,"gen":1}
+//	  {"v":3,"type":"packet","room":"r1","conn":"c1","ptype":115,"data":"<base64>","gen":1}
+//	  {"v":3,"type":"event","event":"chat","room":"r1","data":{...},"gen":1}
+//	  {"v":3,"type":"fatal","error":"...","gen":1}
 //
 // 包负载编码: 标准 Base64 (RFC 4648, 带填充), 与 java.util.Base64.getEncoder() 一致.
 //
@@ -42,7 +48,7 @@ import (
 //	helper 在握手 (hello) 时学到自己的世代号, 此后每一条消息都回带它.
 //	Go 侧收到世代号不等于当前世代的消息一律丢弃 —— 上一代 helper 在管道里
 //	迟到的包如果混进来, 会被发给新一轮对局的客户端, 表现为"客户端莫名乱动".
-const ProtocolVersion = 2
+const ProtocolVersion = 3
 
 // 消息类型 (helper -> Go)
 const (
@@ -166,6 +172,10 @@ type Request struct {
 	Map string `json:"map,omitempty"`
 	// MapPlayer 对应 MatchConfig.MapPlayer
 	MapPlayer string `json:"mapPlayer,omitempty"`
+	// MapType 对应 MatchConfig.MapType ("CustomMap"/"SavedGames"; 空 = 默认地图)
+	MapType string `json:"mapType,omitempty"`
+	// MapFile 对应 MatchConfig.MapFile (非默认地图的文件名, 含后缀)
+	MapFile string `json:"mapFile,omitempty"`
 	// MaxPlayer 对应 MatchConfig.MaxPlayer
 	MaxPlayer int `json:"maxPlayer,omitempty"`
 

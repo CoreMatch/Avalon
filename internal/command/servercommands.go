@@ -145,18 +145,13 @@ func registerServerPlayerCommand(h *cmd.Handler, d *Deps) {
 		if d.Session == nil {
 			return
 		}
-		// 上游取 mapsData 第一个自定义地图. Go 的 map 无序, 上游 ObjectMap 有序,
-		// 这里不保证与上游同一张 (无稳定首元素), 仅在有地图时落到房间.
-		if len(manage.MapsData) == 0 {
+		// 上游取 mapsData 第一个自定义地图 (ObjectMap 有序); Go 侧由
+		// mapmanage 的登记顺序表给出同样的确定性.
+		if manage.MapDataCount() == 0 {
 			d.print("No custom maps loaded")
 			return
 		}
-		var nameNoPx string
-		for k := range manage.MapsData {
-			nameNoPx = k
-			break
-		}
-		data := manage.MapsData[nameNoPx]
+		nameNoPx, data, _ := manage.MapDataByIndex(0)
 		maps := d.Session.Maps
 		maps.MapData = data
 		maps.MapType = data.MapType
