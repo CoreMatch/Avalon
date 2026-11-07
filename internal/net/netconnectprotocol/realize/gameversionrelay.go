@@ -988,13 +988,7 @@ func (g *GameVersionRelay) idCustom(inId string) {
 		return
 	}
 
-	if g.idDistribute(id) {
-		if global.ConfigRelay.MainServer {
-			g.SendPacket(relaypacket.FromRelayJumpsToAnotherServerPacket(firstRuneString(id, 1) + ".relay.rwhps.net/" + id))
-			return
-		}
-		id = dropRunes(id, 2)
-	} else if strings.EqualFold(firstRuneString(id, 0), "R") {
+	if strings.EqualFold(firstRuneString(id, 0), "R") {
 		id = dropRunes(id, 1)
 	}
 
@@ -1032,7 +1026,7 @@ func (g *GameVersionRelay) idCustom(inId string) {
 				return
 			}
 			taken, _ := room.GetCheckRelay(customId)
-			if taken || g.idDistribute("R"+customId) {
+			if taken {
 				g.SendRelayServerType(i18n("relay.id.re"), nil)
 				return
 			}
@@ -1042,7 +1036,7 @@ func (g *GameVersionRelay) idCustom(inId string) {
 				return
 			}
 			taken, _ := room.GetCheckRelay(customId)
-			if taken || g.idDistribute("R"+customId) {
+			if taken {
 				g.SendRelayServerType(i18n("relay.id.re"), nil)
 				return
 			}
@@ -1171,11 +1165,6 @@ func (g *GameVersionRelay) parseCustomParams(id *string, custom *customRelayData
 		}
 	}
 	return nil
-}
-
-// idDistribute 对应 private idDistribute(id): 上游恒返回 false
-func (g *GameVersionRelay) idDistribute(string) bool {
-	return false
 }
 
 // checkLength 对应 private checkLength(str)
