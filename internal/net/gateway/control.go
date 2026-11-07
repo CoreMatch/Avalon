@@ -107,6 +107,8 @@ func (g *Gateway) controlRouter() *http.ServeMux {
 	mux.HandleFunc("POST /v1/rooms/{code}/kick", g.handleKick)
 	mux.HandleFunc("POST /v1/rooms/{code}/ban", g.handleBan)
 	mux.HandleFunc("GET /v1/rooms/{code}/players", g.handlePlayers)
+	mux.HandleFunc("GET /v1/rooms/{code}/mods", g.handleRoomMods)
+	mux.HandleFunc("GET /v1/rooms/{code}/mods/{file}", g.handleRoomModFile)
 	return mux
 }
 
