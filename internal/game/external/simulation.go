@@ -59,6 +59,8 @@ func (b *Backend) Start(cfg game.MatchConfig) error {
 		MapPlayer: cfg.MapPlayer,
 		MapType:   cfg.MapType,
 		MapFile:   cfg.MapFile,
+		MapSHA256: cfg.MapSHA256,
+		MapSize:   mapSizePtr(cfg),
 	}); err != nil {
 		return err
 	}
@@ -67,6 +69,16 @@ func (b *Backend) Start(cfg game.MatchConfig) error {
 	b.running = true
 	b.mu.Unlock()
 	return nil
+}
+
+// mapSizePtr 协议 v4: 非默认地图时把清单大小装成指针字段
+// (0/默认地图不带该字段, 与 validateRequest 的闸门一致)
+func mapSizePtr(cfg game.MatchConfig) *int64 {
+	if cfg.MapType == "" || cfg.MapSize <= 0 {
+		return nil
+	}
+	size := cfg.MapSize
+	return &size
 }
 
 // Stop 实现 game.Simulation, 对应 ServerRoom.gr (结束当前局)

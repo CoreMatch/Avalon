@@ -2,6 +2,7 @@ package gameserver
 
 import (
 	"strings"
+	"sync"
 	"sync/atomic"
 
 	"github.com/CoreMatch/Avalon/internal/core/thread"
@@ -80,6 +81,16 @@ type GameVersionServer struct {
 
 	// relaySelect 对应 relaySelect: Relay 密码询问的回调 (Relay flavour)
 	relaySelect func(string)
+
+	// 地图分发失败分类状态 (协议 v4). 引擎开局会把自定义地图随
+	// START_GAME 流送给客户端; 这里记录"流送是否到达本连接"与
+	// "客户端是否随后接受了对局", 让"客户端拒收/加载失败"与正常
+	// 离场可区分. 三个字段由 mapStreamMu 保护 (路由协程写,
+	// 收包/断连协程读).
+	mapStreamMu        sync.Mutex
+	mapStreamDelivered bool
+	mapStreamSize      int64
+	startAccepted      bool
 }
 
 // NewGameVersionServer 对应 GameVersionServer(playerConnectX) + getTypeConnect 里的登记动作
@@ -255,6 +266,9 @@ func (g *GameVersionServer) Disconnect() {
 	}
 	g.IsDis = true
 
+	// 协议 v4: 断连前做地图分发失败分类 (只读, 不影响后续清理顺序)
+	g.classifyMapDeliveryOnClose()
+
 	connections.remove(g.connID)
 
 	if g.player != nil && g.room != nil {
@@ -288,14 +302,79 @@ func (g *GameVersionServer) Disconnect() {
 // 上游: playerConnectX.netEnginePackaging.addPacket(packet); Go 版经 conn.packet
 // 转发给外部内核. 无内核时静默丢弃 —— 该路径只在端口已开放时可达, 而端口
 // 只有在 start 成功后才开放, 正常情况下内核必然存在.
+//
+// 协议 v4 (地图分发): 顺带记录客户端对开局的接受证据 (ACCEPT_START_GAME /
+// TICK / GAMECOMMAND), 供断连时的失败分类 —— 地图流已送达却始终没有接受
+// 包的连接, 属于"客户端拒收或加载失败", 与正常离场区分开.
 func (g *GameVersionServer) ReceivePacket(p *packet.Packet) {
 	h := currentHelper()
 	if h == nil || g.room == nil || p == nil {
 		return
 	}
+	switch packettype.PacketType(p.Type.TypeInt()) {
+	case packettype.ACCEPT_START_GAME, packettype.TICK, packettype.GAMECOMMAND_RECEIVE:
+		g.noteStartAccepted()
+	}
 	if err := h.ConnPacket(g.room.RoomID, g.connID, p); err != nil {
 		log.Errorf("[GameServer]", "forward packet {0} to helper: {1}", p.Type.TypeInt(), err)
 	}
+}
+
+// noteMapStream 记录地图流送达状态 (协议 v4, 由 routePacket 在成功写出
+// START_GAME 后调用). size 为负载里声明的地图流大小 (非自定义地图为 -1).
+func (g *GameVersionServer) noteMapStream(size int64) {
+	g.mapStreamMu.Lock()
+	g.mapStreamDelivered = true
+	g.mapStreamSize = size
+	g.mapStreamMu.Unlock()
+	if size >= 0 {
+		log.Infof("[GameServer]", "map delivery: START_GAME with map stream ({0} bytes) delivered to conn {1}", size, g.connID)
+	}
+}
+
+// noteStartAccepted 记录客户端接受开局/进入对局的证据 (协议 v4)
+func (g *GameVersionServer) noteStartAccepted() {
+	g.mapStreamMu.Lock()
+	g.startAccepted = true
+	g.mapStreamMu.Unlock()
+}
+
+// SendStartGame 发送 START_GAME 并返回发送结果 (协议 v4).
+//
+// 与 SendPacket 的差异: 发送失败不上位静默断连, 而是把错误交回路由层,
+// 让"地图流传输中断"成为可分辨的失败路径 (写失败 = 传输中断).
+func (g *GameVersionServer) SendStartGame(p *packet.Packet) error {
+	return g.ConnectionAgreement.Send(p)
+}
+
+// classifyMapDeliveryOnClose 断连时的地图分发失败分类 (协议 v4):
+// 地图流已送达、客户端却始终没有发出任何接受/对局包就断开 ——
+// 官方协议没有显式"拒收"包, 这就是可观测的"客户端拒收或加载失败".
+// 正常对局离场 (已有接受包) 与默认地图开局 (无地图流) 不触发.
+func (g *GameVersionServer) classifyMapDeliveryOnClose() {
+	size, outcome := g.mapDeliveryOutcome()
+	if outcome == "" {
+		return
+	}
+	log.Warnf("[GameServer]", "map delivery: {0} (conn {1}, map stream {2} bytes)", outcome, g.connID, size)
+}
+
+// mapDeliveryOutcome 返回断连时的地图分发分类结果:
+//
+//	""                 无需分类 (默认地图 / 未送达地图流 / 客户端已接受开局)
+//	"client refused"   地图流已送达, 客户端未发出任何接受/对局包即断开
+//
+// 返回值供日志与测试共用, 判定逻辑只在此一处.
+func (g *GameVersionServer) mapDeliveryOutcome() (int64, string) {
+	g.mapStreamMu.Lock()
+	delivered := g.mapStreamDelivered
+	size := g.mapStreamSize
+	accepted := g.startAccepted
+	g.mapStreamMu.Unlock()
+	if delivered && size >= 0 && !accepted {
+		return size, "client refused or failed to load map"
+	}
+	return size, ""
 }
 
 // ReceiveChat 对应 receiveChat

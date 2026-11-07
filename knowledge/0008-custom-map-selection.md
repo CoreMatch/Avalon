@@ -9,8 +9,9 @@ Accepted (current-state record; protocol v3)
 Custom maps (server-side `.tmx` / zip-packed maps under `data/maps`, saves
 under `data/saves`) are selectable for a room. This entry records what is
 supported now and where the hard limits are. Companion facts: maps are parsed
-by the engine only (entry 0002); there is **no map distribution channel** —
-the server never sends map files to clients.
+by the engine only (entry 0002). Map distribution was added later (protocol
+v4) and is documented in entry 0011 — the engine streams the selected map to
+clients inside START_GAME at game start.
 
 ## Selection chain (as implemented)
 
@@ -42,26 +43,29 @@ the server never sends map files to clients.
 compatibility gate: the hello handshake rejects mismatches, so an old helper
 can never silently treat a custom-map start as a default-map start.
 
-## Distribution model (unchanged)
+## Distribution model (superseded by entry 0011)
 
-The server does not transmit map files. Every client must already have a
-selected custom map; there is no protocol packet for map transfer and none is
-planned in this entry.
+At v3 acceptance the server did not transmit map files; every client had to
+pre-install a selected custom map. Protocol v4 (entry 0011) added map
+distribution: the engine streams the selected map inside START_GAME, gated by
+a SHA-256/size content manifest registered at map scan time.
 
-## Failure distinguishability
+## Failure distinguishability (v4 update in entry 0011)
 
 | Failure | Distinguishable? | Signal |
 |---|---|---|
 | Map not registered / bad index | yes | command replies `map.no` / `err.noNumber`; room state untouched |
 | Unsafe map name | yes | rejected at registration (logged) and again in helper (`unsafe mapFile`) |
 | Server-side map file missing (File type) | yes | `StartGame` fails with `game.ErrMapSourceUnavailable`; room stays unstarted |
+| Server-side map content differs from manifest | yes (v4) | `StartGame` fails with `game.ErrMapContentMismatch`; helper answers `map content mismatch: ...` |
 | Engine fails to load the map (corrupt tmx) | partially | helper `room.start` error / fatal event surfaces as start failure; reason text is engine-provided |
-| **Client missing the map** | **no — cannot be distinguished** | registration checksum covers units only and runs before any map context; the server sees at most a later player disconnect, indistinguishable from other causes. Clients must pre-install custom maps |
+| Client missing the map | resolved (v4) | engine streams the map inside START_GAME; client loads from the stream (entry 0011). Client-side load failure / refusal is classified by the gameserver disconnect heuristic |
 
 ## Limits
 
-- No map file transfer; no mod content via maps (unit definitions are mod
-  territory; see the mod investigation notes in the SamuelPortal PARITY doc).
+- No mod content via maps (unit definitions are mod territory; see the mod
+  investigation notes in the SamuelPortal PARITY doc). Map file transfer
+  itself exists since v4 (entry 0011).
 - `SavedGames` maps ride the same branch (`.rwsave`) but have no dedicated
   selection UI beyond the shared index.
 - Zip maps are materialized next to plain maps; `MapData.Clean` removes the

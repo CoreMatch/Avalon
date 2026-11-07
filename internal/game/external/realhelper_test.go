@@ -314,34 +314,34 @@ func TestRealHelperRobustness(t *testing.T) {
 	}
 
 	// 1. 正常握手 (确认进程可用)
-	send(`{"v":3,"id":1,"op":"hello","gen":1}`)
+	send(`{"v":4,"id":1,"op":"hello","gen":1}`)
 	if resp := readResp(`"id":1`, 90*time.Second); !strings.Contains(resp, `"ok":true`) {
 		t.Fatalf("初始 hello 失败: %q stderr=%s", resp, stderr.String())
 	}
 
 	// 2. 畸形帧注入: 非 JSON 垃圾 / 截断 JSON / 空行 —— helper 应全部吞掉不死
 	send(`this is not json at all`)
-	send(`{"v":3,"id":2,"op":`)
+	send(`{"v":4,"id":2,"op":`)
 	send(``)
 
 	// 3. 未知 op -> 应得到 ok:false 的 unsupported 应答, 进程继续存活
-	send(`{"v":3,"id":3,"op":"no.such.op","gen":1}`)
+	send(`{"v":4,"id":3,"op":"no.such.op","gen":1}`)
 	if resp := readResp(`"id":3`, 30*time.Second); !strings.Contains(resp, `"ok":false`) {
 		t.Fatalf("未知 op 应返回 ok:false: %q", resp)
 	}
 
 	// 4. 缺字段帧 (room.create 无 room) -> 缺省空串, ok:true
-	send(`{"v":3,"id":4,"op":"room.create","gen":1}`)
+	send(`{"v":4,"id":4,"op":"room.create","gen":1}`)
 	if resp := readResp(`"id":4`, 30*time.Second); !strings.Contains(resp, `"ok":true`) {
 		t.Fatalf("缺字段 room.create 应 ok:true: %q", resp)
 	}
 
 	// 5. 异常注入后流程仍可推进: hello + room.status (等引擎就绪)
-	send(`{"v":3,"id":5,"op":"hello","gen":1}`)
+	send(`{"v":4,"id":5,"op":"hello","gen":1}`)
 	if resp := readResp(`"id":5`, 30*time.Second); !strings.Contains(resp, `"ok":true`) {
 		t.Fatalf("异常后 hello 失败 (主循环已死?): %q stderr=%s", resp, stderr.String())
 	}
-	send(`{"v":3,"id":6,"op":"room.status","gen":1}`)
+	send(`{"v":4,"id":6,"op":"room.status","gen":1}`)
 	if resp := readResp(`"id":6`, 150*time.Second); !strings.Contains(resp, `"ok":true`) {
 		t.Fatalf("异常后 room.status 失败: %q stderr=%s", resp, stderr.String())
 	}

@@ -29,16 +29,25 @@ import (
 //   - 版本号本身是兼容闸门: 新旧两侧握手时版本不一致直接失败,
 //     避免旧 helper 把自定义地图请求静默当成默认地图处理.
 //
+// v4 相对 v3 的变化 (地图分发):
+//   - room.start 在非默认地图时新增 mapSha256 / mapSize 内容清单字段:
+//     引擎开局会把地图文件随 START_GAME 流送给客户端 (官方内置通道),
+//     helper 在流送前按清单复核盘上字节, 同名不同内容不当作已有,
+//     缺失或不符以类型化错误 ("map file missing: X" /
+//     "map content mismatch: X (...)") 拒绝开局.
+//   - 版本闸门同 v3: 握手不一致直接失败, 不做静默降级 —— 旧 helper
+//     收不到清单字段会把带哈希校验的请求当普通请求处理, 必须显式拒绝.
+//
 // 线格式: 每行一条 JSON, LF 结尾, UTF-8.
 //
 //	Go -> helper (请求):
-//	  {"v":3,"id":1,"op":"room.start","room":"r1","map":"...","gen":1}
+//	  {"v":4,"id":1,"op":"room.start","room":"r1","map":"...","gen":1}
 //
 //	helper -> Go (应答/主动消息):
-//	  {"v":3,"type":"response","id":1,"ok":true,"running":true,"players":3,"gen":1}
-//	  {"v":3,"type":"packet","room":"r1","conn":"c1","ptype":115,"data":"<base64>","gen":1}
-//	  {"v":3,"type":"event","event":"chat","room":"r1","data":{...},"gen":1}
-//	  {"v":3,"type":"fatal","error":"...","gen":1}
+//	  {"v":4,"type":"response","id":1,"ok":true,"running":true,"players":3,"gen":1}
+//	  {"v":4,"type":"packet","room":"r1","conn":"c1","ptype":115,"data":"<base64>","gen":1}
+//	  {"v":4,"type":"event","event":"chat","room":"r1","data":{...},"gen":1}
+//	  {"v":4,"type":"fatal","error":"...","gen":1}
 //
 // 包负载编码: 标准 Base64 (RFC 4648, 带填充), 与 java.util.Base64.getEncoder() 一致.
 //
@@ -48,7 +57,7 @@ import (
 //	helper 在握手 (hello) 时学到自己的世代号, 此后每一条消息都回带它.
 //	Go 侧收到世代号不等于当前世代的消息一律丢弃 —— 上一代 helper 在管道里
 //	迟到的包如果混进来, 会被发给新一轮对局的客户端, 表现为"客户端莫名乱动".
-const ProtocolVersion = 3
+const ProtocolVersion = 4
 
 // 消息类型 (helper -> Go)
 const (
@@ -176,6 +185,14 @@ type Request struct {
 	MapType string `json:"mapType,omitempty"`
 	// MapFile 对应 MatchConfig.MapFile (非默认地图的文件名, 含后缀)
 	MapFile string `json:"mapFile,omitempty"`
+	// MapSHA256 对应 MatchConfig.MapSHA256 (协议 v4, 非默认地图必带):
+	// 将被流送给客户端的地图字节的 SHA-256 (十六进制小写).
+	// helper 在交给引擎前复核盘上文件, 同名不同内容不当作已有.
+	MapSHA256 string `json:"mapSha256,omitempty"`
+	// MapSize 对应 MatchConfig.MapSize (协议 v4, 非默认地图必带):
+	// 地图字节数. 用指针区分"未提供"与 0 (0 不是合法地图大小,
+	// 但清单语义下"缺失"必须可辨).
+	MapSize *int64 `json:"mapSize,omitempty"`
 	// MaxPlayer 对应 MatchConfig.MaxPlayer
 	MaxPlayer int `json:"maxPlayer,omitempty"`
 
@@ -430,6 +447,17 @@ func validateRequest(req *Request) error {
 	case OpRoomCreate, OpRoomDestroy, OpRoomStart, OpRoomStop, OpRoomStatus:
 		if req.Room == "" {
 			return fmt.Errorf("%w: %s without room", ErrProtocol, req.Op)
+		}
+		if req.Op == OpRoomStart && req.MapType != "" {
+			// 协议 v4: 非默认地图必须携带内容清单 —— 引擎会把该文件随
+			// START_GAME 流送给客户端, helper 按清单复核. 缺清单的请求
+			// 在 Go 侧就拦下, 不让 helper 去猜.
+			if req.MapFile == "" {
+				return fmt.Errorf("%w: room.start with mapType but without mapFile", ErrProtocol)
+			}
+			if req.MapSHA256 == "" || req.MapSize == nil || *req.MapSize <= 0 {
+				return fmt.Errorf("%w: room.start with mapType but without map manifest (mapSha256/mapSize)", ErrProtocol)
+			}
 		}
 		return nil
 	case OpRoomAddAI, OpRoomSync, OpGameResult, OpRoomSettings:
