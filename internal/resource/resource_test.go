@@ -35,21 +35,6 @@ func TestBundles(t *testing.T) {
 	}
 }
 
-// TestEULA 中英文许可文本都可读取, 对应 eula() 的分支
-func TestEULA(t *testing.T) {
-	cn, err := EULA("CN")
-	if err != nil || len(cn) == 0 {
-		t.Fatalf("EULA(CN) = %d bytes, %v", len(cn), err)
-	}
-	en, err := EULA("EN")
-	if err != nil || len(en) == 0 {
-		t.Fatalf("EULA(EN) = %d bytes, %v", len(en), err)
-	}
-	if string(cn) == string(en) {
-		t.Error("EULA(CN) and EULA(EN) should differ")
-	}
-}
-
 // TestURLIni 对应 Data.urlData 的读取来源
 func TestURLIni(t *testing.T) {
 	b, err := URLIni()

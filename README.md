@@ -7,7 +7,7 @@
 Java 引擎壳（helper）与游戏数据由
 [Avalon-Helper 仓库](https://github.com/SamuelCheston/Avalon-Helper)提供（`Helper/` 模块与
 `data/gameData`）；本仓与 Kotlin/Java 版的功能对照见
-`/home/lnb/SamuelPortal-docs/RW-HPS-GO-PARITY.md`，谱系审计见
+`/home/lnb/SamuelPortal-docs/AVALON-PARITY.md`，谱系审计见
 [`knowledge/0005-upstream-lineage-and-derivative-status.md`](knowledge/0005-upstream-lineage-and-derivative-status.md)。
 
 ---
@@ -368,7 +368,7 @@ backend_ca_pool: "/run/secrets/ca.pem"                 # 校验 Go 服务端证�
 ## 与上游的行为差异（有意修正）
 
 以下偏离上游的地方均为**有意修正（作者已批准，2026-11-04）**，源码注释与
-`RW-HPS-GO-DECISIONS.md` 有逐条记录：
+`AVALON-DECISIONS.md` 有逐条记录：
 
 1. **封禁语义（D-10）**：上游 `unban` 误发 `PlayerBanEvent`（实为再次封禁）、
    客户端 `/ban` 对发起者触发（封禁管理员自己）。Go 版修正为：`unban` 触发

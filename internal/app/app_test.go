@@ -53,7 +53,7 @@ func setupBase(t *testing.T) string {
 	return dir
 }
 
-// seedSettings 预置 Settings.bin, 让启动链不去探测国家、也不弹许可提示
+// seedSettings 预置 Settings.bin, 让启动链不去探测国家、也不弹首次运行提示
 func seedSettings(t *testing.T) {
 	t.Helper()
 
@@ -62,7 +62,6 @@ func seedSettings(t *testing.T) {
 		t.Fatalf("open settings: %v", err)
 	}
 	s.SetString("serverCountry", "EN")
-	s.SetString("eulaVersion", global.ServerEulaVersion)
 	s.SetBool("initStart", false)
 	if err := s.Save(); err != nil {
 		t.Fatalf("save settings: %v", err)
@@ -149,7 +148,7 @@ func TestInitServerLanguageUsesStoredValue(t *testing.T) {
 	}
 }
 
-func TestEULA(t *testing.T) {
+func TestFirstRunPrompt(t *testing.T) {
 	setupBase(t)
 	if err := loadLang(); err != nil {
 		t.Fatalf("loadLang: %v", err)
@@ -161,22 +160,19 @@ func TestEULA(t *testing.T) {
 		t.Fatalf("open settings: %v", err)
 	}
 
-	// 第一个提示同意许可, 第二个提示需要 WEB 面板初始化 (Yes 才会把 initStart 置 false)
-	log.SetInput(strings.NewReader("Yes\nYes\n"))
-	eula(s)
+	// 首次运行只有一道提示: 是否需要 WEB 面板初始化 (Yes 才会把 initStart 置 false)
+	log.SetInput(strings.NewReader("Yes\n"))
+	firstRunPrompt(s)
 
-	if got := readString(s, "eulaVersion"); got != global.ServerEulaVersion {
-		t.Fatalf("eulaVersion = %q, 期望 %q", got, global.ServerEulaVersion)
-	}
 	if s.GetBool("initStart", true) {
 		t.Fatal("initStart 应被置为 false")
 	}
 	if !file.GetFolder(global.ServerDataPath).ToFile("Settings.bin").Exists() {
-		t.Fatal("eula 结束后应把 Settings.bin 落盘")
+		t.Fatal("首次运行提示结束后应把 Settings.bin 落盘")
 	}
 }
 
-func TestEULASkipsWhenVersionMatches(t *testing.T) {
+func TestFirstRunPromptSkipsWhenDone(t *testing.T) {
 	setupBase(t)
 	if err := loadLang(); err != nil {
 		t.Fatalf("loadLang: %v", err)
@@ -186,7 +182,6 @@ func TestEULASkipsWhenVersionMatches(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open settings: %v", err)
 	}
-	s.SetString("eulaVersion", global.ServerEulaVersion)
 	s.SetBool("initStart", false)
 
 	// 输入为空: 若仍尝试读许可, WaitLicense 会打印 "No console input" 并返回,
@@ -194,10 +189,10 @@ func TestEULASkipsWhenVersionMatches(t *testing.T) {
 	var out bytes.Buffer
 	log.SetOutput(&out)
 	log.SetInput(strings.NewReader(""))
-	eula(s)
+	firstRunPrompt(s)
 
 	if strings.Contains(out.String(), "Yes/No") {
-		t.Fatalf("不应再次询问许可, 实际输出: %q", out.String())
+		t.Fatalf("不应再次询问, 实际输出: %q", out.String())
 	}
 }
 

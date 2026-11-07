@@ -151,11 +151,11 @@ func TestDistributionSelfContained(t *testing.T) {
 
 	startAt := time.Now()
 
-	// 首次启动有两道交互确认 (EULA + WEB 面板询问): 预置应答,
+	// 首次启动有一道交互确认 (WEB 面板询问): 预置应答,
 	// 否则控制台在空管道上阻塞等待输入. 应答行到达时若提示已过,
 	// 只会被当作未知命令忽略, 无副作用.
-	if _, err := io.WriteString(stdin, "Yes\nNo\n"); err != nil {
-		t.Fatalf("预置 EULA 应答: %v", err)
+	if _, err := io.WriteString(stdin, "No\n"); err != nil {
+		t.Fatalf("预置首次运行应答: %v", err)
 	}
 
 	// --- 3. 等游戏端口就绪 (轮询拨号) ---

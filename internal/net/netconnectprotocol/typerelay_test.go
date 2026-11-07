@@ -91,7 +91,7 @@ func newRelayConnect(t *testing.T, ip string) (*TypeRelay, *realize.GameVersionR
 // registerPlayerPacket 构造握手用的 REGISTER_PLAYER 包 (名字 + UUID-Hex)
 func registerPlayerPacket(name, uuidHex string) *packet.Packet {
 	o := gameio.NewGameOutputStream()
-	o.WriteString("net.rwhps.server")
+	o.WriteString("net.corematch.avalon")
 	o.WriteBytes(make([]byte, 12))
 	o.WriteString(name)
 	o.WriteIsString("")

@@ -29,19 +29,17 @@ const (
 // 插件默认变量
 const (
 	// ServerID 自定义包名
-	ServerID = "net.rwhps.server"
+	ServerID = "net.corematch.avalon"
 	// ServerIDRelay 自定义 RELAY ID
-	ServerIDRelay = "net.rwhps.server.relayCustomMode.Dr"
+	ServerIDRelay = "net.corematch.avalon.relayCustomMode.Dr"
 	// ServerIDRelayGet RELAY 诱骗 UUID-Hex 时的 UUID
-	ServerIDRelayGet = "net.rwhps.server.relayGetUUIDHex.Dr"
+	ServerIDRelayGet = "net.corematch.avalon.relayGetUUIDHex.Dr"
 	// ServerCoreVersion 服务器主版本
 	ServerCoreVersion = "1.0.0"
 	// ToptKey 服务器 TOPT 密码
-	ToptKey = "net.rwhps.server.topt # Dr (dr@der.kim)"
+	ToptKey = "net.corematch.avalon.topt # Dr (dr@der.kim)"
 	// ServerRelayUUID RELAY 使用的 UUID
 	ServerRelayUUID = "Dr (dr@der.kim) & Tiexiu.xyz Core Team"
-	// ServerEulaVersion EULA 版本
-	ServerEulaVersion = "1.1.2"
 
 	UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36 Edg/114.0.1823.51"
 
