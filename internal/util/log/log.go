@@ -254,21 +254,18 @@ func threadName() string {
 // 本项目此前的 *f 实现把可变参数直接 fmt.Sprint 拼接, 而调用点却按 printf 习惯
 // 写成 %v/%d/%s, 结果日志里出现字面量占位符. 这里按原版语义修正实现,
 // 并把全部调用点改成 (tag, "模板", 参数...) 形式.
-func Skipping(v any)                 { logs(LevelOff, v, nil) }
-func Skippingf(tag, e any, p ...any) { logs(LevelOff, tag, parseArgs(e, p...)) }
-func Fatal(v any)                    { logs(LevelFatal, v, nil) }
-func Fatalf(tag, e any, p ...any)    { logs(LevelFatal, tag, parseArgs(e, p...)) }
-func Error(v any)                    { logs(LevelError, v, nil) }
-func Errorf(tag, e any, p ...any)    { logs(LevelError, tag, parseArgs(e, p...)) }
-func Warn(v any)                     { logs(LevelWarn, v, nil) }
-func Warnf(tag, e any, p ...any)     { logs(LevelWarn, tag, parseArgs(e, p...)) }
-func Info(v any)                     { logs(LevelInfo, v, nil) }
-func Infof(tag, e any, p ...any)     { logs(LevelInfo, tag, parseArgs(e, p...)) }
-func Debug(v any)                    { logs(LevelDebug, v, nil) }
-func Debugf(tag, e any, p ...any)    { logs(LevelDebug, tag, parseArgs(e, p...)) }
-func Track(v any)                    { logs(LevelTrack, v, nil) }
-func Trackf(tag, e any, p ...any)    { logs(LevelTrack, tag, parseArgs(e, p...)) }
-func All(v any)                      { logs(LevelAll, v, nil) }
+func Skipping(v any)              { logs(LevelOff, v, nil) }
+func Fatal(v any)                 { logs(LevelFatal, v, nil) }
+func Error(v any)                 { logs(LevelError, v, nil) }
+func Errorf(tag, e any, p ...any) { logs(LevelError, tag, parseArgs(e, p...)) }
+func Warn(v any)                  { logs(LevelWarn, v, nil) }
+func Warnf(tag, e any, p ...any)  { logs(LevelWarn, tag, parseArgs(e, p...)) }
+func Info(v any)                  { logs(LevelInfo, v, nil) }
+func Infof(tag, e any, p ...any)  { logs(LevelInfo, tag, parseArgs(e, p...)) }
+func Debug(v any)                 { logs(LevelDebug, v, nil) }
+func Debugf(tag, e any, p ...any) { logs(LevelDebug, tag, parseArgs(e, p...)) }
+func Trackf(tag, e any, p ...any) { logs(LevelTrack, tag, parseArgs(e, p...)) }
+func All(v any)                   { logs(LevelAll, v, nil) }
 
 // Clog 对应 Log.clog (CONSOLE 级别)
 //
