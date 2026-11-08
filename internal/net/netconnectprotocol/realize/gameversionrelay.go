@@ -119,7 +119,7 @@ type GameVersionRelay struct {
 
 // NewGameVersionRelay 对应 GameVersionRelay(connectionAgreement)
 func NewGameVersionRelay(ca *core.ConnectionAgreement) *GameVersionRelay {
-	return &GameVersionRelay{
+	g := &GameVersionRelay{
 		AbstractNetConnect: core.NewAbstractNetConnect(ca),
 		permissionStatus:   core.RelayInitialConnection,
 		site:               -1,
@@ -127,6 +127,9 @@ func NewGameVersionRelay(ca *core.ConnectionAgreement) *GameVersionRelay {
 		clientVersion:      151,
 		startGameFlag:      true,
 	}
+	// 与 GameVersionServer 同理: 清理路径只持有基类指针, 注入具体断开实现
+	g.AbstractNetConnect.SetDisconnect(g.Disconnect)
+	return g
 }
 
 // ---------------------------------------------------------------------------

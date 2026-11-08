@@ -2,6 +2,7 @@ package core
 
 import (
 	"net/url"
+	"sync"
 	"sync/atomic"
 
 	gameio "github.com/CoreMatch/Avalon/internal/io"
@@ -65,6 +66,12 @@ type AbstractNetConnect struct {
 	ConnectReceiveData *temp.ConnectReceiveData
 
 	lastReceivedTime atomic.Int64
+
+	// disconnectImpl 具体连接注入的断开实现 (见 SetDisconnect)
+	disconnectImpl func()
+	// disconnectOnce 保证具体断开逻辑在并发触发下只跑一遍
+	// (读循环退出清理与超时扫描可能同时到达)
+	disconnectOnce sync.Once
 }
 
 // NewAbstractNetConnect 对应 AbstractNetConnect(connectionAgreement)
@@ -108,8 +115,24 @@ func (a *AbstractNetConnect) UseConnectionAgreement() string {
 // Version 协议版本号, 子类覆盖
 func (a *AbstractNetConnect) Version() string { return "" }
 
-// Disconnect 断开连接, 子类覆盖
-func (a *AbstractNetConnect) Disconnect() {}
+// Disconnect 断开连接: 统一入口.
+//
+// Go 没有虚方法, 而清理路径 (读循环 EOF/RST 退出、超时扫描、发送失败、
+// 关服) 只持有基类指针; 真正的断开逻辑 (房间列表清理 / PlayerLeaveEvent /
+// 引擎注销) 在子类方法里. 子类构造时注入自己的实现 (SetDisconnect),
+// 这里统一分发; 未注入时为空操作 (测试脚手架).
+//
+// 修复实测确认的缺陷: 此前清理路径经基类指针调到的是这个空实现,
+// RST/EOF 异常断连的玩家永久留在房间里 (干净断连走子类直调路径才正常).
+func (a *AbstractNetConnect) Disconnect() {
+	if a.disconnectImpl == nil {
+		return
+	}
+	a.disconnectOnce.Do(a.disconnectImpl)
+}
+
+// SetDisconnect 注入具体连接的断开实现, 由子类构造器调用
+func (a *AbstractNetConnect) SetDisconnect(fn func()) { a.disconnectImpl = fn }
 
 // SendPacket 发送数据包
 func (a *AbstractNetConnect) SendPacket(p *packet.Packet) {

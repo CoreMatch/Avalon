@@ -68,10 +68,33 @@ func AttachBackend(b *external.Backend) {
 			log.Errorf("[GameServer]", "helper generation {0} exited, dropping all game connections", gen)
 			disconnectAll()
 		},
-		// 新一代 helper 就绪: 房间配置重建属里程碑 2 (房间实体链) 的职责,
-		// 且上游语义明确要求"不要自动开局".
-		HelperReady: func(uint64) {},
+		// 新一代 helper 就绪: 在新一代上重建房间. 旧一代承载的房间随进程
+		// 作废, 新一代无房 —— 不重建则后续 conn.open / conn.packet 全部
+		// "packet without room" (实测: 协议自杀, 只能重启整个 Avalon).
+		// 只建房不开局 —— 上游语义明确要求"不要自动开局".
+		HelperReady: func(gen uint64) { helperRecreateRoom(b, gen) },
 	})
+}
+
+// roomRecreator helperRecreateRoom 对后端的最小依赖面 (测试注入记录型假实现)
+type roomRecreator interface {
+	RecreateRoom(roomID string, maxPlayer int) error
+}
+
+// helperRecreateRoom 处理"新一代 helper 就绪": 把当前房间重建到新一代上.
+//
+// 抽成函数而非闭包: AttachBackend 拿到的是具体 *external.Backend, 测试无法
+// 替换, 经窄接口注入后可断言重建参数与时机.
+func helperRecreateRoom(b roomRecreator, gen uint64) {
+	r := room.Default()
+	if r == nil {
+		return
+	}
+	if err := b.RecreateRoom(r.RoomID, r.MaxPlayer); err != nil {
+		log.Errorf("[GameServer]", "recreate room for helper generation {0} failed: {1}", gen, err)
+		return
+	}
+	log.Infof("[GameServer]", "helper generation {0} ready, room {1} recreated", gen, r.RoomID)
 }
 
 // handleHelperEvent 处理引擎发来的玩家事件

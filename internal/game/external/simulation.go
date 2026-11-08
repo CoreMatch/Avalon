@@ -81,6 +81,38 @@ func mapSizePtr(cfg game.MatchConfig) *int64 {
 	return &size
 }
 
+// RecreateRoom 在当前一代 helper 上重建房间: 只发 room.create, 不开局.
+//
+// 供新一代 helper 就绪时重建用 (gameserver 的 HelperReady 接线): 旧一代
+// 承载的房间随进程作废 (handleExit 已清 b.room), 新一代上没有房间 ——
+// 不重建则后续 conn.open / conn.packet 全部落空 ("packet without room").
+// 与 Start 的建房分支同语义但不触发 room.start: 开局只能由玩家/控制台
+// 触发, 崩溃恢复不自动开局.
+//
+// 同一世代已持有该房间时直接返回 (协议侧 room.create 本身也幂等).
+func (b *Backend) RecreateRoom(roomID string, maxPlayer int) error {
+	if roomID == "" {
+		return errors.New("external: empty room id")
+	}
+	if b.currentRoom() == roomID {
+		return nil
+	}
+	if err := b.EnsureRunning(); err != nil {
+		return err
+	}
+	if _, err := b.Request(&Request{
+		Op:        OpRoomCreate,
+		Room:      roomID,
+		MaxPlayer: maxPlayer,
+	}); err != nil {
+		return err
+	}
+	b.mu.Lock()
+	b.room = roomID
+	b.mu.Unlock()
+	return nil
+}
+
 // Stop 实现 game.Simulation, 对应 ServerRoom.gr (结束当前局)
 //
 // 只结束对局, 不销毁房间: 原版在对局结束后房间继续存在, 可以再次开局.
