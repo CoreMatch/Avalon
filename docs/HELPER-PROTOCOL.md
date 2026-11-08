@@ -145,8 +145,8 @@ v2-ext 扩展：`room.addai` 应答里的 AI 档案额外携带 **`position`** �
 
 ## 扩展操作（protocol v2-ext）
 
-> **有意修正（作者已批准，2026-11-04）**：上游这些能力直接调用进程内的游戏引擎对象；
-> Go 版引擎在 helper 内，经本节扩展操作完成（DECISIONS D-9）。
+> 设计动机（上游进程内引擎调用为何变成线操作，DECISIONS D-9）：
+> `knowledge/0002-game-engine-as-external-dependency.md`。
 > 权威实现：`internal/game/external/protocol.go`（操作常量与校验）、
 > `internal/game/external/ext.go`（Backend 方法）。
 
@@ -215,9 +215,8 @@ v2-ext 扩展：`room.addai` 应答里的 AI 档案额外携带 **`position`** �
 
 ### 应答字段扩展：`ai`
 
-仅 `room.addai` 有效。**有意修正（作者已批准，2026-11-04）**：上游 `addAI` 同步把
-引擎生成的 AI 包装进 `room.playerManage`；Go 版引擎在 helper 内，档案经本字段回传，
-Go 侧据此登记入房（DECISIONS D-9）。
+仅 `room.addai` 有效。登记路径的设计动机（该字段为何是 AI 入房的唯一途径，
+DECISIONS D-9）：`knowledge/0001-ai-behavior-runs-in-the-jvm-engine.md`。
 
 ```json
 {"v":4,"type":"response","gen":1,"id":3,"ok":true,"ai":{

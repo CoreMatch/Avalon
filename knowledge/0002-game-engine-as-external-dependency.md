@@ -29,7 +29,9 @@ protocol (JSON lines over the helper's stdin/stdout, protocol version 2).
   that upstream performs on in-process engine objects (`room.addai`, `room.sync`,
   `room.removeplayer`, `game.result`, `room.settings`), without changing the wire
   version — a v2-only helper answers `unsupported` and Go degrades those calls to
-  logged no-ops.
+  logged no-ops. The v2-ext extension set (replacing upstream's in-process engine
+  calls with wire operations) was approved by the author on 2026-11-04
+  (DECISIONS D-9).
 - **Degradation without a helper**: the server still starts and serves connections.
   Match start returns the readable error `game: no simulation backend available`.
 

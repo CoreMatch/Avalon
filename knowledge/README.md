@@ -3,6 +3,12 @@
 ADR-style memos about Avalon's design and operations (migrated back from
 HA-Contract on 2026-11-07; this repository owns its own knowledge entries).
 
+Division of labor (see root `AGENTS.md`): this directory records decisions
+and history (why something was decided, what was ruled out, how it changed);
+usage and operations (current state, how-to, troubleshooting) live in
+`docs/`. Where they overlap, the authoritative side keeps the content and the
+other side leaves a one-line pointer.
+
 | Entry | Title | Status |
 |---|---|---|
 | [0001](./0001-ai-behavior-runs-in-the-jvm-engine.md) | AI Behavior Runs Entirely in the JVM Engine | Accepted |

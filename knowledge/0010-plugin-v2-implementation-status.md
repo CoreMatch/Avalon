@@ -35,7 +35,9 @@ round.
 
 All tiers share v1's envelope (eventId/event/eventVersion/occurredAt/server),
 bidirectional HMAC signatures, manifest negotiation, per-plugin single
-worker (FIFO across tiers), and WARN+counter visibility.
+worker (FIFO across tiers), and WARN+counter visibility. Current
+human-readable event catalog: `docs/plugins/EVENT-CATALOG.md` (the contract
+yaml stays authoritative).
 
 ### Event wiring (all via the room event bus, no boot-chain changes)
 
@@ -152,18 +154,13 @@ WARN-logged.
 
 ### Observe-tier delivery mechanics
 
-Observe records share the per-plugin FIFO queue with deliver records but
-are never written to the WAL (`internal/plugin/outbox.go::Outbox` persists
-only `Persist` records). Consequences, all contract-stated:
-
-- plugin down → observe events buffer in memory (bounded by
-  `outboxCapacity`, drop-oldest) and are delivered when negotiation
-  succeeds, unless they expire (`maxEventAgeHours`) or lose version
-  intersection (dropped and counted at negotiation time);
-- Avalon restart → observe events are gone (never persisted);
-- delivery failure (timeout/5xx/bad signature) → dropped immediately, no
-  retry; connection-level failure → plugin goes unready and the manifest
-  backoff path applies, same as v1.
+Decision: observe records share the per-plugin FIFO queue with deliver
+records but are never written to the WAL
+(`internal/plugin/outbox.go::Outbox` persists only `Persist` records) —
+durability is deliberately traded for freshness; all loss behavior
+(in-memory buffering with drop-oldest, no replay after restart, no retry on
+delivery failure) is contract-stated. The operational behavior tables live in
+`docs/plugins/FAILURE-MODES.md` and `docs/plugins/EVENT-CATALOG.md`.
 
 ## Explicitly NOT implemented in v2 (and why)
 
