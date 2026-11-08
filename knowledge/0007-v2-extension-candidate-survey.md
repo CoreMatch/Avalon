@@ -252,7 +252,8 @@ interior.
   (`internal/command/servercommands.go::registerServerCommands`), client
   admin commands (`internal/command/clientcommands.go::RegisterClientCommands`),
   relay admin commands (`internal/command/relay/relayclientcommands.go`),
-  Cascade facade (`internal/net/gateway/rooms.go::kickPlayer`, `banPlayer`).
+  Cascade facade (`internal/net/gateway/rooms.go::kickPlayer`,
+  `internal/net/gateway/rooms.go::banPlayer`).
 - Payload: actor (console / cascade / player-admin), action, target;
   obtainable per call site, no unified representation.
 - Two routes: (a) emit at per-action choke points — kick via
@@ -291,7 +292,7 @@ Primitives that already exist in Avalon (none require the helper):
 | Mute | write `Player.MuteTime` (enforced by the chat filter) |
 | Ban / unban | `internal/data/global/administration.go::BanUUID` and siblings |
 | Jump to another server | `internal/game/player/player.go::PlayerJumpsToAnotherServer` (domain-format validated) |
-| Room broadcast / kick-all | `internal/game/manage/callmanage.go::SendSystemMessage`, `KillAllPlayer` |
+| Room broadcast / kick-all | `internal/game/manage/callmanage.go::SendSystemMessage`, `internal/game/manage/callmanage.go::KillAllPlayer` |
 
 - Category: **A** — v1 is push-only; intervention needs a plugin→Avalon
   action channel (new surface).

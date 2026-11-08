@@ -43,7 +43,7 @@ for the Java/Kotlin side lives in the Avalon-Helper repository
 | Directory | Classification | Evidence |
 |---|---|---|
 | `internal/io` | **translation port** | `internal/io/packettype/packettype.go` reproduces upstream `PacketType.kt` constant-by-constant — **including the upstream typo `UPDATA_CLASS_RECEIVE`**; `gamestream.go` (61 functions) mirrors `GameInputStream`/`GameOutputStream` |
-| `internal/net` (except `gateway/`) | **translation port** | decoder/mixprotocol/rcondecoder/service/staticdata map 1:1 to upstream; `gameserver/` = Go edition of `GameVersionServer`+`HeadlessTypeConnect` chain; `netconnectprotocol/` = TypeRelay/GameVersionRelay family; `http/` = StartHttp/WebData; `httpapi/` = upstream beta-http plugin port (decision D-14); `uplist/` = UPList module port |
+| `internal/net` (except `gateway/`) | **translation port** | decoder/mixprotocol/rcondecoder/service/staticdata map one-to-one to upstream; `gameserver/` = Go edition of `GameVersionServer`+`HeadlessTypeConnect` chain; `netconnectprotocol/` = TypeRelay/GameVersionRelay family; `http/` = StartHttp/WebData; `httpapi/` = upstream beta-http plugin port (decision D-14); `uplist/` = UPList module port |
 | `internal/game` (except `external/`, `seam.go`) | **translation port** | room/player/manage/gamemaps/event correspond to the same-named upstream classes |
 | `internal/command` | **translation port** | core/servercommands/clientcommands/relay/ex-vote correspond to upstream command classes |
 | `internal/data` | **translation port** | `data.go` value-by-value from `Data.kt`; bean/administration/statisticians/cache correspond |

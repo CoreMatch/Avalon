@@ -19,7 +19,7 @@ protocol (JSON lines over the helper's stdin/stdout, protocol version 2).
 
 - **Why external**: a Go process cannot execute Java bytecode and has no equivalent
   of the upstream's bytecode rewriting, so the simulation layer cannot be ported
-  1:1. The Go side declares only the operations the network and command layers
+  one-to-one. The Go side declares only the operations the network and command layers
   actually call, and deliberately provides no fake implementation — a start without
   a backend must fail explicitly rather than produce an empty room that "looks like
   it runs".
