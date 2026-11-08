@@ -612,6 +612,52 @@ func TestDisconnectRemovesPlayer(t *testing.T) {
 	}
 }
 
+// TestDisconnectViaBasePointerRecoversPlayer EOF/RST 清理路径经基类指针分发
+//
+// 读循环退出清理 (AcceptorIdleStateTrigger.Clear) 只持有基类指针; Go 无
+// 虚方法, 必须经 AbstractNetConnect.SetDisconnect 注入的实现对接到具体
+// 断开逻辑. 修复前该路径调到空实现, 异常断连的玩家永久留在房间里.
+func TestDisconnectViaBasePointerRecoversPlayer(t *testing.T) {
+	h := &mockHelper{}
+	g, w := newTestServer(t, h)
+	handleHelperEvent(joinEvent(g.ConnID(), "hex-e", "erin", 1))
+
+	r := room.Default()
+	if r.PlayerManage.PlayerAll.Size() != 1 {
+		t.Fatal("前置: 玩家应在房")
+	}
+
+	// 模拟读循环 EOF/RST 退出清理: 只能拿到基类指针
+	anc := g.AbstractNetConnect
+	anc.Disconnect()
+
+	if !g.IsDis {
+		t.Fatal("IsDis 应置位")
+	}
+	if r.PlayerManage.PlayerGroup.Size() != 0 || r.PlayerManage.PlayerAll.Size() != 0 {
+		t.Fatalf("异常断连后玩家应被回收, 剩 %d/%d",
+			r.PlayerManage.PlayerGroup.Size(), r.PlayerManage.PlayerAll.Size())
+	}
+	if !w.IsClosedUDP() {
+		t.Fatal("传输层应关闭")
+	}
+	h.mu.Lock()
+	closes := len(h.closes)
+	h.mu.Unlock()
+	if closes != 1 {
+		t.Fatalf("conn.close 次数 = %d, 期望 1", closes)
+	}
+
+	// 并发/重复触发只清理一遍 (读循环退出与超时扫描可能同时到达)
+	anc.Disconnect()
+	h.mu.Lock()
+	closes = len(h.closes)
+	h.mu.Unlock()
+	if closes != 1 {
+		t.Fatalf("重复断开不应重复清理, conn.close = %d", closes)
+	}
+}
+
 // TestDisconnectDuringGameKeepsPlayerAll 对局中断线: 上游保留 playerAll
 func TestDisconnectDuringGameKeepsPlayerAll(t *testing.T) {
 	h := &mockHelper{}
@@ -645,5 +691,65 @@ func externalPacketMessageForTest(conn string, ptype int, data []byte) *external
 		Conn:  conn,
 		PType: ptype,
 		Data:  base64.StdEncoding.EncodeToString(data),
+	}
+}
+
+// --- helper 世代更替重建房间 (HelperReady 接线) ---
+
+// recordingRecreator 记录重建调用的假后端
+type recordingRecreator struct {
+	calls     int
+	room      string
+	maxPlayer int
+	err       error
+}
+
+func (r *recordingRecreator) RecreateRoom(roomID string, maxPlayer int) error {
+	r.calls++
+	r.room = roomID
+	r.maxPlayer = maxPlayer
+	return r.err
+}
+
+// TestHelperReadyRecreatesRoom 新一代 helper 就绪: 按当前房间参数重建
+//
+// 修复前缺陷: HelperReady 是空实现, 新一代无房, conn.* 全部
+// "packet without room" 协议自杀, 只能重启整个 Avalon.
+func TestHelperReadyRecreatesRoom(t *testing.T) {
+	oldCfg := global.ConfigServer
+	global.ConfigServer = bean.NewServerConfig()
+	t.Cleanup(func() { global.ConfigServer = oldCfg })
+
+	room.SetDefault(room.NewServerRoom(game.NewGameSession("room-hr", nil)))
+	t.Cleanup(func() { room.SetDefault(nil) })
+
+	rec := &recordingRecreator{}
+	helperRecreateRoom(rec, 2)
+
+	if rec.calls != 1 {
+		t.Fatalf("重建调用次数 = %d, 期望 1", rec.calls)
+	}
+	if rec.room != "room-hr" {
+		t.Fatalf("重建房间 = %q, 期望 room-hr", rec.room)
+	}
+	if rec.maxPlayer != global.ConfigServer.MaxPlayer {
+		t.Fatalf("重建 maxPlayer = %d, 期望 %d", rec.maxPlayer, global.ConfigServer.MaxPlayer)
+	}
+
+	// 重建失败不 panic (只记日志), 不影响后续世代
+	rec.err = core.ErrNotImplemented
+	helperRecreateRoom(rec, 3)
+	if rec.calls != 2 {
+		t.Fatalf("失败后仍应尝试重建, calls = %d", rec.calls)
+	}
+}
+
+// TestHelperReadyNoRoom 房间尚未建立时不重建
+func TestHelperReadyNoRoom(t *testing.T) {
+	room.SetDefault(nil)
+	rec := &recordingRecreator{}
+	helperRecreateRoom(rec, 2)
+	if rec.calls != 0 {
+		t.Fatalf("无房间时不应重建, calls = %d", rec.calls)
 	}
 }
