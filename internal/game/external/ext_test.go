@@ -8,6 +8,7 @@ package external
 import (
 	"errors"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -252,6 +253,116 @@ func TestBackendExtApplySettingsEmpty(t *testing.T) {
 	b := startRoom(t) // 不期望任何后续请求
 	if err := b.ApplySettings(game.RoomSettings{}); err != nil {
 		t.Fatalf("ApplySettings(空): %v", err)
+	}
+}
+
+// TestRecreateRoomIssuesRoomCreate RecreateRoom: 在当前一代发 room.create
+// 并登记房间; 同一世代同名房间第二次调用不重发.
+func TestRecreateRoomIssuesRoomCreate(t *testing.T) {
+	var creates int
+	var gotMax int
+	b, _, _, _ := setup(t,
+		step{wantOp: OpHello, reply: ok()},
+		step{wantOp: OpRoomCreate, before: func(req *Request, _ *os.File) {
+			creates++
+			gotMax = req.MaxPlayer
+		}, reply: ok()},
+	)
+
+	if err := b.RecreateRoom("r1", 7); err != nil {
+		t.Fatalf("RecreateRoom: %v", err)
+	}
+	if b.currentRoom() != "r1" {
+		t.Fatalf("currentRoom = %q, 期望 r1", b.currentRoom())
+	}
+	if creates != 1 || gotMax != 7 {
+		t.Fatalf("room.create 次数/参数 = %d/%d, 期望 1/7", creates, gotMax)
+	}
+
+	// 同一世代已持有该房间: 短路, 不重发
+	if err := b.RecreateRoom("r1", 7); err != nil {
+		t.Fatalf("RecreateRoom(重复): %v", err)
+	}
+	if creates != 1 {
+		t.Fatalf("同世代不应重发 room.create, creates = %d", creates)
+	}
+}
+
+// TestHelperReadyRolloverRecreatesRoom helper 崩溃重启后: HelperReady 在
+// 新一代上触发, RecreateRoom 把房间重建到新一代 (世代更替恢复全链路).
+//
+// 修复前缺陷: 房间只在进程启动时对第一代创建, 新一代无房, 后续
+// conn.* 全部 "packet without room" 协议自杀.
+func TestHelperReadyRolloverRecreatesRoom(t *testing.T) {
+	first, read1, write1 := newFakeProcess()
+	second, read2, write2 := newFakeProcess()
+	t.Cleanup(func() {
+		_ = read1.Close()
+		_ = write1.Close()
+		_ = read2.Close()
+		_ = write2.Close()
+	})
+
+	old := newProcess
+	var calls int
+	newProcess = func(string, []string, string, int) process {
+		calls++
+		if calls == 1 {
+			return first
+		}
+		return second
+	}
+	t.Cleanup(func() { newProcess = old })
+
+	b := newTestBackend(t, 2*time.Second)
+
+	var mu sync.Mutex
+	var readyGens []uint64
+	b.SetHandlers(Handlers{
+		HelperReady: func(gen uint64) {
+			mu.Lock()
+			readyGens = append(readyGens, gen)
+			mu.Unlock()
+			// 上层接线 (gameserver.HelperReady) 的同款动作
+			if err := b.RecreateRoom("r1", 10); err != nil {
+				t.Errorf("RecreateRoom(gen %d): %v", gen, err)
+			}
+		},
+	})
+
+	// 第一代: hello + 重建触发的 room.create
+	go serve(t, read1, write1, []step{
+		{wantOp: OpHello, reply: ok()},
+		{wantOp: OpRoomCreate, reply: ok()},
+	})
+	if err := b.EnsureRunning(); err != nil {
+		t.Fatalf("EnsureRunning(gen1): %v", err)
+	}
+
+	// 第二代: 崩溃重启, 脚本同样要应答 hello + room.create
+	go serve(t, read2, write2, []step{
+		{wantOp: OpHello, reply: ok()},
+		{wantOp: OpRoomCreate, reply: ok()},
+	})
+	first.Kill()
+
+	deadline := time.Now().Add(3 * time.Second)
+	for b.Generation() == 1 && time.Now().Before(deadline) {
+		time.Sleep(5 * time.Millisecond)
+	}
+	if b.Generation() != 2 {
+		t.Fatalf("重启后 Generation = %d, 期望 2", b.Generation())
+	}
+
+	// HelperReady 对两代各触发一次, 房间最终登记在新一代上
+	mu.Lock()
+	gens := append([]uint64{}, readyGens...)
+	mu.Unlock()
+	if len(gens) != 2 || gens[0] != 1 || gens[1] != 2 {
+		t.Fatalf("HelperReady 触发世代 = %v, 期望 [1 2]", gens)
+	}
+	if got := b.currentRoom(); got != "r1" {
+		t.Fatalf("新一代 currentRoom = %q, 期望 r1", got)
 	}
 }
 
