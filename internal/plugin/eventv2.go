@@ -50,6 +50,12 @@ var allEventNames = []string{
 	EventPlayerKicked,
 }
 
+// EventNames 返回事件全集的副本. 供一致性检查使用
+// (scripts/plugin-events 打印器与 internal/plugin/eventcatalog_test.go):
+// 事件真相有三份 (本代码 / HA-Contract openapi / docs/plugins/EVENT-CATALOG
+// 机器区块), 由 HA-Contract scripts/check-avalon-plugin-event-drift.sh 三方比对.
+func EventNames() []string { return append([]string(nil), allEventNames...) }
+
 // vetoGrantEvents 是需要运营显式授权才可进入否决模式的事件.
 // room.create 不在其中: 它沿用 v1 语义 (订阅即参与准入), 保持零回归.
 var vetoGrantEvents = map[string]bool{

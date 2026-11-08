@@ -2,6 +2,29 @@
 
 13 个事件，三档语义。所有事件共享信封字段：
 
+<!--
+机器可读事件清单（一致性检查读取此区块，勿改格式/语言标签）：
+- 代码 <-> 本区块：internal/plugin/eventcatalog_test.go::TestEventCatalogDocInSync
+- 三方（代码/openapi/本区块）：HA-Contract scripts/check-avalon-plugin-event-drift.sh
+增删事件时必须同步更新本区块、下方表格与 HA-Contract 契约。
+-->
+
+```plugin-events
+room.create
+game.over
+player.join
+player.leave
+player.banned
+player.unbanned
+player.ipbanned
+game.start
+player.chat
+unit.operation
+factory.build
+connection.new
+player.kicked
+```
+
 | 字段 | 说明 |
 |---|---|
 | `eventId` | `evt_` + 26 字符 ULID；发出时生成一次，重试/重放复用，插件按它去重 |
