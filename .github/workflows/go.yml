@@ -27,3 +27,15 @@ jobs:
 
     - name: Test
       run: go test -race ./...
+
+    # 插件事件目录三方一致性 (hub 代码 x HA-Contract openapi x
+    # docs/plugins/EVENT-CATALOG.md 机器区块). 任一来源读不到/为空都硬失败,
+    # 不允许"读不到所以跳过"的假绿. 脚本权威在 HA-Contract 仓.
+    - name: Checkout HA-Contract
+      uses: actions/checkout@v7
+      with:
+        repository: CoreMatch/HA-Contract
+        path: HA-Contract
+
+    - name: Plugin event drift check
+      run: AVALON_REPO_DIR=$GITHUB_WORKSPACE bash HA-Contract/scripts/check-avalon-plugin-event-drift.sh
