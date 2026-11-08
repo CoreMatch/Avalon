@@ -112,6 +112,12 @@ helper 线协议看 [HELPER-PROTOCOL.md](HELPER-PROTOCOL.md)。
 检查：`knowledge/0009-zero-mod-lobby-and-mod-assembly.md` §1）。
 在 Cascade 侧把它配成 `default_backend_id`。
 
+**模组房以及任何需要"先建后进"的服务同样必须用大厅模式**
+（`cascadeLobby: true`）：真开局下 0 人房间会被每秒一次的房间检查线程
+立即终局（`internal/game/manage/callmanage.go::StartCheckThread`，无 AI 且
+0 人 → 立即 `Gr()`），终局后玩家进不来——"临时开局等人"必踩。所以部署
+形态恒为大厅（建房不开局），开局权留给玩家进入之后。（回归脚本实测。）
+
 ### 2.2 玩家从大厅到子服
 
 1. 客户端连 **Cascade 的公网游戏口**，被路由到大厅后端（default backend）；
@@ -136,6 +142,15 @@ helper 线协议看 [HELPER-PROTOCOL.md](HELPER-PROTOCOL.md)。
 - Avalon 侧另有一个上游遗留的跳转原语
   `internal/game/player/player.go::PlayerJumpsToAnotherServer`（域名校验后
   发跳转包），属 relay 时代路径；Cascade 大厅分流不走它。
+
+### 2.4 启动窗口：健康要连续两次，房间只要一次
+
+Cascade 的健康判定要求**连续两次探测成功**（[xref] Cascade
+`internal/backend/directory.go::recordHealthResult`；对称地，连续三次失败
+判不健康），而房间快照**一次成功即对外可见**。两条时间线不同步：子服
+启动后存在"房间已可见、后端还未健康"的窗口。门控若只等房间快照出现就
+放客户端进来，会撞在窗口期被 "No available backend" 踢回。**门控要等
+后端健康，而不是等房间出现。**（回归脚本实测。）
 
 ---
 
@@ -258,6 +273,8 @@ helper 线协议看 [HELPER-PROTOCOL.md](HELPER-PROTOCOL.md)。
 | 开局失败，`map file missing` / `ErrMapSourceUnavailable` | 地图物化目录 | 登记后文件被删/未落盘。重新登记 |
 | helper 重启后玩家掉线、房间状态重置 | 日志 `helper generation N exited` | helper 世代更替：旧世代承载的连接作废，房间在新一代重建（只建房不开局）。客户端需重连；频繁出现则查 helper 崩溃原因（内存/引擎异常） |
 | 首启卡在提问上（无人值守场景） | 已修复，无需处理 | 首启 WEB 面板询问现在对非终端输入直接跳过（默认不初始化），终端输入有界等待超时走默认（`internal/app/initialization.go::firstRunPrompt`） |
+| 子服房间已可见，客户端却被 "No available backend" 踢回 | 门控的等待条件与 Cascade 健康状态 | 门控只等了房间快照；健康要连续两次探测成功，启动后有窗口期（见 §2.4）。回归脚本实测 |
+| 重启时端口被占，新进程起不来 | `ps` 查残留的 avalon / java 进程 | SIGTERM 是优雅退出：与控制台 `exit` 同一条链，送终 helper 耗时十几秒（`internal/app/runtime.go::watchTerm`）；上一次没退完就起下一次，残留进程占端口。停服务要等它退出完成再起下一次；紧急时第二次 SIGTERM 强退。回归脚本实测 |
 
 日志位置：`data/logs/`；回放：`data/replays/`；插件投递队列（deliver 档
 WAL）：`data/plugins/outbox/`。
