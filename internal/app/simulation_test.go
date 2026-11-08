@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/CoreMatch/Avalon/internal/data/bean"
@@ -17,6 +18,29 @@ import (
 	"github.com/CoreMatch/Avalon/internal/util/file/load"
 	"github.com/CoreMatch/Avalon/internal/util/log"
 )
+
+// lockedBuffer 是并发安全的日志捕获缓冲.
+//
+// log 包的写侧已由 writeMu 串行化 (见 internal/util/log/output.go), 但
+// 输出目标本身不保证并发安全: 完整启动链会拉起 backend 的 pump/重启
+// 协程, 它们持续经日志写这个缓冲, 测试主协程直接 String() 读取就会竞态.
+// 读侧必须与写侧共用一把锁 —— 本缓冲把 Write/String 都收在 mu 下.
+type lockedBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *lockedBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *lockedBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
+}
 
 // writeFakeHelper 造一个"存在但不可执行"的 jar 文件
 //
@@ -234,7 +258,7 @@ func TestStartChainAttachesConfiguredBackend(t *testing.T) {
 	cfg.GameHelperPath = writeFakeHelper(t)
 	bean.SaveCoreConfig(cfg)
 
-	var out bytes.Buffer
+	var out lockedBuffer
 	log.SetOutput(&out)
 
 	r := New(global.MainParameters{})
