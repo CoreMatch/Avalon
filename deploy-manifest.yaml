@@ -115,7 +115,7 @@ baremetal:
     # 产物尚未构建：go build -o build/avalon ./cmd/avalon（dist/build-dist.sh
     # 的 Go 二进制部分同款命令）。缺失时 preflight/部署会如实报缺，不静默。
     source: local_path
-    local_path: /home/lnb/Desktop/HA/Avalon/build/avalon
+    local_path: build/avalon
 
 container:
   enabled: false
