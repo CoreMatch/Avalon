@@ -148,6 +148,10 @@ func TestInitServerLanguageUsesStoredValue(t *testing.T) {
 	}
 }
 
+// TestFirstRunPrompt 无人值守首启: 输入不是终端时不提问, 走默认值
+// (不初始化 WEB 面板) 并持久化, 同一数据目录不再询问.
+// (终端下超时未应答的路径由 log.WaitLicenseBounded 的测试与隔离环境
+// 实测覆盖——测试进程拿不到真实的字符设备输入.)
 func TestFirstRunPrompt(t *testing.T) {
 	setupBase(t)
 	if err := loadLang(); err != nil {
@@ -160,15 +164,22 @@ func TestFirstRunPrompt(t *testing.T) {
 		t.Fatalf("open settings: %v", err)
 	}
 
-	// 首次运行只有一道提示: 是否需要 WEB 面板初始化 (Yes 才会把 initStart 置 false)
-	log.SetInput(strings.NewReader("Yes\n"))
+	var out bytes.Buffer
+	log.SetOutput(&out)
+	log.SetInput(strings.NewReader("Yes\n")) // 非终端输入: 不应触发提问
 	firstRunPrompt(s)
 
 	if s.GetBool("initStart", true) {
 		t.Fatal("initStart 应被置为 false")
 	}
 	if !file.GetFolder(global.ServerDataPath).ToFile("Settings.bin").Exists() {
-		t.Fatal("首次运行提示结束后应把 Settings.bin 落盘")
+		t.Fatal("首次运行结束后应把 Settings.bin 落盘")
+	}
+	if strings.Contains(out.String(), "Yes/No") {
+		t.Fatalf("非终端输入不应提问, 实际输出: %q", out.String())
+	}
+	if !strings.Contains(out.String(), "skipping WEB panel init prompt") {
+		t.Fatalf("应记录跳过提问的日志, 实际输出: %q", out.String())
 	}
 }
 

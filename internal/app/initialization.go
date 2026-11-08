@@ -2,7 +2,9 @@
 package app
 
 import (
+	"os"
 	"strings"
+	"time"
 
 	"github.com/CoreMatch/Avalon/internal/core/service"
 	"github.com/CoreMatch/Avalon/internal/data/global"
@@ -120,27 +122,64 @@ func detectCountry() string {
 	}
 }
 
+// firstRunPromptWait 首启提问的应答等待上限. 变量以便测试缩短.
+var firstRunPromptWait = 30 * time.Second
+
 // firstRunPrompt 对应 Initialization.eula (上游 EULA 步骤已移除)
 //
-// 首次启动询问是否需要 WEB 面板初始化, 经 log.WaitLicense 读取 stdin.
-// 上游的 EULA 出示文本是原项目的法律文本且原文已失维护, 2026-11-07 移除;
-// 若将来需要用户协议, 属另行起草的产品事项.
+// 首次启动询问是否需要 WEB 面板初始化. 上游的 EULA 出示文本是原项目的
+// 法律文本且原文已失维护, 2026-11-07 移除; 若将来需要用户协议, 属另行
+// 起草的产品事项.
+//
+// 无人值守适配 (2026-11-08 隔离实测): 原版无限阻塞读 stdin, 而进程管理器
+// (Tinyvisor) 以 PTY 拉起进程——stdin 是终端却无人应答, 首启提问会把整条
+// 启动链卡死. 现在:
+//   - 输入不是终端 (管道/重定向, 如 systemd/nohup/</dev/null): 不提问;
+//   - 输入是终端: 有界等待 (firstRunPromptWait), 超时无应答视同不提问.
+//
+// 两条路径都走默认值 (不初始化 WEB 面板) 并持久化 initStart=false,
+// 同一数据目录不再询问.
 func firstRunPrompt(settings *plugindata.Settings) {
 	if settings.GetBool("initStart", true) {
-		log.WaitLicense(func() {
-			if global.ServerCountry == "CN" {
-				log.Clog("您看起来是第一次运行服务器, 需要WEB面板帮助您初始化吗")
-				return
-			}
-			log.Clog("It looks like you are running the server for the first time. Do you need the WEB panel to help you initialize?")
-		}, func() {
+		if !stdinIsTerminal() {
+			log.Clog("[Init] first run: no interactive terminal, skipping WEB panel init prompt (default: not initialized)")
 			settings.SetBool("initStart", false)
-		}, func() {})
+		} else {
+			answered := log.WaitLicenseBounded(func() {
+				if global.ServerCountry == "CN" {
+					log.Clog("您看起来是第一次运行服务器, 需要WEB面板帮助您初始化吗")
+					return
+				}
+				log.Clog("It looks like you are running the server for the first time. Do you need the WEB panel to help you initialize?")
+			}, func() {
+				settings.SetBool("initStart", false)
+			}, func() {}, firstRunPromptWait)
+			if !answered {
+				log.Clog("[Init] first run: WEB panel init prompt got no answer in time, using default (not initialized)")
+				settings.SetBool("initStart", false)
+			}
+		}
 	}
 
 	if err := settings.Save(); err != nil {
 		log.Errorf("[Settings]", "save failed: {0}", err)
 	}
+}
+
+// stdinIsTerminal 报告当前交互输入是否为终端.
+//
+// 注意: 进程管理器给的 PTY 也算终端——"像终端但无人应答"由
+// WaitLicenseBounded 的有界等待兜底, 这里只区分真正的管道/重定向.
+func stdinIsTerminal() bool {
+	f, ok := log.Input().(*os.File)
+	if !ok {
+		return false
+	}
+	fi, err := f.Stat()
+	if err != nil {
+		return false
+	}
+	return fi.Mode()&os.ModeCharDevice != 0
 }
 
 // readString 读取一个字符串设置项, 不存在时返回空串且不写入

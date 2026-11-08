@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 )
 
 // capture 把输出重定向到缓冲区, 并关闭颜色以便断言
@@ -263,6 +264,77 @@ func TestWaitLicenseEOF(t *testing.T) {
 	}
 	if !strings.Contains(buf.String(), "license not accepted") {
 		t.Fatalf("缺少 EOF 提示: %q", buf.String())
+	}
+}
+
+// TestWaitLicenseBoundedYes 有界版本: 合法应答返回 true 并执行回调
+func TestWaitLicenseBoundedYes(t *testing.T) {
+	capture(t)
+	SetInput(strings.NewReader("Yes\n"))
+	t.Cleanup(func() { SetInput(nil) })
+
+	okCalled := false
+	if !WaitLicenseBounded(nil, func() { okCalled = true }, nil, time.Second) {
+		t.Fatal("应答 Yes 应返回 true")
+	}
+	if !okCalled {
+		t.Fatal("Yes 应触发 ok")
+	}
+}
+
+// TestWaitLicenseBoundedRetry 非法输入重提示, 预算内应答仍有效
+func TestWaitLicenseBoundedRetry(t *testing.T) {
+	capture(t)
+	SetInput(strings.NewReader("maybe\nNo\n"))
+	t.Cleanup(func() { SetInput(nil) })
+
+	noCalled := false
+	if !WaitLicenseBounded(nil, nil, func() { noCalled = true }, time.Second) {
+		t.Fatal("重试后的 No 应返回 true")
+	}
+	if !noCalled {
+		t.Fatal("No 应触发 no")
+	}
+}
+
+// TestWaitLicenseBoundedEOF 输入结束: 返回 false 且不执行回调
+func TestWaitLicenseBoundedEOF(t *testing.T) {
+	capture(t)
+	SetInput(strings.NewReader(""))
+	t.Cleanup(func() { SetInput(nil) })
+
+	okCalled, noCalled := false, false
+	if WaitLicenseBounded(nil, func() { okCalled = true }, func() { noCalled = true }, time.Second) {
+		t.Fatal("EOF 应返回 false")
+	}
+	if okCalled || noCalled {
+		t.Fatalf("EOF 时不应执行回调: ok=%v no=%v", okCalled, noCalled)
+	}
+}
+
+// TestWaitLicenseBoundedTimeout 静默输入 (无人应答的终端/管道) 必须在
+// 时限内返回 false——无人值守启动链不允许被提问无限阻塞.
+func TestWaitLicenseBoundedTimeout(t *testing.T) {
+	capture(t)
+	// 写端保持打开但不写: 读端永久阻塞, 且不是 EOF.
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { r.Close(); w.Close() })
+	SetInput(r)
+	t.Cleanup(func() { SetInput(nil) })
+
+	okCalled, noCalled := false, false
+	start := time.Now()
+	if WaitLicenseBounded(nil, func() { okCalled = true }, func() { noCalled = true }, 100*time.Millisecond) {
+		t.Fatal("超时应返回 false")
+	}
+	if elapsed := time.Since(start); elapsed > 5*time.Second {
+		t.Fatalf("超时返回过慢: %v", elapsed)
+	}
+	if okCalled || noCalled {
+		t.Fatalf("超时时不应执行回调: ok=%v no=%v", okCalled, noCalled)
 	}
 }
 
