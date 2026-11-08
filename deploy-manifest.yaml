@@ -76,9 +76,11 @@ facts:
   migration:
     mode: none
   data_dirs:
-    # 配置与运行数据在 ./data（Config.json 位于 data/ 下，
+    # 配置与运行数据在 <basePath>/data（Config.json 位于 data/ 下，
     # internal/data/bean/configs.go:171 file.GetFolder("/data").ToFile("Config.json")；
     # Cascade jti 持久化 data/CascadeJti.bin，README）。
+    # basePath 由 baremetal.install.shared_data 注入为部署根下的共享目录：
+    # 配置/地图/模组/运行数据不随版本升级重置（2026-11-08 实测修复）。
     - ./data
   config:
     # JSON 配置（另有 ConfigServer.json 等一族）；无版本字段。
@@ -102,6 +104,13 @@ baremetal:
     # 首次实际部署时以现场为准。
     root: /www/wwwroot/avl
     binary_name: avalon
+    # 共享数据目录（相对部署根）：配置与数据（data/、Config.json、地图、
+    # 模组、Settings.bin）落在这里，releases/<v>/ 只放二进制。编排器部署
+    # 时创建、版本切换与 prune 从不触碰；启动脚本经 env 注入
+    # avalonhelper.basePath=<root>/shared（internal/util/file
+    # resolveBasePath 第一优先级读该键）。不带该注入时 Avalon 回落
+    # 可执行文件目录，升级即重置数据——2026-11-08 隔离实测证实不可接受。
+    shared_data: shared
   artifact:
     # 产物尚未构建：go build -o build/avalon ./cmd/avalon（dist/build-dist.sh
     # 的 Go 二进制部分同款命令）。缺失时 preflight/部署会如实报缺，不静默。

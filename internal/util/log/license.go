@@ -2,7 +2,9 @@
 package log
 
 import (
+	"bufio"
 	"strings"
+	"time"
 )
 
 // WaitLicense 对应 PrintEx.waitLicense
@@ -52,6 +54,70 @@ func WaitLicense(show, ok, no func()) {
 		default:
 			Clog("Re Enter")
 			WriteOutput("Please Enter (Yes/No) > ")
+		}
+	}
+}
+
+// WaitLicenseBounded 是 WaitLicense 的有界版本: timeout 内没有合法应答则
+// 返回 false, 且不执行 ok/no —— 由调用方决定默认行为. 返回 true 表示收到
+// 了合法应答 (Yes/No 已按原语义执行对应回调).
+//
+// 为什么需要它: 进程管理器 (如 Tinyvisor) 以 PTY 拉起进程时, stdin 是终端
+// 却无人应答, WaitLicense 的无限阻塞读取会把整条启动链卡死 (2026-11-08
+// 隔离实测). 无人值守场景必须有确定的时间上界.
+//
+// 读取经独立的 bufio (不共享控制台的 InputReader): 超时后遗留的读取协程
+// 至多再吞掉一行后续输入, 不会与 InputMonitor 竞用同一个 bufio.Reader.
+func WaitLicenseBounded(show, ok, no func(), timeout time.Duration) bool {
+	if show != nil {
+		show()
+	}
+
+	Clog("Agree to enter : Yes , Otherwise please enter : No")
+	WriteOutput("Please Enter (Yes/No) > ")
+
+	type readResult struct {
+		line string
+		err  error
+	}
+	deadline := time.NewTimer(timeout)
+	defer deadline.Stop()
+	reader := bufio.NewReader(Input())
+
+	for {
+		ch := make(chan readResult, 1)
+		go func() {
+			line, err := reader.ReadString('\n')
+			ch <- readResult{line, err}
+		}()
+
+		select {
+		case res := <-ch:
+			if res.err != nil && res.line == "" {
+				Clog("No console input, license not accepted")
+				return false
+			}
+			answer := strings.TrimRight(res.line, "\r\n")
+			switch {
+			case strings.EqualFold(answer, "Yes"):
+				Clog("Thanks !")
+				if ok != nil {
+					ok()
+				}
+				return true
+			case strings.EqualFold(answer, "No"):
+				Clog("Thanks !")
+				if no != nil {
+					no()
+				}
+				return true
+			default:
+				Clog("Re Enter")
+				WriteOutput("Please Enter (Yes/No) > ")
+			}
+		case <-deadline.C:
+			Clog("License prompt timed out without an answer; proceeding without acceptance")
+			return false
 		}
 	}
 }
