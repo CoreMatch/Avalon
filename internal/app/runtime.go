@@ -93,6 +93,9 @@ func New(params global.MainParameters) *Runtime {
 // 控制台循环返回 (仅 -noPrint 模式) 后再等一个退出信号.
 func Run(args []string) error {
 	r := New(global.CreateMainParameters(args))
+	// SIGTERM 必须在 InputMonitor 之前挂好: 控制台循环阻塞在 ReadLine 上,
+	// 若等 Wait() 才注册, 控制台模式下 SIGTERM 永远没人接 —— 见 watchTerm.
+	go r.watchTerm()
 	if err := r.Start(); err != nil {
 		return err
 	}
@@ -101,14 +104,38 @@ func Run(args []string) error {
 	return nil
 }
 
+// watchTerm 全程接管 SIGTERM
+//
+// 修复实测确认的退出竞态: 此前 SIGTERM 只在 Wait() 里注册, 而控制台模式下
+// InputMonitor 永远不返回, Wait() 根本跑不到 —— SIGTERM 按默认动作立即杀进程,
+// 退出钩子 (停服务 -> 送终 helper -> Go 最后写配置) 一步都没跑; 落单的 helper
+// 随后按其 Java Bean 字段集整文件重写 Config.json, 丢光 Go 独有键
+// (gameHelperPath / cascade* 等), 重启即"无模拟后端".
+//
+// 第一次 SIGTERM = 优雅退出 (与控制台 exit 同一条链: CloseServerHook 里
+// backend.Close 会等 helper 进程退出, 之后 Go 才写配置, 写序有保证);
+// 优雅退出期间第二次 SIGTERM = 强退 (操作者的逃生门, 与双 Ctrl-C 同思路).
+func (r *Runtime) watchTerm() {
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, syscall.SIGTERM)
+	defer signal.Stop(sig)
+	<-sig
+	go func() {
+		<-sig
+		os.Exit(255)
+	}()
+	r.Core.Exit(nil)
+}
+
 // Wait 阻塞到进程收到退出信号
 //
 // 原版 Ctrl-C 由 JLine 接管 (终端 raw mode), 不走进程信号; Go 版没有 raw mode,
 // 因此 Ctrl-C 只会作为 SIGINT 到达, 由 console.go 的 watchInterrupt 处理.
 // 这里只在控制台循环已经退出 (-noPrint) 时才等待信号, 两者不会争抢同一个 SIGINT.
+// SIGTERM 由 watchTerm 统一处理 (注册时机早于 InputMonitor), 这里不再重复注册.
 func (r *Runtime) Wait() {
 	sig := make(chan os.Signal, 1)
-	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(sig, syscall.SIGINT)
 	defer signal.Stop(sig)
 
 	<-sig

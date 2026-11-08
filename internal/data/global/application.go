@@ -46,6 +46,10 @@ type Application struct {
 
 	mu        sync.Mutex
 	saveHooks []func()
+
+	// exitOnce 保证退出链 (关服务 -> 保存) 只跑一遍:
+	// SIGTERM 与控制台 exit / EOF 可能同时到达.
+	exitOnce sync.Once
 }
 
 // NewApplication 对应 Application() 的构造过程
@@ -96,15 +100,20 @@ func (a *Application) Save() {
 	}
 }
 
-// Exit 对应 Application.exit(): 关服务 -> 保存 -> 执行回调 -> 退出
+// Exit 对应 Application.exit(): 关服务 -> 保存 -> 退出
+//
+// 退出链只跑一遍 (exitOnce): SIGTERM 监听与控制台 exit / 双 EOF 可能并发到达.
+// run 非 nil 时它是"怎么退"的决定权 (在退出链之后执行, 然后 Exit 返回,
+// 由调用方决定进程去留); run 为 nil 时 os.Exit(0).
 func (a *Application) Exit(run func()) {
-	defer func() {
-		if run != nil {
-			run()
-		}
-	}()
-	CloseServerHook()
-	a.Save()
+	a.exitOnce.Do(func() {
+		CloseServerHook()
+		a.Save()
+	})
+	if run != nil {
+		run()
+		return
+	}
 	os.Exit(0)
 }
 
