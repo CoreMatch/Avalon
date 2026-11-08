@@ -318,6 +318,7 @@ func TestHelperReadyRolloverRecreatesRoom(t *testing.T) {
 
 	var mu sync.Mutex
 	var readyGens []uint64
+	recreated := make(chan uint64, 2)
 	b.SetHandlers(Handlers{
 		HelperReady: func(gen uint64) {
 			mu.Lock()
@@ -327,6 +328,7 @@ func TestHelperReadyRolloverRecreatesRoom(t *testing.T) {
 			if err := b.RecreateRoom("r1", 10); err != nil {
 				t.Errorf("RecreateRoom(gen %d): %v", gen, err)
 			}
+			recreated <- gen
 		},
 	})
 
@@ -352,6 +354,18 @@ func TestHelperReadyRolloverRecreatesRoom(t *testing.T) {
 	}
 	if b.Generation() != 2 {
 		t.Fatalf("重启后 Generation = %d, 期望 2", b.Generation())
+	}
+
+	// 等两代的重建都跑完: gen 2 的 HelperReady 在重启 goroutine 里执行,
+	// readyGens 只证明回调开始过, 不代表 RecreateRoom 已完成 —— 不等完成
+	// 就断言 currentRoom 会与回调竞态 (CI 负载下表现为 currentRoom 尚为空).
+	timeout := time.After(3 * time.Second)
+	for i := 0; i < 2; i++ {
+		select {
+		case <-recreated:
+		case <-timeout:
+			t.Fatalf("等待第 %d 代重建完成超时", i+1)
+		}
 	}
 
 	// HelperReady 对两代各触发一次, 房间最终登记在新一代上
