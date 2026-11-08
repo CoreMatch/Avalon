@@ -2,11 +2,13 @@ package net
 
 import (
 	"sync"
+	"time"
 
 	"github.com/CoreMatch/Avalon/internal/io/packet"
 	"github.com/CoreMatch/Avalon/internal/io/packettype"
 	"github.com/CoreMatch/Avalon/internal/net/core"
 	"github.com/CoreMatch/Avalon/internal/util/log"
+	"github.com/CoreMatch/Avalon/internal/util/timeutil"
 )
 
 // AcceptorIdleStateTrigger 对应 AcceptorIdleStateTrigger
@@ -56,22 +58,35 @@ func (t *AcceptorIdleStateTrigger) Clear(ch *core.Channel) {
 }
 
 // TimeoutDetection 对应 TimeoutDetection.checkTimeoutDetection
-// 5min 未响应 (inputPassword) 或 3min 未响应 (normal) 即视为超时
+// 5min 未响应 (inputPassword) 或 3min 未响应 (normal) 即视为超时.
+//
+// 实测修正: 旧实现拿 ch.LastReceiveMs() (一个"最后收到"时间戳) 当"当前
+// 时间"与 anc 的最后收到时间比较 —— 语义错误, 且本函数此前零调用 (死代码):
+// 半开连接 (对端进程暴毙 / NAT 断流, 无 RST/FIN, Read 永不报错) 因此
+// 永远不会被回收, 玩家永久留在房间里. 现改为与当前时间比较, 并由
+// timeoutScanner 周期调用.
 func TimeoutDetection(ch *core.Channel) bool {
+	idle := timeutil.ConcurrentMillis() - ch.LastReceiveMs()
 	tc := ch.GetTypeConnect()
 	if tc == nil {
-		return true
+		// 尚未进入协议处理的连接按同款空闲判定, 不秒杀刚进来的连接
+		return idle > 180*1000
 	}
-	net := tc.AbstractNetConnect()
-	if net.ConnectReceiveData.ReceiveBigPacket {
+	anc := tc.AbstractNetConnect()
+	if anc == nil {
+		return idle > 180*1000
+	}
+	if anc.ConnectReceiveData.ReceiveBigPacket {
 		return false
 	}
-	now := ch.LastReceiveMs()
-	if net.ConnectReceiveData.InputPassword {
-		return now > net.LastReceivedTime()+300*1000
+	if anc.ConnectReceiveData.InputPassword {
+		return idle > 300*1000
 	}
-	return now > net.LastReceivedTime()+180*1000
+	return idle > 180*1000
 }
+
+// timeoutScanInterval 超时扫描间隔 (上游 checkTimeoutDetection 的周期巡检)
+const timeoutScanInterval = 10 * time.Second
 
 // AbstractNet 对应 AbstractNet (Go 版: 抽象启动期行为 + 解码器)
 // 与 Netty 版差异: 不用 pipeline, 直接驱动 read 协程 + PacketStream.
@@ -88,6 +103,10 @@ type AbstractNet struct {
 	// channels 记录本监听器上的存活连接, 供 Close 时统一断开
 	channelsMu sync.Mutex
 	channels   map[*core.Channel]struct{}
+
+	// scanDone 超时扫描 goroutine 的终止信号
+	scanDone     chan struct{}
+	scanDoneOnce sync.Once
 }
 
 // GameGateway 是游戏端口网关的接缝 (实现方: net/gateway.Gateway).
@@ -104,11 +123,43 @@ func (n *AbstractNet) SetGateway(gw GameGateway) { n.gateway = gw }
 
 // NewAbstractNet 对应 AbstractNet(protocolProvider).init()
 func NewAbstractNet(protocolProvider core.IProtocolProvider) *AbstractNet {
-	return &AbstractNet{
+	n := &AbstractNet{
 		protocolProvider: protocolProvider,
 		IdleTrigger:      &AcceptorIdleStateTrigger{},
 		channels:         make(map[*core.Channel]struct{}),
+		scanDone:         make(chan struct{}),
 	}
+	go n.timeoutScanner()
+	return n
+}
+
+// timeoutScanner 周期回收超时连接: 半开连接 (无 RST/FIN) 的 Read 永不
+// 报错, 没有巡检就永远走不到读循环的退出清理 (见 TimeoutDetection).
+func (n *AbstractNet) timeoutScanner() {
+	ticker := time.NewTicker(timeoutScanInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-n.scanDone:
+			return
+		case <-ticker.C:
+			for _, ch := range n.snapshotChannels() {
+				if TimeoutDetection(ch) {
+					n.IdleTrigger.Clear(ch)
+				}
+			}
+		}
+	}
+}
+
+func (n *AbstractNet) snapshotChannels() []*core.Channel {
+	n.channelsMu.Lock()
+	defer n.channelsMu.Unlock()
+	out := make([]*core.Channel, 0, len(n.channels))
+	for ch := range n.channels {
+		out = append(out, ch)
+	}
+	return out
 }
 
 // trackChannel 登记存活连接
@@ -201,6 +252,8 @@ func (n *AbstractNet) dispatchAll(handler func(*packet.Packet) error, pkts []*pa
 
 // Close 对应 abstractNet.close(): 断开本监听器上的全部存活连接
 func (n *AbstractNet) Close() {
+	n.scanDoneOnce.Do(func() { close(n.scanDone) })
+
 	n.channelsMu.Lock()
 	chans := make([]*core.Channel, 0, len(n.channels))
 	for ch := range n.channels {

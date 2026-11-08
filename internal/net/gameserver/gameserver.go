@@ -106,6 +106,9 @@ func NewGameVersionServer(ca *core.ConnectionAgreement) *GameVersionServer {
 		connID:             nextConnID(),
 		permissionStatus:   core.ServerInitialConnection,
 	}
+	// EOF/RST 等清理路径只持有基类指针 (Go 无虚方法): 注入具体断开实现,
+	// 让异常断连也走完整回收路径 (房间清理 / PlayerLeaveEvent / 引擎注销).
+	g.AbstractNetConnect.SetDisconnect(g.Disconnect)
 	connections.add(g)
 
 	if h := currentHelper(); h != nil && g.room != nil {
