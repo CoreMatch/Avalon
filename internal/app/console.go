@@ -100,7 +100,9 @@ func (r *Runtime) InputMonitor() {
 				continue
 			}
 			r.Console.PrintAbove("exit")
-			r.ExitProcess(1)
+			// 走完整退出链 (停服务 -> 送终 helper -> 保存) 再退: 直接退会让
+			// helper 落单后按 Java Bean 字段集重写 Config.json, 丢 Go 独有键.
+			r.Core.Exit(func() { r.ExitProcess(1) })
 			return
 		default:
 			// 对应 InterruptedIOException: 读被打断不算错误, 继续读
