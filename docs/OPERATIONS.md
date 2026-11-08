@@ -107,7 +107,9 @@ helper 线协议看 [HELPER-PROTOCOL.md](HELPER-PROTOCOL.md)。
 （只 room.create 不 room.start，`internal/game/seam.go::GameSession.StartGame`
 的大厅分支），并拒绝客户端 `/start`（提示 `err.lobbyNoStart`，
 `internal/command/clientcommands.go::RegisterClientCommands`）。
-大厅的 `data/mods` 为空：任何客户端（无论装没装 mod）都能安全进入停留。
+大厅的 `data/mods` 为空：任何客户端（无论装没装 mod）都能安全进入停留
+（原因——注册 checksum 只覆盖基础单位、mod 门槛是客户端侧 customUnits
+检查：`knowledge/0009-zero-mod-lobby-and-mod-assembly.md` §1）。
 在 Cascade 侧把它配成 `default_backend_id`。
 
 ### 2.2 玩家从大厅到子服

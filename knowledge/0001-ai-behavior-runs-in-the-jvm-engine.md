@@ -26,7 +26,10 @@ implements AI behavior. Go contributes only three kinds of adaptation code:
    returned in the `room.addai` response (`ai` field: PlayerProfile + `position`)
    and registered into the room roster on the Go side, wrapped as the `AiPlayer`
    marker type. The engine does not emit a `player.join` event for AIs, so the
-   response is the only registration path.
+   response is the only registration path. (Upstream wraps the engine-created AI
+   into its in-process `room.playerManage` synchronously inside `addAI`; the
+   response field replaces that in-process step — deliberate deviation approved
+   by the author 2026-11-04, DECISIONS D-9.)
 3. **Room lifecycle** — the per-second check thread handles the all-AI situation:
    warn once (`aiWarn`), and once no human players remain, end the match after the
    `maxOnlyAIGameIngTime` countdown. Settlement data for AI-driven matches is

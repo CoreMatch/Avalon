@@ -3,6 +3,10 @@
 - **Status**: accepted
 - **Contract**: HA-Contract `docs/api/openapi/avalon-plugin-v1.yaml`, version 1.0.0
   (registered before implementation, per the contract-first rule)
+- **Current docs**: usage documentation moved to `docs/plugins/` (developers)
+  and `docs/OPERATIONS.md` §4 (operators); the contract yaml is authoritative
+  for payloads. This entry is kept as the v1 design record — where it overlaps
+  with current docs, those are authoritative and this entry points at them.
 
 ## Context
 
@@ -51,57 +55,27 @@ endpoint paths.
 
 Supporting endpoint: `GET {base}/v1/manifest` (version negotiation, see below).
 
-#### Common envelope fields (all events)
+#### Event payloads (envelope, `room.create`, `game.over`)
 
-| Field | Type | Meaning |
-|---|---|---|
-| `eventId` | string | `evt_` + 26-char Crockford ULID; generated once at emit time, stable across retries and replays |
-| `event` | string | event name (`room.create` / `game.over`) |
-| `eventVersion` | int | schema version of this event (v1: always `1`) |
-| `occurredAt` | string | RFC 3339 UTC timestamp of the emit |
-| `server.serverId` | string | `ConfigServer.ServerID` |
-| `server.serverName` | string | `Config.ServerName` |
-| `server.coreVersion` | string | `global.ServerCoreVersion` |
+Field-level definitions live in the contract yaml and in
+`docs/plugins/EVENT-CATALOG.md` (human-readable); the v1 tables were removed
+from this entry to keep a single authoritative copy. Design points this entry
+still owns:
 
-#### `room.create` request fields (in addition to the envelope)
-
-| Field | Type | Meaning |
-|---|---|---|
-| `room.kind` | string | `server` (boot-time singleton room), `cascade` (control-plane `POST /v1/rooms/create`), `relay` (relay-protocol room) |
-| `room.code` | string | room code/id: `ServerID` for `server`; the requested code for `cascade`; the requested custom id for `relay`, empty string when the relay id is auto-generated |
-| `room.maxPlayers` | int | requested max players |
-| `room.isMod` | bool | relay mod-room flag (`false` for non-relay kinds) |
-| `creator.name` | string | `console` for `server`; `cascade` for `cascade`; the creating player's name for `relay` |
-| `creator.address` | string | source IP when known, else empty string |
-
-#### `room.create` response fields (plugin → Avalon, HTTP 200)
-
-| Field | Type | Meaning |
-|---|---|---|
-| `allowed` | bool | the decision |
-| `reason` | string | mandatory when `allowed=false`; human-readable; Avalon truncates to 200 runes and strips control characters before display |
-
-Any non-2xx status, invalid JSON, missing `allowed`, or a failed response
-signature is an **error**, not a decision (see failure semantics).
-
-#### `game.over` request fields (in addition to the envelope)
-
-| Field | Type | Meaning |
-|---|---|---|
-| `room.kind` | string | always `server` in v1 (only server-mode rooms run a simulation) |
-| `room.code` | string | the room id (`ServerID`) |
-| `result` | object\|null | `null` when the engine produced no settlement data (e.g. forced end); otherwise the fields below |
-| `result.mapName` | string | map name |
-| `result.gameTime` | int | engine-reported game time (seconds) |
-| `result.allPlayerList` | string[] | all player names |
-| `result.winPlayerList` | string[] | winner names |
-| `result.playerData` | object | player name → (stat key → int), engine-defined stat keys |
-| `result.replayName` | string | replay file name |
-
-`game.over` responses: any 2xx is an ack (body ignored, signature still
-verified). The payload carries player names and engine stats only — no IPs,
-no UUIDs — matching the minimal-disclosure rule already applied to the
-replay files written by the room's default game-over listener.
+- `eventId` is `evt_` + 26-char Crockford ULID, generated once at emit time
+  and stable across retries/replays — the idempotency anchor for at-least-once
+  delivery.
+- `room.create` denial requires a human-readable `reason`; Avalon sanitizes it
+  (control-character strip, 200-rune truncation) before display — an
+  unexplained deny is not a usable player-facing decision.
+- `game.over`'s `result` is `null` when the engine produced no settlement
+  data (e.g. forced end); the game-over fact is still delivered.
+- `game.over` responses: any 2xx is an ack (body ignored, signature still
+  verified). The payload carries player names and engine stats only — no IPs,
+  no UUIDs — matching the minimal-disclosure rule already applied to the
+  replay files written by the room's default game-over listener.
+- Any non-2xx status, invalid JSON, missing `allowed`, or a failed response
+  signature is an **error**, not a decision (see failure semantics).
 
 ### Hook points (real code paths)
 
@@ -227,10 +201,10 @@ to support rotation overlap.
   operators wanting transport-level identity run TLS (their choice, out of
   contract).
 - **Rotation**: Avalon signs with the first secret in the list and verifies
-  with any of them. Procedure: add the new secret at the front of both
-  Avalon's and the plugin's lists, restart Avalon (config is read at boot),
-  then remove the old secret. Overlap is bounded only by operator action —
-  the same list-overlap pattern used for Cascade pinned fingerprints (D-24).
+  with any of them; the step-by-step procedure lives in
+  `docs/plugins/AUTH-AND-NEGOTIATION.md`. Overlap is bounded only by operator
+  action — the same list-overlap pattern used for Cascade pinned
+  fingerprints (D-24).
 
 ### Version negotiation
 
@@ -257,45 +231,19 @@ to support rotation overlap.
 
 Declarative operator config, no auto-discovery. `/data/Plugins.json`
 (loaded through the same bean `LoadOrInit` mechanism as the other config
-files):
-
-```json
-{
-  "version": 1,
-  "admissionTimeoutMs": 2500,
-  "deliveryTimeoutMs": 10000,
-  "outboxCapacity": 128,
-  "maxEventAgeHours": 24,
-  "entries": [
-    {
-      "name": "example-stats",
-      "baseUrl": "http://127.0.0.1:9800",
-      "secrets": ["<hex, >= 16 bytes>", "<previous key during rotation>"],
-      "enabled": true
-    }
-  ]
-}
-```
+files). Current format and copy-pasteable examples: `docs/OPERATIONS.md` §4
+and `docs/plugins/GETTING-STARTED.md`. The v1 config surface was `version` +
+global tunables + `entries` (`name`/`baseUrl`/`secrets`/`enabled`); the v2
+additions (`vetoEvents`, `gameplayVetoTimeoutMs`) are recorded in entry 0010.
 
 - Missing file → written with empty `entries` → hub is inert (zero
   regression).
 - Structurally invalid config or invalid entries (duplicate name, bad URL,
   short/odd-length secret) fail the boot explicitly — explicit config does
   not silently degrade (same rule as the Cascade gateway, D-17/D-24).
-- The plugin's own manifest (served at `GET {base}/v1/manifest`) declares:
-
-```json
-{
-  "schema": "avalon-plugin/manifest",
-  "protocol": "avalon-plugin/v1",
-  "id": "example-stats",
-  "version": "0.3.0",
-  "events": { "game.over": {"versions": [1]}, "room.create": {"versions": [1]} },
-  "timeoutMs": 2000,
-  "maxConcurrency": 1
-}
-```
-
+- The plugin's own manifest (served at `GET {base}/v1/manifest`) declares
+  `schema`/`protocol`/`id`/`version`/`events`/`timeoutMs`/`maxConcurrency`
+  (example in `docs/plugins/GETTING-STARTED.md`):
   - `timeoutMs`: the plugin's self-declared processing budget; Avalon caps
     it (`min` with its own caps), so a hostile or buggy manifest cannot stall
     admissions.

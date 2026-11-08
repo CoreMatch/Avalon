@@ -2,7 +2,14 @@
 
 ## Status
 
-Design proposal（只读核查产物，未改任何代码；证据均给出文件路径 + 符号）
+Design proposal（只读核查产物；证据均给出文件路径 + 符号）。
+
+实现进展（2026-11-08 注记）：§1 三件核查事实是已落地形态的依据——零模组大厅
+以 `cascadeLobby` 实现，运维形态见本仓 `docs/OPERATIONS.md` §2；§3/§5 的房间
+模组清单与内容端点按 Cascade-Backend 契约 v1.3 落地
+（`internal/net/gateway/mods.go`、`internal/game/manage/modmanifest.go`），
+实现未走 helper 协议查询操作，而是 Go 侧直接读 `/data/mods` 文件层；§4 的客户端
+外挂器即 RW-Mod-Injector 项目（另仓）。其余部分保留原设计文本。
 
 ## 摘要
 

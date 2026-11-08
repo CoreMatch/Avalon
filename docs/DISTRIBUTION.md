@@ -65,10 +65,10 @@ cd avalon-<version>-linux-<arch>
 4. 重新启动。
 
 只升 Go 二进制或只升 avalon-helper.jar 均可（两者经 stdin/stdout 线协议解耦，
-协议版本 `v2`，见 `docs/HELPER-PROTOCOL.md`）。
+版本与字段以 `docs/HELPER-PROTOCOL.md` 为准）。
 
 > 注：退出时 Go 与 helper 会先后写配置，Go 侧在 helper 退出后最后写回，
-> 保证 `gameHelperPath` 等 Go 独有键不丢（2026-11-05 修复）。
+> 保证 `gameHelperPath` 等 Go 独有键不丢。
 
 ## 构建分发包（开发者）
 
