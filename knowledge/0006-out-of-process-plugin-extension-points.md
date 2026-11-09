@@ -16,7 +16,7 @@ Avalon is the Go governance layer in front of the JVM engine shell
 - The JVM engine (Avalon-Helper) loads **no third-party code**. The upstream
   jar/GraalVM plugin machinery was deliberately removed from the helper; the
   engine stays a sealed shell (see the survey at
-  `/home/lnb/Desktop/HA/PLUGIN-SYSTEM-SURVEY-20261107.md`, sections A.2/A.3).
+  `/home/lnb/Desktop/HA/rw/PLUGIN-SYSTEM-SURVEY-20261107.md`, sections A.2/A.3).
 - Mods are **not** an extension surface. Mod files are placed for the closed
   engine to parse; consistency is enforced by engine-side unit checksums.
   There is no mod plugin interface by design.
@@ -320,48 +320,48 @@ console in v1.
 Implementation (Avalon):
 
 - Hub, workers, admission, emit:
-  `/home/lnb/Desktop/HA/Avalon/internal/plugin/hub.go::Load`,
-  `/home/lnb/Desktop/HA/Avalon/internal/plugin/hub.go::AdmitRoomCreate`,
-  `/home/lnb/Desktop/HA/Avalon/internal/plugin/hub.go::EmitGameOver`,
-  `/home/lnb/Desktop/HA/Avalon/internal/plugin/hub.go::Status`
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/plugin/hub.go::Load`,
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/plugin/hub.go::AdmitRoomCreate`,
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/plugin/hub.go::EmitGameOver`,
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/plugin/hub.go::Status`
 - Config loading and validation (strict, no silent reset):
-  `/home/lnb/Desktop/HA/Avalon/internal/plugin/config.go::loadConfig`
-- Outbox WAL: `/home/lnb/Desktop/HA/Avalon/internal/plugin/outbox.go::Outbox`
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/plugin/config.go::loadConfig`
+- Outbox WAL: `/home/lnb/Desktop/HA/rw/Avalon/internal/plugin/outbox.go::Outbox`
 - Signature scheme:
-  `/home/lnb/Desktop/HA/Avalon/internal/plugin/signature.go::signBody`,
-  `/home/lnb/Desktop/HA/Avalon/internal/plugin/signature.go::verifyResponse`
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/plugin/signature.go::signBody`,
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/plugin/signature.go::verifyResponse`
 - Manifest negotiation:
-  `/home/lnb/Desktop/HA/Avalon/internal/plugin/manifest.go::fetchManifest`
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/plugin/manifest.go::fetchManifest`
 - Event payloads and ids:
-  `/home/lnb/Desktop/HA/Avalon/internal/plugin/event.go::newEventID`,
-  `/home/lnb/Desktop/HA/Avalon/internal/plugin/event.go::buildRoomCreateEvent`,
-  `/home/lnb/Desktop/HA/Avalon/internal/plugin/event.go::buildGameOverEvent`
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/plugin/event.go::newEventID`,
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/plugin/event.go::buildRoomCreateEvent`,
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/plugin/event.go::buildGameOverEvent`
 - Global slot and room subscription:
-  `/home/lnb/Desktop/HA/Avalon/internal/plugin/default.go::SetDefault`,
-  `/home/lnb/Desktop/HA/Avalon/internal/plugin/default.go::RegisterRoomEvents`
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/plugin/default.go::SetDefault`,
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/plugin/default.go::RegisterRoomEvents`
 - Shared fake-plugin harness for wiring tests:
-  `/home/lnb/Desktop/HA/Avalon/internal/plugin/plugintest/plugintest.go::Start`
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/plugin/plugintest/plugintest.go::Start`
 
 Hook points:
 
 - Boot chain, boot-time admission, and game-over subscription:
-  `/home/lnb/Desktop/HA/Avalon/internal/app/bootstrap.go::Start`
-- Console command seam: `/home/lnb/Desktop/HA/Avalon/internal/app/runtime.go::deps`
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/app/bootstrap.go::Start`
+- Console command seam: `/home/lnb/Desktop/HA/rw/Avalon/internal/app/runtime.go::deps`
 - Cascade create-room facade and denial mapping:
-  `/home/lnb/Desktop/HA/Avalon/internal/net/gateway/rooms.go::createRoom`,
-  `/home/lnb/Desktop/HA/Avalon/internal/net/gateway/rooms.go::RoomDeniedError`,
-  `/home/lnb/Desktop/HA/Avalon/internal/net/gateway/control.go::handleCreateRoom`
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/net/gateway/rooms.go::createRoom`,
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/net/gateway/rooms.go::RoomDeniedError`,
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/net/gateway/control.go::handleCreateRoom`
 - Relay room creation:
-  `/home/lnb/Desktop/HA/Avalon/internal/net/netconnectprotocol/realize/gameversionrelay.go::newRelayId`
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/net/netconnectprotocol/realize/gameversionrelay.go::newRelayId`
 - Game-over fire site:
-  `/home/lnb/Desktop/HA/Avalon/internal/game/room/serverroom.go::cleanData`;
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/game/room/serverroom.go::cleanData`;
   settlement fetch:
-  `/home/lnb/Desktop/HA/Avalon/internal/game/manage/callmanage.go::StartCheckThread`
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/game/manage/callmanage.go::StartCheckThread`
 - Existing room-event subscriber pattern:
-  `/home/lnb/Desktop/HA/Avalon/internal/net/httpapi/httpapi.go::RegisterRoomEvents`
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/net/httpapi/httpapi.go::RegisterRoomEvents`
 - Player join/leave fire sites (backlog anchors):
-  `/home/lnb/Desktop/HA/Avalon/internal/net/gameserver/registry.go::handleHelperEvent`,
-  `/home/lnb/Desktop/HA/Avalon/internal/game/room/event.go::registerDefaultEvents`
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/net/gameserver/registry.go::handleHelperEvent`,
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/game/room/event.go::registerDefaultEvents`
 
 Context:
 
@@ -369,4 +369,4 @@ Context:
 - Contract registration:
   `/home/lnb/Desktop/HA/HA-Contract/docs/api/openapi/avalon-plugin-v1.yaml (field: avalon-plugin/v1)`
 - Ecosystem survey (distribution lesson, isolation survey):
-  `/home/lnb/Desktop/HA/PLUGIN-SYSTEM-SURVEY-20261107.md`
+  `/home/lnb/Desktop/HA/rw/PLUGIN-SYSTEM-SURVEY-20261107.md`

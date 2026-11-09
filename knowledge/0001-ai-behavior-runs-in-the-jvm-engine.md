@@ -55,59 +55,59 @@ implements AI behavior. Go contributes only three kinds of adaptation code:
 ## Evidence
 
 All paths absolute into the Avalon checkout
-(`/home/lnb/Desktop/HA/Avalon`); anchors verified at commit `599b0e3`.
+(`/home/lnb/Desktop/HA/rw/Avalon`); anchors verified at commit `599b0e3`.
 
 - v2-ext operation constants and validation:
-  `/home/lnb/Desktop/HA/Avalon/internal/game/external/protocol.go::OpRoomAddAI`
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/game/external/protocol.go::OpRoomAddAI`
   (`OpRoomAddAI = "room.addai"`),
-  `/home/lnb/Desktop/HA/Avalon/internal/game/external/protocol.go::OpRoomSync`
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/game/external/protocol.go::OpRoomSync`
   (`room.sync`),
-  `/home/lnb/Desktop/HA/Avalon/internal/game/external/protocol.go::OpRoomRemovePlayer`
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/game/external/protocol.go::OpRoomRemovePlayer`
   (`room.removeplayer`),
-  `/home/lnb/Desktop/HA/Avalon/internal/game/external/protocol.go::OpGameResult`
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/game/external/protocol.go::OpGameResult`
   (`game.result`); AI response field
-  `/home/lnb/Desktop/HA/Avalon/internal/game/external/protocol.go::AI`, result
-  payload `/home/lnb/Desktop/HA/Avalon/internal/game/external/protocol.go::GameResult`.
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/game/external/protocol.go::AI`, result
+  payload `/home/lnb/Desktop/HA/rw/Avalon/internal/game/external/protocol.go::GameResult`.
 - Backend methods forwarding to the helper:
-  `/home/lnb/Desktop/HA/Avalon/internal/game/external/ext.go::AddAI`,
-  `/home/lnb/Desktop/HA/Avalon/internal/game/external/ext.go::SyncAllPlayer`,
-  `/home/lnb/Desktop/HA/Avalon/internal/game/external/ext.go::RemovePlayer`,
-  `/home/lnb/Desktop/HA/Avalon/internal/game/external/ext.go::GameResult`.
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/game/external/ext.go::AddAI`,
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/game/external/ext.go::SyncAllPlayer`,
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/game/external/ext.go::RemovePlayer`,
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/game/external/ext.go::GameResult`.
 - Registration chain:
-  `/home/lnb/Desktop/HA/Avalon/internal/game/manage/playermanage.go::AddAI`,
-  `/home/lnb/Desktop/HA/Avalon/internal/game/room/serverroom.go::AddAI`
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/game/manage/playermanage.go::AddAI`,
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/game/room/serverroom.go::AddAI`
   (wraps the engine profile).
 - `AiPlayer` marker type:
-  `/home/lnb/Desktop/HA/Avalon/internal/game/player/aiplayer.go::AiPlayer`
-  (struct), `/home/lnb/Desktop/HA/Avalon/internal/game/player/aiplayer.go::IsAi`
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/game/player/aiplayer.go::AiPlayer`
+  (struct), `/home/lnb/Desktop/HA/rw/Avalon/internal/game/player/aiplayer.go::IsAi`
   (`IsAi() bool { return true }`); base `Player.IsAi()` returns false at
-  `/home/lnb/Desktop/HA/Avalon/internal/game/player/player.go::IsAi`;
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/game/player/player.go::IsAi`;
   remove-on-kick hook
-  `/home/lnb/Desktop/HA/Avalon/internal/game/player/player.go::RemoveOnKick`.
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/game/player/player.go::RemoveOnKick`.
 - Commands:
-  `/home/lnb/Desktop/HA/Avalon/internal/command/clientcommands.go::addai`
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/command/clientcommands.go::addai`
   (`addai`, gated by `EnableAI`, calls `PlayerManage.AddAI`),
-  `/home/lnb/Desktop/HA/Avalon/internal/command/clientcommands.go::PlayerPositionAI`
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/command/clientcommands.go::PlayerPositionAI`
   (`ai <difficulty>`).
 - Lifecycle:
-  `/home/lnb/Desktop/HA/Avalon/internal/data/temp/servercacheflag.go::ai` and
-  `/home/lnb/Desktop/HA/Avalon/internal/data/temp/servercacheflag.go::aiWarn`
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/data/temp/servercacheflag.go::ai` and
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/data/temp/servercacheflag.go::aiWarn`
   (`ai`/`aiWarn` flags),
-  `/home/lnb/Desktop/HA/Avalon/internal/game/manage/callmanage.go::MaxOnlyAIGameIngTime`
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/game/manage/callmanage.go::MaxOnlyAIGameIngTime`
   (all-AI countdown branch),
-  `/home/lnb/Desktop/HA/Avalon/internal/game/manage/callmanage.go::SetGameOverData`
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/game/manage/callmanage.go::SetGameOverData`
   (settlement via `game.result` → `survive.player`). Flag writer gap: `SetAi`
-  (`/home/lnb/Desktop/HA/Avalon/internal/data/temp/servercacheflag.go::SetAi`)
+  (`/home/lnb/Desktop/HA/rw/Avalon/internal/data/temp/servercacheflag.go::SetAi`)
   has no callers in non-test code.
-- Protocol entries: `/home/lnb/Desktop/HA/Avalon/docs/HELPER-PROTOCOL.md` —
+- Protocol entries: `/home/lnb/Desktop/HA/rw/Avalon/docs/HELPER-PROTOCOL.md` —
   v2-ext section
-  `/home/lnb/Desktop/HA/Avalon/docs/HELPER-PROTOCOL.md (field: 扩展操作（protocol v2-ext)`,
+  `/home/lnb/Desktop/HA/rw/Avalon/docs/HELPER-PROTOCOL.md (field: 扩展操作（protocol v2-ext)`,
   operation table
-  `/home/lnb/Desktop/HA/Avalon/docs/HELPER-PROTOCOL.md (field: 扩展操作一览)`,
+  `/home/lnb/Desktop/HA/rw/Avalon/docs/HELPER-PROTOCOL.md (field: 扩展操作一览)`,
   `ai` response field
-  /home/lnb/Desktop/HA/Avalon/docs/HELPER-PROTOCOL.md (field: 应答字段扩展：`ai`)
+  /home/lnb/Desktop/HA/rw/Avalon/docs/HELPER-PROTOCOL.md (field: 应答字段扩展：`ai`)
   ("the engine does not trigger a player.join event for AIs"), Go-side consumers
-  `/home/lnb/Desktop/HA/Avalon/docs/HELPER-PROTOCOL.md (field: Go 侧消费点)`.
+  `/home/lnb/Desktop/HA/rw/Avalon/docs/HELPER-PROTOCOL.md (field: Go 侧消费点)`.
 - Audit conclusion (full sweep of AI/bot-related Go code): no AI
   behavior implementation exists on the Go side; all AI logic executes in the helper
   JVM engine; all Go AI code is forwarding/registration/lifecycle adaptation.

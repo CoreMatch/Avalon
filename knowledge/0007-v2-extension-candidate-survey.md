@@ -381,45 +381,45 @@ visibility; no sync item may block the match flow beyond its cap.
 ## Evidence
 
 - Join/leave/chat/command fire sites:
-  `/home/lnb/Desktop/HA/Avalon/internal/net/gameserver/registry.go::handleHelperEvent`,
-  `/home/lnb/Desktop/HA/Avalon/internal/net/gameserver/gameserver.go::Disconnect`,
-  `/home/lnb/Desktop/HA/Avalon/internal/net/gameserver/gameserver.go::ReceiveChat`,
-  `/home/lnb/Desktop/HA/Avalon/internal/net/gameserver/gameserver.go::ReceiveCommand`
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/net/gameserver/registry.go::handleHelperEvent`,
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/net/gameserver/gameserver.go::Disconnect`,
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/net/gameserver/gameserver.go::ReceiveChat`,
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/net/gameserver/gameserver.go::ReceiveCommand`
 - Event types:
-  `/home/lnb/Desktop/HA/Avalon/internal/game/event/events.go::PlayerJoinEvent`,
-  `/home/lnb/Desktop/HA/Avalon/internal/game/event/events.go::PlayerLeaveEvent`,
-  `/home/lnb/Desktop/HA/Avalon/internal/game/event/events.go::PlayerChatEvent`,
-  `/home/lnb/Desktop/HA/Avalon/internal/game/event/events.go::PlayerOperationUnitEvent`,
-  `/home/lnb/Desktop/HA/Avalon/internal/game/event/events.go::PlayerOperationFactoryBuildUnitEvent`,
-  `/home/lnb/Desktop/HA/Avalon/internal/game/event/events.go::ServerGameStartEvent`,
-  `/home/lnb/Desktop/HA/Avalon/internal/game/event/events.go::PlayerBanEvent`
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/game/event/events.go::PlayerJoinEvent`,
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/game/event/events.go::PlayerLeaveEvent`,
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/game/event/events.go::PlayerChatEvent`,
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/game/event/events.go::PlayerOperationUnitEvent`,
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/game/event/events.go::PlayerOperationFactoryBuildUnitEvent`,
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/game/event/events.go::ServerGameStartEvent`,
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/game/event/events.go::PlayerBanEvent`
 - Connection-level hooks:
-  `/home/lnb/Desktop/HA/Avalon/internal/net/core/hooks.go::NetConnectNewEventHook`,
-  `/home/lnb/Desktop/HA/Avalon/internal/net/core/hooks.go::NetConnectCloseEventHook`
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/net/core/hooks.go::NetConnectNewEventHook`,
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/net/core/hooks.go::NetConnectCloseEventHook`
 - Default room listeners (kick-on-join precedent, auto-start convergence):
-  `/home/lnb/Desktop/HA/Avalon/internal/game/room/event.go::registerDefaultEvents`
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/game/room/event.go::registerDefaultEvents`
 - Match start paths:
-  `/home/lnb/Desktop/HA/Avalon/internal/command/clientcommands.go::RegisterClientCommands`,
-  `/home/lnb/Desktop/HA/Avalon/internal/command/start.go::registerStartGame`
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/command/clientcommands.go::RegisterClientCommands`,
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/command/start.go::registerStartGame`
 - Intervention primitives:
-  `/home/lnb/Desktop/HA/Avalon/internal/game/player/player.go::KickPlayer`,
-  `/home/lnb/Desktop/HA/Avalon/internal/game/player/player.go::SendSystemMessage`,
-  `/home/lnb/Desktop/HA/Avalon/internal/game/player/player.go::SendMessage`,
-  `/home/lnb/Desktop/HA/Avalon/internal/game/player/player.go::SendPopUps`,
-  `/home/lnb/Desktop/HA/Avalon/internal/game/player/player.go::PlayerJumpsToAnotherServer`,
-  `/home/lnb/Desktop/HA/Avalon/internal/data/global/administration.go::BanUUID`,
-  `/home/lnb/Desktop/HA/Avalon/internal/game/manage/callmanage.go::KillAllPlayer`
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/game/player/player.go::KickPlayer`,
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/game/player/player.go::SendSystemMessage`,
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/game/player/player.go::SendMessage`,
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/game/player/player.go::SendPopUps`,
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/game/player/player.go::PlayerJumpsToAnotherServer`,
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/data/global/administration.go::BanUUID`,
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/game/manage/callmanage.go::KillAllPlayer`
 - Dead mirrors (X evidence):
-  `/home/lnb/Desktop/HA/Avalon/internal/game/player/playerdata.go::Data`
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/game/player/playerdata.go::Data`
 - Relay paths:
-  `/home/lnb/Desktop/HA/Avalon/internal/net/netconnectprotocol/realize/gameversionrelay.go::AddRelayConnect`,
-  `/home/lnb/Desktop/HA/Avalon/internal/game/room/relayroom.go::RemoveRoom`,
-  `/home/lnb/Desktop/HA/Avalon/internal/game/room/relayroom.go::CleanRoom`,
-  `/home/lnb/Desktop/HA/Avalon/internal/game/room/relayroom.go::SendAllMsg`
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/net/netconnectprotocol/realize/gameversionrelay.go::AddRelayConnect`,
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/game/room/relayroom.go::RemoveRoom`,
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/game/room/relayroom.go::CleanRoom`,
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/game/room/relayroom.go::SendAllMsg`
 - Command handler (no intercept seam):
-  `/home/lnb/Desktop/HA/Avalon/internal/util/game/command/command.go::HandleMessageWith`
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/util/game/command/command.go::HandleMessageWith`
 - Queryable snapshots:
-  `/home/lnb/Desktop/HA/Avalon/internal/game/seam.go::Snapshot`,
-  `/home/lnb/Desktop/HA/Avalon/internal/net/gateway/rooms.go::buildSummary`,
-  `/home/lnb/Desktop/HA/Avalon/internal/plugin/hub.go::Status`
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/game/seam.go::Snapshot`,
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/net/gateway/rooms.go::buildSummary`,
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/plugin/hub.go::Status`
 - v1 baseline: `knowledge/0006-out-of-process-plugin-extension-points.md`

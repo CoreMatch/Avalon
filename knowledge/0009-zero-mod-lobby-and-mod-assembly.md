@@ -80,7 +80,7 @@ mod 单位由独立的 customUnits 机制在客户端侧校验。两条机制、
 **结论：看不到。生产 Cascade 走 gameserver（ServerProtocol）模式，REGISTER_PLAYER
 被当作不透明字节原样转发，Avalon 只读包类型号，从不解析负载。**
 
-转发路径（全部在 `/home/lnb/Desktop/HA/Avalon`）：
+转发路径（全部在 `/home/lnb/Desktop/HA/rw/Avalon`）：
 
 1. 门控只看类型：`internal/net/decoder.go::NewServerHandler`（`ch.Gate.AllowPacket
    (msg.Type.TypeInt())`），门控实现 `internal/net/gateway/session.go::Session.AllowPacket`
@@ -221,7 +221,7 @@ members`。**没有任何模组信息。**
 ## 6. 大厅 → 房间的切换与交接
 
 **能否复用现有 interop（`matchcore://join` 深链 + loopback handoff）？**
-`/home/lnb/Desktop/HA/INTEROP-SPEC.md` 描述的是 **Minecraft** 交接
+`/home/lnb/Desktop/HA/matchcore/INTEROP-SPEC.md` 描述的是 **Minecraft** 交接
 （MCA→SamuelClient→启动游戏进程），与 RW 不同游戏、不同动作（它是"拉起进程"，
 这里是"网络重连"）。**其具体实现不可直接复用**，但"深链仅作唤起提示 + 真参数走
 loopback + 凭据不过界"的**模式**可借鉴到外挂器与客户端的本地协同上。

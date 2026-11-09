@@ -202,35 +202,35 @@ judgments) — none of these have interfaces, stubs, or config surface:
 ## Evidence
 
 - Tier machinery and queue:
-  `/home/lnb/Desktop/HA/Avalon/internal/plugin/outbox.go::Outbox`,
-  `/home/lnb/Desktop/HA/Avalon/internal/plugin/hub.go::enqueueEvent`,
-  `/home/lnb/Desktop/HA/Avalon/internal/plugin/eventv2.go::tierFor`
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/plugin/outbox.go::Outbox`,
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/plugin/hub.go::enqueueEvent`,
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/plugin/eventv2.go::tierFor`
 - Veto core and gating:
-  `/home/lnb/Desktop/HA/Avalon/internal/plugin/hub.go::admitCore`,
-  `/home/lnb/Desktop/HA/Avalon/internal/plugin/hub.go::HasVetoConsult`,
-  `/home/lnb/Desktop/HA/Avalon/internal/plugin/hub.go::vetoConsulted`
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/plugin/hub.go::admitCore`,
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/plugin/hub.go::HasVetoConsult`,
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/plugin/hub.go::vetoConsulted`
 - Config surface:
-  `/home/lnb/Desktop/HA/Avalon/internal/plugin/config.go::validate`
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/plugin/config.go::validate`
   (gameplayVetoTimeoutMs / vetoEvents validation)
 - Wiring (all first-round v2 listeners):
-  `/home/lnb/Desktop/HA/Avalon/internal/plugin/default.go::RegisterRoomEvents`
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/plugin/default.go::RegisterRoomEvents`
 - v1.2.0 wiring:
-  `/home/lnb/Desktop/HA/Avalon/internal/app/eventglobal.go::registerEventGlobal`
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/app/eventglobal.go::registerEventGlobal`
   (connection.new composed with the IP/24 ban),
-  `/home/lnb/Desktop/HA/Avalon/internal/command/clientcommands.go::RegisterClientCommands`
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/command/clientcommands.go::RegisterClientCommands`
   (game.start admission before StartGame),
-  `/home/lnb/Desktop/HA/Avalon/internal/game/player/player.go::KickPlayer`
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/game/player/player.go::KickPlayer`
   (player.kicked choke point, OnKicked hook),
-  `/home/lnb/Desktop/HA/Avalon/internal/plugin/default.go::RegisterPlayerKickAudit`
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/plugin/default.go::RegisterPlayerKickAudit`
   (boot-chain hook install, called from
-  `/home/lnb/Desktop/HA/Avalon/internal/app/bootstrap.go`)
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/app/bootstrap.go`)
 - Pump-goroutine constraint behind the detached join admission:
-  `/home/lnb/Desktop/HA/Avalon/internal/game/external/backend.go::pump`
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/game/external/backend.go::pump`
 - Event fire sites consumed:
-  `/home/lnb/Desktop/HA/Avalon/internal/net/gameserver/registry.go::handleHelperEvent`,
-  `/home/lnb/Desktop/HA/Avalon/internal/net/gameserver/gameserver.go::ReceiveChat`,
-  `/home/lnb/Desktop/HA/Avalon/internal/net/gameserver/gameserver.go::ReceiveCommand`,
-  `/home/lnb/Desktop/HA/Avalon/internal/net/gameserver/gameserver.go::Disconnect`
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/net/gameserver/registry.go::handleHelperEvent`,
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/net/gameserver/gameserver.go::ReceiveChat`,
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/net/gameserver/gameserver.go::ReceiveCommand`,
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/net/gameserver/gameserver.go::Disconnect`
 - Contract: [xref]
   `/home/lnb/Desktop/HA/HA-Contract/docs/api/openapi/avalon-plugin-v1.yaml (field: 1.2.0)`
 - Survey input: `knowledge/0007-v2-extension-candidate-survey.md`; v1

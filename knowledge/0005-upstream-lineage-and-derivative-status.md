@@ -104,7 +104,7 @@ checkout at `/home/lnb/RW-HPS` with `upstream/master` @ `239a7773`).
 
 ```bash
 # 1. Correspondence-marker coverage (expect 167/171)
-cd /home/lnb/Desktop/HA/Avalon
+cd /home/lnb/Desktop/HA/rw/Avalon
 total=$(git ls-files '*.go' | grep -v _test.go | wc -l)
 marked=$(git grep -l '对应\|照搬\|上游' -- '*.go' | grep -v _test.go | wc -l)
 echo "$marked/$total"

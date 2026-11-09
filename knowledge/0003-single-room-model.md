@@ -49,16 +49,16 @@ by the author):
 
 ## Evidence
 
-- Singleton wiring (Avalon at `/home/lnb/Desktop/HA/Avalon`; anchors
+- Singleton wiring (Avalon at `/home/lnb/Desktop/HA/rw/Avalon`; anchors
   verified at commit `599b0e3`):
-  `/home/lnb/Desktop/HA/Avalon/internal/app/bootstrap.go::NewServerRoom`
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/app/bootstrap.go::NewServerRoom`
   (`room.NewServerRoom(game.NewGameSession(global.ConfigServer.ServerID,
   game.Backend))` — RoomID = ServerID),
-  `/home/lnb/Desktop/HA/Avalon/internal/app/bootstrap.go::SetDefault`
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/app/bootstrap.go::SetDefault`
   (`room.SetDefault`);
-  `/home/lnb/Desktop/HA/Avalon/internal/game/room/serverroom.go::SetDefault`
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/game/room/serverroom.go::SetDefault`
   (`SetDefault`),
-  `/home/lnb/Desktop/HA/Avalon/internal/game/room/serverroom.go::Default`
+  `/home/lnb/Desktop/HA/rw/Avalon/internal/game/room/serverroom.go::Default`
   (`Default`).
 - Decision record D-5 (author decision log
   `/home/lnb/SamuelPortal-docs/AVALON-DECISIONS.md (field: D-5)`, entry D-5,
