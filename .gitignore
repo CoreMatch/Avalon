@@ -1,6 +1,7 @@
 # Go 构建产物
 /rwhps
 /dist/out/
+/build/
 
 # 运行时数据 (首次启动生成: Config.json / Settings.bin / replays / logs)
 /data/
