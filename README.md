@@ -137,6 +137,12 @@ go test ./...          # 需要时追加 -race
 
 （依赖已缓存时可加 `--offline` 加速。）
 
+本工作区的两个仓库位于 `rw/Avalon` 与 `rw/Avalon-Helper`；从 Avalon 根目录构建：
+
+```bash
+(cd ../Avalon-Helper && ./gradlew :Helper:jar -Dorg.gradle.java.home=/path/to/jdk-17)
+```
+
 ### 配置接入
 
 在 `data/Config.json` 填入（或用 `-D` 覆盖）：
@@ -159,6 +165,13 @@ go test ./...          # 需要时追加 -race
 - 集成测试用同样的方式拉起 helper（`AVALON_HELPER_TEST_JAVA` 环境变量可指定 JDK 17
   的 java；`AVALON_HELPER_REPO_ROOT` 指向 Avalon-Helper 检出；jar 未构建/缺数据时测试
   自动跳过）。
+
+在本工作区从 Avalon 根目录运行真实 Helper 集成测试和分发打包：
+
+```bash
+AVALON_HELPER_REPO_ROOT="$PWD/../Avalon-Helper" go test ./... -count=1
+AVALON_HELPER_REPO="$PWD/../Avalon-Helper" ./dist/build-dist.sh
+```
 
 ### 启动并确认
 

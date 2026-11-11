@@ -65,10 +65,10 @@ by the author):
   `accepted`, author re-check): singleton slot chosen over dependency
   injection; "若将来要支持一个 Go 进程多个独立房间，槽位要换成注册表" (multi-room
   would replace the slot with a registry).
-- Cascade routing (Cascade repository at `/home/lnb/Cascade`, checked locally):
-  `/home/lnb/Desktop/avalon/Cascade/internal/backend/directory.go::RouteRoom` (`RouteRoom`:
+- Cascade routing (Cascade repository at `/home/lnb/Desktop/HA/rw/Cascade`, checked locally):
+  `/home/lnb/Desktop/HA/rw/Cascade/internal/backend/directory.go::RouteRoom` (`RouteRoom`:
   snapshot room-code ownership → longest prefix → default backend),
-  `/home/lnb/Desktop/avalon/Cascade/internal/backend/directory.go::validatePrefixes`
+  `/home/lnb/Desktop/HA/rw/Cascade/internal/backend/directory.go::validatePrefixes`
   (`validatePrefixes`, overlapping prefixes rejected).
 - Contract room facade: HA-Contract `docs/api/openapi/cascade-backend-v1.yaml`,
   paths `/rooms` and `/rooms/{code}...` (v1.2.0).

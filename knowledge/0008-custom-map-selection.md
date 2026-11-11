@@ -78,4 +78,4 @@ a SHA-256/size content manifest registered at map scan time.
 - `internal/game/seam.go::GameSession.StartGame`
 - `internal/game/external/protocol.go::ProtocolVersion`
 - `internal/command/clientcommands.go` — `map` command registration
-- helper: `/home/lnb/Desktop/avalon/Avalon-Helper/Helper/src/main/kotlin/io/github/corematch/avalonhelper/plugin/internal/headless/inject/go/GoBridge.kt::roomStart`
+- helper: `/home/lnb/Desktop/HA/rw/Avalon-Helper/Helper/src/main/kotlin/io/github/corematch/avalonhelper/plugin/internal/headless/inject/go/GoBridge.kt::roomStart`

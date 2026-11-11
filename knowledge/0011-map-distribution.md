@@ -104,5 +104,5 @@ channel.
 - `internal/game/external/simulation.go::Backend.Start`
 - `internal/net/gameserver/registry.go::routeStartGame`
 - `internal/net/gameserver/gameserver.go::mapDeliveryOutcome`
-- helper: `/home/lnb/Desktop/avalon/Avalon-Helper/Helper/src/main/kotlin/io/github/corematch/avalonhelper/plugin/internal/headless/inject/go/GoBridge.kt::roomStart`
-- helper: `/home/lnb/Desktop/avalon/Avalon-Helper/Helper/src/main/kotlin/io/github/corematch/avalonhelper/helper/HelperMain.kt`
+- helper: `/home/lnb/Desktop/HA/rw/Avalon-Helper/Helper/src/main/kotlin/io/github/corematch/avalonhelper/plugin/internal/headless/inject/go/GoBridge.kt::roomStart`
+- helper: `/home/lnb/Desktop/HA/rw/Avalon-Helper/Helper/src/main/kotlin/io/github/corematch/avalonhelper/helper/HelperMain.kt`

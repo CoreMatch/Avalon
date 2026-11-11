@@ -17,7 +17,7 @@ for the Java/Kotlin side lives in the Avalon-Helper repository
 
 - **Upstream tree**: RW-HPS org repository (`https://github.com/RW-HPS/RW-HPS.git`)
   master @ **`239a7773`**, available locally through the Avalon-Helper
-  checkout's `upstream` remote (default path `/home/lnb/RW-HPS`).
+  checkout's `upstream` remote (workspace path `/home/lnb/Desktop/HA/rw/Avalon-Helper`).
 - **Topological fact**: in the Avalon-Helper checkout,
   `git merge-base master upstream/master` = `239a7773` = upstream HEAD — the
   fork point **is** the upstream HEAD, so the fork's Kotlin tree was
@@ -100,7 +100,7 @@ derivative status actually attaches.
 ## Reproduction
 
 All commands verified on audit day (Avalon @ `c251706`, Avalon-Helper
-checkout at `/home/lnb/RW-HPS` with `upstream/master` @ `239a7773`).
+checkout at `/home/lnb/Desktop/HA/rw/Avalon-Helper` with `upstream/master` @ `239a7773`).
 
 ```bash
 # 1. Correspondence-marker coverage (expect 167/171)
@@ -111,24 +111,24 @@ echo "$marked/$total"
 
 # 2. The preserved upstream typo (expect hits in BOTH trees)
 grep -n 'UPDATA_CLASS_RECEIVE' internal/io/packettype/packettype.go
-git -C /home/lnb/RW-HPS show \
+git -C /home/lnb/Desktop/HA/rw/Avalon-Helper show \
   upstream/master:Server-Core/src/main/java/net/rwhps/server/io/packet/type/PacketType.kt \
   | grep -n 'UPDATA_CLASS_RECEIVE'
 
 # 3. Resource blobs vs upstream (expect 3x IDENTICAL, bundles +2 lines)
 for f in eula/Main-China.md eula/Main-English.md URL.ini; do
   diff -q "internal/resource/assets/$f" \
-    <(git -C /home/lnb/RW-HPS show "upstream/master:Server-Core/src/main/resources/$f") \
+    <(git -C /home/lnb/Desktop/HA/rw/Avalon-Helper show "upstream/master:Server-Core/src/main/resources/$f") \
     >/dev/null 2>&1 && echo "IDENTICAL: $f" || echo "DIFFERS: $f"
 done
 diff internal/resource/assets/bundles/HPS_en_US.properties \
-  <(git -C /home/lnb/RW-HPS show \
+  <(git -C /home/lnb/Desktop/HA/rw/Avalon-Helper show \
     upstream/master:Server-Core/src/main/resources/bundles/HPS_en_US.properties) \
   | grep -c '^<'
 
 # 4. Fork-point topology (expect 239a7773 twice)
-git -C /home/lnb/RW-HPS merge-base master upstream/master
-git -C /home/lnb/RW-HPS rev-parse upstream/master
+git -C /home/lnb/Desktop/HA/rw/Avalon-Helper merge-base master upstream/master
+git -C /home/lnb/Desktop/HA/rw/Avalon-Helper rev-parse upstream/master
 
 # 5. Avalon-Helper side line attribution: see Avalon-Helper scripts/lineage-report.sh
 ```
