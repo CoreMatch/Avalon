@@ -318,6 +318,12 @@ func TestE2ELobbyBootThenClientStart(t *testing.T) {
 	}
 
 	// --- 2. 子服形态配置 (测试后恢复) ---
+	// NeverEnd 最先登记 (清理时最后执行): 收尾阶段先置 true 再关检查线程,
+	// 让已入池的在途 tick 空转返回 (CloseTimeTask 无法中断已提交的那次,
+	// 见 timetask 包注释), 避免其读配置与清理期的全局恢复竞态.
+	oldNeverEnd := global.NeverEnd.Load()
+	t.Cleanup(func() { global.NeverEnd.Store(oldNeverEnd) })
+
 	oldConfig := global.Config
 	global.Config.CascadeLobby = true
 	global.Config.ClientStart = "allow"
@@ -337,6 +343,7 @@ func TestE2ELobbyBootThenClientStart(t *testing.T) {
 	r := room.NewServerRoom(game.NewGameSession(roomID, backend))
 	room.SetDefault(r)
 	t.Cleanup(func() {
+		global.NeverEnd.Store(true)
 		thread.CloseTimeTask(thread.AutoCheckTask, nil)
 		thread.CloseTimeTask(thread.AutoStartTask, nil)
 		thread.CloseTimeTask(thread.GameOverTask, nil)

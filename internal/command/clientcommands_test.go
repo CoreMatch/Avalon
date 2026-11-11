@@ -362,8 +362,17 @@ func (s *gateSim) PlayerCount() int             { return 0 }
 //
 // 检查线程在开局后会以 0 人立即 gr(), 与断言竞态; 用 NeverEnd 让它空转
 // (与 room 测试的 quietCheckThread 同语义).
+//
+// NeverEnd 时序是刻意的: 先于一切全局量写入置 true (挡掉上一个测试残留的
+// 在途检查线程 tick), 最后于一切全局量恢复之后才还原 —— CloseTimeTask
+// 无法中断已入池的那一次 tick (timetask 包注释), 若先还原 NeverEnd 再写
+// global.ConfigServer, 在途 tick 会穿过空转检查读到写入中的配置 (-race 竞态).
 func setupStartGateRoom(t *testing.T) (*cmd.Handler, *room.ServerRoom) {
 	t.Helper()
+
+	oldNeverEnd := global.NeverEnd.Load()
+	global.NeverEnd.Store(true)
+	t.Cleanup(func() { global.NeverEnd.Store(oldNeverEnd) })
 
 	oldCore, oldCfg, oldVote := global.Core, global.ConfigServer, global.Vote
 	global.Core = &global.Application{Admin: global.NewAdministration()}
@@ -372,9 +381,6 @@ func setupStartGateRoom(t *testing.T) (*cmd.Handler, *room.ServerRoom) {
 	global.ConfigServer.OneAdmin = false
 	global.ConfigServer.MaxPlayer = 10
 	global.ConfigServer.StartMinPlayerSize = -1
-
-	oldNeverEnd := global.NeverEnd.Load()
-	global.NeverEnd.Store(true)
 
 	r := room.NewServerRoom(game.NewGameSession("cc-gate", &gateSim{}))
 	room.SetDefault(r)
@@ -386,7 +392,6 @@ func setupStartGateRoom(t *testing.T) (*cmd.Handler, *room.ServerRoom) {
 		thread.CloseTimeTask(thread.AutoCheckTask, nil)
 		thread.CloseTimeTask(thread.GameOverTask, nil)
 		room.SetDefault(nil)
-		global.NeverEnd.Store(oldNeverEnd)
 		global.Core, global.ConfigServer, global.Vote = oldCore, oldCfg, oldVote
 	})
 	return h, r
