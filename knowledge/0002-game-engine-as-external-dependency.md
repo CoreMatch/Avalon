@@ -57,38 +57,38 @@ All paths absolute into the Avalon checkout
 (`/home/lnb/Desktop/HA/rw/Avalon`); anchors verified at commit `599b0e3`.
 
 - Boundary rationale:
-  `/home/lnb/Desktop/HA/rw/Avalon/internal/game/seam.go::Simulation` — upstream
+  `internal/game/seam.go::Simulation` — upstream
   loads the closed-source jar in-JVM and rewires it via ASM; "Go 进程无法执行
   Java 字节码" (a Go process cannot execute Java bytecode), no fake
   implementations.
 - Explicit-failure design:
-  `/home/lnb/Desktop/HA/rw/Avalon/internal/game/seam.go::ErrNotImplemented`
+  `internal/game/seam.go::ErrNotImplemented`
   (`ErrNotImplemented = "game: no simulation backend available"`),
-  `/home/lnb/Desktop/HA/rw/Avalon/internal/game/seam.go::Unimplemented`
+  `internal/game/seam.go::Unimplemented`
   (`Unimplemented` placeholder;
-  `/home/lnb/Desktop/HA/rw/Avalon/internal/game/seam.go::Backend` defaults to it).
+  `internal/game/seam.go::Backend` defaults to it).
 - v2 operation set and validation:
-  `/home/lnb/Desktop/HA/rw/Avalon/docs/HELPER-PROTOCOL.md (field: 操作（Go -> helper)`;
+  `docs/HELPER-PROTOCOL.md (field: 操作（Go -> helper)`;
   transport and wire format
-  `/home/lnb/Desktop/HA/rw/Avalon/docs/HELPER-PROTOCOL.md (field: 传输与线格式)`;
+  `docs/HELPER-PROTOCOL.md (field: 传输与线格式)`;
   events
-  `/home/lnb/Desktop/HA/rw/Avalon/docs/HELPER-PROTOCOL.md (field: 事件（helper -> Go)`.
+  `docs/HELPER-PROTOCOL.md (field: 事件（helper -> Go)`.
 - v2-ext purpose and compatibility:
-  `/home/lnb/Desktop/HA/rw/Avalon/docs/HELPER-PROTOCOL.md (field: 版本与向后兼容)`
+  `docs/HELPER-PROTOCOL.md (field: 版本与向后兼容)`
   (same wire version; v2-only helpers answer `unsupported`; Go normalizes to
   `game.ErrUnsupported` and degrades to logged no-ops);
-  `/home/lnb/Desktop/HA/rw/Avalon/internal/game/seam.go::ErrUnsupported`
+  `internal/game/seam.go::ErrUnsupported`
   (`ErrUnsupported`),
-  `/home/lnb/Desktop/HA/rw/Avalon/internal/game/seam.go::RoomControl`
+  `internal/game/seam.go::RoomControl`
   (`RoomControl` interface).
 - Degradation path:
-  `/home/lnb/Desktop/HA/rw/Avalon/internal/app/simulation.go::loadSimulation`
+  `internal/app/simulation.go::loadSimulation`
   (no backend → `Unimplemented`, "开局返回可读的错误"),
-  `/home/lnb/Desktop/HA/rw/Avalon/internal/app/simulation.go::GameHelperPath`
+  `internal/app/simulation.go::GameHelperPath`
   (helper not configured is the silent default),
-  `/home/lnb/Desktop/HA/rw/Avalon/internal/app/simulation.go::attachSimulation`
+  `internal/app/simulation.go::attachSimulation`
   (broken helper config → warn + fall back to no backend);
-  `/home/lnb/Desktop/HA/rw/Avalon/internal/app/bootstrap.go::ErrNotImplemented`
+  `internal/app/bootstrap.go::ErrNotImplemented`
   ("没有后端时 start 会返回 ErrNotImplemented").
 - JDK constraint: JDK 25 crashes the Kotlin 2.0.0 compiler; build with JDK 17.
   Not independently re-verified.

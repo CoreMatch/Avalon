@@ -51,14 +51,14 @@ by the author):
 
 - Singleton wiring (Avalon at `/home/lnb/Desktop/HA/rw/Avalon`; anchors
   verified at commit `599b0e3`):
-  `/home/lnb/Desktop/HA/rw/Avalon/internal/app/bootstrap.go::NewServerRoom`
+  `internal/app/bootstrap.go::NewServerRoom`
   (`room.NewServerRoom(game.NewGameSession(global.ConfigServer.ServerID,
   game.Backend))` — RoomID = ServerID),
-  `/home/lnb/Desktop/HA/rw/Avalon/internal/app/bootstrap.go::SetDefault`
+  `internal/app/bootstrap.go::SetDefault`
   (`room.SetDefault`);
-  `/home/lnb/Desktop/HA/rw/Avalon/internal/game/room/serverroom.go::SetDefault`
+  `internal/game/room/serverroom.go::SetDefault`
   (`SetDefault`),
-  `/home/lnb/Desktop/HA/rw/Avalon/internal/game/room/serverroom.go::Default`
+  `internal/game/room/serverroom.go::Default`
   (`Default`).
 - Decision record D-5 (author decision log
   `/home/lnb/SamuelPortal-docs/AVALON-DECISIONS.md (field: D-5)`, entry D-5,
@@ -66,9 +66,9 @@ by the author):
   injection; "若将来要支持一个 Go 进程多个独立房间，槽位要换成注册表" (multi-room
   would replace the slot with a registry).
 - Cascade routing (Cascade repository at `/home/lnb/Cascade`, checked locally):
-  `/home/lnb/Cascade/internal/backend/directory.go::RouteRoom` (`RouteRoom`:
+  `/home/lnb/Desktop/avalon/Cascade/internal/backend/directory.go::RouteRoom` (`RouteRoom`:
   snapshot room-code ownership → longest prefix → default backend),
-  `/home/lnb/Cascade/internal/backend/directory.go::validatePrefixes`
+  `/home/lnb/Desktop/avalon/Cascade/internal/backend/directory.go::validatePrefixes`
   (`validatePrefixes`, overlapping prefixes rejected).
 - Contract room facade: HA-Contract `docs/api/openapi/cascade-backend-v1.yaml`,
   paths `/rooms` and `/rooms/{code}...` (v1.2.0).
