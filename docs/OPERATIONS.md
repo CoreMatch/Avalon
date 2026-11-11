@@ -33,7 +33,8 @@ helper 线协议看 [HELPER-PROTOCOL.md](HELPER-PROTOCOL.md)。
 | `cascadeEnable` | false | Cascade 网关模式（门控 + /v1 控制面） | |
 | `cascadeBackendId` | "avalon-backend" | 后端 ID（JWT aud、health 应答） | |
 | `cascadeRoomCode` | "" | 对 Cascade 暴露的房间码，空回落 `serverID` | |
-| `cascadeLobby` | false | 零模组大厅模式，见 §2 | |
+| `cascadeLobby` | false | 零模组大厅模式，见 §2 | 开机启动命令只建房不开局 |
+| `clientStart` | "" | 客户端开局许可（`/start` 与自动开局倒计时同门控），见 §2.1 | 三态：""=跟随 `cascadeLobby`（遗留）/ "allow" / "deny" |
 | `cascadeTrustMode` | "open" | 对端信任档：open / ip / pinned | open = 裸奔，游戏口严禁暴露公网 |
 | `trustedCascadeIPs` | [] | ip/pinned 档来源白名单（IP/CIDR） | ip 档必填 |
 | `cascadePinnedFingerprints` | [] | pinned 档客户端证书指纹（SHA-256 DER） | 列表语义支持轮换并存 |
@@ -80,6 +81,7 @@ helper 线协议看 [HELPER-PROTOCOL.md](HELPER-PROTOCOL.md)。
 | `cascadeTrustMode: "ip"` 且 `trustedCascadeIPs` 为空 | 启动报错（不静默锁死也不静默放行） |
 | `cascadeTrustMode: "pinned"` 缺服务端证书或指纹 | 启动报错 |
 | `cascadeEnable` 所需材料缺失 | 启动失败（显式配置不降级，`internal/app/bootstrap.go::loadCascadeGateway`） |
+| `clientStart` 取值不是 "" / "allow" / "deny" | 启动显式失败（`internal/data/bean/configs.go::ValidateCoreConfig`，不静默纠正） |
 
 **不**挡启动的：`gameHelperPath` 文件缺失（回落无内核 + 告警）、
 `ConfigServer` 数值矛盾（自动纠偏 + 告警）。
@@ -103,20 +105,35 @@ helper 线协议看 [HELPER-PROTOCOL.md](HELPER-PROTOCOL.md)。
 ```
 
 `cascadeLobby: true` 的语义（`internal/data/bean/configs.go::CoreConfig`）：
-起引擎、建房、开放游戏端口、允许玩家连入停留，但**永不真正开局**
-（只 room.create 不 room.start，`internal/game/seam.go::GameSession.StartGame`
-的大厅分支），并拒绝客户端 `/start`（提示 `err.lobbyNoStart`，
-`internal/command/clientcommands.go::RegisterClientCommands`）。
+起引擎、开放游戏端口，开机启动命令**只建房不开局**（room.create 而不
+room.start，`internal/game/seam.go::GameSession.StartGameAtBoot` 的大厅分支），
+允许玩家连入停留。
 大厅的 `data/mods` 为空：任何客户端（无论装没装 mod）都能安全进入停留
 （原因——注册 checksum 只覆盖基础单位、mod 门槛是客户端侧 customUnits
 检查：`knowledge/0009-zero-mod-lobby-and-mod-assembly.md` §1）。
 在 Cascade 侧把它配成 `default_backend_id`。
 
-**模组房以及任何需要"先建后进"的服务同样必须用大厅模式**
+**开局许可与大厅模式解耦**（2026-11-11，DECISIONS D-26，
+`knowledge/0012-lobby-boot-and-client-start-decoupling.md`）：
+`cascadeLobby` 只决定"开机开局是否大厅式建房"；**客户端能否 `/start`
+由独立键 `clientStart` 控制**（`/start` 与自动开局倒计时共用同一命令门控，
+`internal/command/clientcommands.go::RegisterClientCommands`）：
+
+| `cascadeLobby` | `clientStart` | 开机 | 客户端 `/start` |
+|---|---|---|---|
+| true | ""（默认） | 只建房 | 拒绝，提示 `err.lobbyNoStart`（**落点大厅用这个**） |
+| true | "allow" | 只建房 | 允许（**子服/模组房用这个**） |
+| false | ""（默认） | 真开局 | 允许（遗留单机形态） |
+| 任意 | "deny" | 视 `cascadeLobby` | 拒绝，提示 `err.startDisabled` |
+
+缺省（无 `clientStart` 键）完全沿用遗留语义，既有部署升级行为不变。
+
+**模组房以及任何需要"先建后进"的服务必须用大厅开机**
 （`cascadeLobby: true`）：真开局下 0 人房间会被每秒一次的房间检查线程
 立即终局（`internal/game/manage/callmanage.go::StartCheckThread`，无 AI 且
 0 人 → 立即 `Gr()`），终局后玩家进不来——"临时开局等人"必踩。所以部署
-形态恒为大厅（建房不开局），开局权留给玩家进入之后。（回归脚本实测。）
+形态恒为大厅开机（建房不开局）；子服再加 `clientStart: "allow"` 把开局权
+留给进入的玩家（解耦前子服被迫继承大厅的"拒绝 `/start`"，已修正）。
 
 ### 2.2 玩家从大厅到子服
 

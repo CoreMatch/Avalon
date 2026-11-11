@@ -64,6 +64,11 @@ func (r *Runtime) Start() error {
 	global.ConfigServer = bean.StringToServerConfig()
 	global.ConfigRelay = bean.StringToRelayConfig()
 
+	// 核心配置取值合法性 (如 clientStart 三态): 非法显式失败, 不带着错误语义运行
+	if err := bean.ValidateCoreConfig(global.Config); err != nil {
+		return err
+	}
+
 	// 进程外插件 hub (ADR-0006): 配置校验 + 首轮 manifest 协商 + 启动投递
 	// worker. 配置缺失/非法显式失败; 插件不可达只会在准入时 fail-open,
 	// 不阻塞启动. 未配置插件时 hub 空转, 行为与现网完全一致.

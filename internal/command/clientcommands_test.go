@@ -330,7 +330,8 @@ func TestClientStartMinPlayer(t *testing.T) {
 	}
 }
 
-// TestClientStartBlockedInLobby 大厅模式 (CascadeLobby) 拒绝客户端开局, 即便是管理员.
+// TestClientStartBlockedInLobby 遗留大厅 (CascadeLobby + clientStart 缺省)
+// 拒绝客户端开局, 即便是管理员.
 func TestClientStartBlockedInLobby(t *testing.T) {
 	h, r, ps, cs := setupClientCommands(t, 1)
 	ps[0].IsAdmin = true
@@ -344,6 +345,134 @@ func TestClientStartBlockedInLobby(t *testing.T) {
 	}
 	if !strings.Contains(cs[0].text(), "err.lobbyNoStart") {
 		t.Fatalf("大厅模式应拒绝开局: %q", cs[0].text())
+	}
+}
+
+// --- /start 门控解耦 (cascadeLobby 与 clientStart, DECISIONS D-26) ---
+
+// gateSim 可成功的模拟内核: 门控放行后能真正置开局状态, 与断言直接对应
+type gateSim struct{ running bool }
+
+func (s *gateSim) Start(game.MatchConfig) error { s.running = true; return nil }
+func (s *gateSim) Stop() error                  { s.running = false; return nil }
+func (s *gateSim) Running() bool                { return s.running }
+func (s *gateSim) PlayerCount() int             { return 0 }
+
+// setupStartGateRoom 构造带可用内核的客户端命令环境 (门控测试专用).
+//
+// 检查线程在开局后会以 0 人立即 gr(), 与断言竞态; 用 NeverEnd 让它空转
+// (与 room 测试的 quietCheckThread 同语义).
+//
+// NeverEnd 时序是刻意的: 先于一切全局量写入置 true (挡掉上一个测试残留的
+// 在途检查线程 tick), 最后于一切全局量恢复之后才还原 —— CloseTimeTask
+// 无法中断已入池的那一次 tick (timetask 包注释), 若先还原 NeverEnd 再写
+// global.ConfigServer, 在途 tick 会穿过空转检查读到写入中的配置 (-race 竞态).
+func setupStartGateRoom(t *testing.T) (*cmd.Handler, *room.ServerRoom) {
+	t.Helper()
+
+	oldNeverEnd := global.NeverEnd.Load()
+	global.NeverEnd.Store(true)
+	t.Cleanup(func() { global.NeverEnd.Store(oldNeverEnd) })
+
+	oldCore, oldCfg, oldVote := global.Core, global.ConfigServer, global.Vote
+	global.Core = &global.Application{Admin: global.NewAdministration()}
+	global.ConfigServer.AutoStartMinPlayerSize = -1
+	global.ConfigServer.SaveRePlayFile = false
+	global.ConfigServer.OneAdmin = false
+	global.ConfigServer.MaxPlayer = 10
+	global.ConfigServer.StartMinPlayerSize = -1
+
+	r := room.NewServerRoom(game.NewGameSession("cc-gate", &gateSim{}))
+	room.SetDefault(r)
+	h := r.ClientHandler
+	RegisterClientCommands(h, r)
+
+	t.Cleanup(func() {
+		thread.CloseTimeTask(thread.AutoStartTask, nil)
+		thread.CloseTimeTask(thread.AutoCheckTask, nil)
+		thread.CloseTimeTask(thread.GameOverTask, nil)
+		room.SetDefault(nil)
+		global.Core, global.ConfigServer, global.Vote = oldCore, oldCfg, oldVote
+	})
+	return h, r
+}
+
+// setStartGate 设置门控两配置并登记恢复
+func setStartGate(t *testing.T, lobby bool, clientStart string) {
+	t.Helper()
+	oldLobby, oldClientStart := global.Config.CascadeLobby, global.Config.ClientStart
+	global.Config.CascadeLobby = lobby
+	global.Config.ClientStart = clientStart
+	t.Cleanup(func() {
+		global.Config.CascadeLobby, global.Config.ClientStart = oldLobby, oldClientStart
+	})
+}
+
+// TestClientStartAllowedInLobbyWithClientStart 子服形态 (大厅 + clientStart=allow):
+// 管理员 /start 真正开局 —— "能进能待能开局"的开局侧验收.
+func TestClientStartAllowedInLobbyWithClientStart(t *testing.T) {
+	setStartGate(t, true, "allow")
+	h, r := setupStartGateRoom(t)
+
+	data := player.NewData()
+	data.Apply(func(d *player.Data) {
+		d.Name = "gate-admin"
+		d.ConnectHexID = "gatex0"
+	})
+	p := r.PlayerManage.AddAbstractPlayer(&clientConn{}, data, nil)
+	p.IsAdmin = true
+
+	h.HandleMessageWith("/start", p)
+	if !r.IsStartGame {
+		t.Fatal("clientStart=allow 时大厅内 /start 应真正开局")
+	}
+}
+
+// TestClientStartExplicitDeny 非大厅 + clientStart=deny: 即便是管理员也显式
+// 拒绝, 提示 err.startDisabled (不是大厅文案), 房间不开局.
+func TestClientStartExplicitDeny(t *testing.T) {
+	setStartGate(t, false, "deny")
+	h, r := setupStartGateRoom(t)
+
+	data := player.NewData()
+	con := &clientConn{}
+	data.Apply(func(d *player.Data) {
+		d.Name = "deny-admin"
+		d.ConnectHexID = "denyx0"
+	})
+	p := r.PlayerManage.AddAbstractPlayer(con, data, nil)
+	p.IsAdmin = true
+
+	h.HandleMessageWith("/start", p)
+	if r.IsStartGame {
+		t.Fatal("clientStart=deny 时不应能开局")
+	}
+	if !strings.Contains(con.text(), "err.startDisabled") {
+		t.Fatalf("显式 deny 应回 err.startDisabled: %q", con.text())
+	}
+}
+
+// TestClientStartAutoPathGatedByLegacyLobby 自动开局路径 (param=nil,
+// AutoStartTask 经同一命令入口): 遗留大厅同样被门控, 不静默开局.
+func TestClientStartAutoPathGatedByLegacyLobby(t *testing.T) {
+	setStartGate(t, true, "")
+	h, r := setupStartGateRoom(t)
+
+	h.HandleMessageWith("/start", nil)
+	if r.IsStartGame {
+		t.Fatal("遗留大厅的自动开局路径应被门控")
+	}
+}
+
+// TestClientStartAutoPathAllowedInSubForm 子服形态下自动开局倒计时同样放行
+// (与 /start 共用门控): 人数达标后的自动开局不被解耦误伤.
+func TestClientStartAutoPathAllowedInSubForm(t *testing.T) {
+	setStartGate(t, true, "allow")
+	h, r := setupStartGateRoom(t)
+
+	h.HandleMessageWith("/start", nil)
+	if !r.IsStartGame {
+		t.Fatal("clientStart=allow 时自动开局路径应能开局")
 	}
 }
 

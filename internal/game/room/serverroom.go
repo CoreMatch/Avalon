@@ -273,7 +273,7 @@ func (r *ServerRoom) SetGameOverData(data *event.GameOverData) {
 
 // --- 状态机 ---
 
-// StartGame 对应"开局"全链: 模拟内核开局 (GameSession.StartGame) +
+// StartGame 对应"开局"全链 (对局开局): 模拟内核开局 (GameSession.StartGame) +
 // 上游 roomStartGame 的房间侧动作.
 //
 // 上游时序: 引擎起来后, 客户端/引擎触发 START_GAME -> isStartGame = true ->
@@ -284,15 +284,32 @@ func (r *ServerRoom) SetGameOverData(data *event.GameOverData) {
 //	Threads.pause(CallTeamTask)
 //	playerAll.eachAll { updateDate() }
 //	call.startCheckThread()
-func (r *ServerRoom) StartGame() error {
-	if err := r.GameSession.StartGame(); err != nil {
-		return err
-	}
+//
+// 无论 cascadeLobby 与否都走全套: 客户端 /start 在子服形态
+// (CascadeLobby=true + ClientStart="allow") 下是真正的对局开局
+// (解耦, 作者拍板, 2026-11-11, DECISIONS D-26).
+func (r *ServerRoom) StartGame() error { return r.startGame(false) }
 
-	// 大厅模式 (CascadeLobby): GameSession 只建房不开局, 房间侧也没有开局动作
-	// (不暂停队伍任务、不起对局检查线程), 保持大厅常驻.
-	if global.Config.CascadeLobby {
-		return nil
+// StartGameAtBoot 开机开局: 启动命令 (defStartCommand) 的入口.
+//
+// 大厅模式 (CascadeLobby) 下只建房: GameSession 只 room.create 不 room.start,
+// 房间侧也没有开局动作 (不暂停队伍任务、不起对局检查线程), 保持大厅常驻;
+// 非大厅模式等价于 StartGame.
+func (r *ServerRoom) StartGameAtBoot() error { return r.startGame(true) }
+
+func (r *ServerRoom) startGame(atBoot bool) error {
+	if atBoot {
+		if err := r.GameSession.StartGameAtBoot(); err != nil {
+			return err
+		}
+		// 大厅开机: 只建房不开局, 无房间侧开局动作, 保持大厅常驻.
+		if global.Config.CascadeLobby {
+			return nil
+		}
+	} else {
+		if err := r.GameSession.StartGame(); err != nil {
+			return err
+		}
 	}
 
 	thread.Pause(thread.CallTeamTask)

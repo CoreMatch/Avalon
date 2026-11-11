@@ -254,13 +254,26 @@ func (s *GameSession) simulation() Simulation {
 	return s.Simulation
 }
 
-// StartGame 对应 ServerRoom.roomStartGame
+// StartGame 对应 ServerRoom.roomStartGame: 对局开局.
+//
+// 无论 cascadeLobby 与否都真正开局 (room.create + room.start): 客户端 /start
+// 与自动开局倒计时走这里. 大厅模式的"只建房不开局"只作用于开机路径
+// (见 StartGameAtBoot) —— 解耦 (作者拍板, 2026-11-11, DECISIONS D-26):
+// cascadeLobby 决定"开机开局是否大厅式建房", 客户端开局许可由
+// CoreConfig.ClientStart 独立门控 (命令层, 见 CoreConfig.ClientStartAllowed).
 //
 // 与原版一致: 只有模拟内核真正启动成功后才会写入 startTime/endTime 并置 isStartGame,
 // 失败时房间保持未开局状态.
-func (s *GameSession) StartGame() error {
+func (s *GameSession) StartGame() error { return s.startGame(false) }
+
+// StartGameAtBoot 开机开局: 启动命令 (defStartCommand) 的入口.
+//
+// 大厅模式 (CascadeLobby) 下只建房 (room.create) 不真正开局 (room.start),
+// 引擎起到大厅态, 玩家可连入停留; 非大厅模式等价于 StartGame.
+func (s *GameSession) StartGameAtBoot() error { return s.startGame(global.Config.CascadeLobby) }
+
+func (s *GameSession) startGame(lobby bool) error {
 	sim := s.simulation()
-	lobby := global.Config.CascadeLobby
 
 	s.mu.RLock()
 	maps := s.Maps

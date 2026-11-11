@@ -23,6 +23,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/CoreMatch/Avalon/internal/command"
+	"github.com/CoreMatch/Avalon/internal/core/thread"
+	"github.com/CoreMatch/Avalon/internal/data/global"
 	"github.com/CoreMatch/Avalon/internal/game"
 	"github.com/CoreMatch/Avalon/internal/game/external"
 	"github.com/CoreMatch/Avalon/internal/game/room"
@@ -279,4 +282,105 @@ func TestE2ERealGameToSettlement(t *testing.T) {
 		}
 		time.Sleep(2 * time.Second)
 	}
+}
+
+// TestE2ELobbyBootThenClientStart 解耦验收 (作者拍板, 2026-11-11, DECISIONS D-26):
+// 子服形态 (CascadeLobby=true + clientStart=allow) ——
+//
+//  1. 开机走 StartGameAtBoot: 只建房 (room.create) 不开局, 引擎 room.status
+//     不得 Running (0 人开机真开局会被检查线程秒终局的坏态不再出现);
+//  2. 玩家侧 /start 走房间命令入口 (与自动开局倒计时同一门控): 真正开局,
+//     房间状态从"待机"转"进行中" (IsStartGame + 引擎 room.status Running).
+//
+// 边界说明: 与 TestE2ERealGameToSettlement 相同, 客户端只到预注册握手为止 ——
+// 引擎对 REGISTER_PLAYER 的核心单位 checksum 反作弊校验只有真实 RW 客户端
+// 产生得出, "两名真人玩家完整打一局"不在本测试覆盖内.
+func TestE2ELobbyBootThenClientStart(t *testing.T) {
+	java, jar, dataDir := e2ePrereqs(t)
+
+	// --- 1. 真实后端 (拉起 JVM + 上游引擎) ---
+	backend, err := external.New(external.Config{
+		JavaPath:   java,
+		HelperPath: jar,
+		ExtraArgs: []string{
+			"-Davalonhelper.dataPath=" + dataDir,
+			"-Xmx512m",
+		},
+		HelloTimeout: 90 * time.Second,
+		OpTimeout:    120 * time.Second,
+	})
+	if err != nil {
+		t.Fatalf("external.New: %v", err)
+	}
+	t.Cleanup(func() { _ = backend.Close() })
+	if err := backend.EnsureRunning(); err != nil {
+		t.Fatalf("EnsureRunning (hello 握手): %v", err)
+	}
+
+	// --- 2. 子服形态配置 (测试后恢复) ---
+	// NeverEnd 最先登记 (清理时最后执行): 收尾阶段先置 true 再关检查线程,
+	// 让已入池的在途 tick 空转返回 (CloseTimeTask 无法中断已提交的那次,
+	// 见 timetask 包注释), 避免其读配置与清理期的全局恢复竞态.
+	oldNeverEnd := global.NeverEnd.Load()
+	t.Cleanup(func() { global.NeverEnd.Store(oldNeverEnd) })
+
+	oldConfig := global.Config
+	global.Config.CascadeLobby = true
+	global.Config.ClientStart = "allow"
+	t.Cleanup(func() { global.Config = oldConfig })
+
+	oldConfigServer := global.ConfigServer
+	global.ConfigServer.MaxPlayer = 10
+	global.ConfigServer.MaxGameIngTime = 7200
+	global.ConfigServer.StartMinPlayerSize = -1
+	global.ConfigServer.AutoStartMinPlayerSize = -1
+	global.ConfigServer.SaveRePlayFile = false
+	global.ConfigServer.OneAdmin = false
+	t.Cleanup(func() { global.ConfigServer = oldConfigServer })
+
+	// --- 3. 房间 + 客户端命令入口 ---
+	const roomID = "room-sub-e2e"
+	r := room.NewServerRoom(game.NewGameSession(roomID, backend))
+	room.SetDefault(r)
+	t.Cleanup(func() {
+		global.NeverEnd.Store(true)
+		thread.CloseTimeTask(thread.AutoCheckTask, nil)
+		thread.CloseTimeTask(thread.AutoStartTask, nil)
+		thread.CloseTimeTask(thread.GameOverTask, nil)
+		thread.CloseTimeTask(thread.CallTeamTask, nil)
+		room.SetDefault(nil)
+	})
+	command.RegisterClientCommands(r.ClientHandler, r)
+
+	// --- 4. 开机: 大厅模式只建房不开局 ---
+	if err := r.StartGameAtBoot(); err != nil {
+		t.Fatalf("StartGameAtBoot (开机建房): %v", err)
+	}
+	if r.IsStartGame {
+		t.Fatal("大厅开机不应进入开局状态")
+	}
+	if backend.Running() {
+		t.Fatal("大厅开机后引擎 room.status 不应为 Running (只建房不开局)")
+	}
+	t.Log("[E2E] 开机只建房: 房间待机, 引擎未开局")
+
+	// --- 5. 两个 AI 入房 (检查线程: 0 人开局会被立即 gr) ---
+	for i := 0; i < 2; i++ {
+		if err := r.AddAI(); err != nil {
+			t.Fatalf("AddAI #%d: %v", i+1, err)
+		}
+	}
+	if got := r.PlayerManage.PlayerGroup.Size(); got != 2 {
+		t.Fatalf("AI 入房后 PlayerGroup = %d, 期望 2", got)
+	}
+
+	// --- 6. /start 真正开局 (param=nil 与自动开局倒计时同路径同门控) ---
+	r.ClientHandler.HandleMessageWith("/start", nil)
+	if !r.IsStartGame {
+		t.Fatal("/start 应开局 (clientStart=allow)")
+	}
+	if !backend.Running() {
+		t.Fatal("/start 后引擎 room.status 应为 Running")
+	}
+	t.Log("[E2E] /start 真实开局: 房间从待机转进行中 (引擎 room.status Running)")
 }

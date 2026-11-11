@@ -107,7 +107,10 @@ func registerStartGame(h *cmd.Handler, d *Deps) {
 		// 与原版的差异: 原版启动不会失败, 因此 StartServer 一旦置 true 就保持.
 		// Go 版 StartGame 可能返回 ErrNotImplemented, 失败时把标志复位,
 		// 否则服务器会永久卡在"已启动"状态, 连重试的机会都没有.
-		if err := d.Session.StartGame(); err != nil {
+		//
+		// 开机路径 (StartGameAtBoot): 大厅模式 (CascadeLobby) 下只建房不开局;
+		// 客户端 /start 走命令层的对局开局, 不经这里 (DECISIONS D-26).
+		if err := d.Session.StartGameAtBoot(); err != nil {
 			global.StartServer = false
 			// 用 LogError 而不是 Error: 后者把 error 当作 tag, 正文为空, 消息会丢
 			log.LogError("start", err)

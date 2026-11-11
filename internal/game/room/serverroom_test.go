@@ -136,6 +136,52 @@ func TestRoomStartGameBackendError(t *testing.T) {
 	}
 }
 
+// TestRoomStartGameAtBootInLobby 大厅开机 (CascadeLobby): 只建房, 无房间侧
+// 开局动作 —— 不起检查线程 (0 人开机真开局会被秒终局的根因), 不置开局状态.
+func TestRoomStartGameAtBootInLobby(t *testing.T) {
+	oldLobby := global.Config.CascadeLobby
+	global.Config.CascadeLobby = true
+	t.Cleanup(func() { global.Config.CascadeLobby = oldLobby })
+
+	fs := &fakeSim{}
+	r := newTestRoom(t, fs)
+
+	if err := r.StartGameAtBoot(); err != nil {
+		t.Fatalf("StartGameAtBoot: %v", err)
+	}
+	if !fs.started {
+		t.Fatal("内核应被调用 (建房)")
+	}
+	if r.IsStartGame {
+		t.Fatal("大厅开机不应置开局状态")
+	}
+	if thread.ContainsTimeTask(thread.AutoCheckTask) {
+		t.Fatal("大厅开机不应起对局检查线程")
+	}
+}
+
+// TestRoomStartGameMatchPathInLobby 解耦 (DECISIONS D-26): 大厅模式下对局开局
+// (客户端 /start, 子服形态 clientStart=allow) 走全套房间侧动作.
+func TestRoomStartGameMatchPathInLobby(t *testing.T) {
+	quietCheckThread(t)
+	oldLobby := global.Config.CascadeLobby
+	global.Config.CascadeLobby = true
+	t.Cleanup(func() { global.Config.CascadeLobby = oldLobby })
+
+	fs := &fakeSim{}
+	r := newTestRoom(t, fs)
+
+	if err := r.StartGame(); err != nil {
+		t.Fatalf("StartGame: %v", err)
+	}
+	if !r.IsStartGame {
+		t.Fatal("对局开局应置开局状态 (无论 cascadeLobby)")
+	}
+	if !thread.ContainsTimeTask(thread.AutoCheckTask) {
+		t.Fatal("对局开局应起检查线程")
+	}
+}
+
 // TestGr 强制结束: 状态清零, 检查线程收掉
 func TestGr(t *testing.T) {
 	quietCheckThread(t)
