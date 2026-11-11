@@ -74,13 +74,14 @@ cd avalon-<version>-linux-<arch>
 
 分发包跨两个仓库组装：Go 二进制来自本仓（Avalon），avalon-helper.jar 与
 `data/gameData` 来自 Avalon-Helper 检出（环境变量 `AVALON_HELPER_REPO` 指向）。
+本工作区中两个仓库并列于 `rw/`，因此从 Avalon 仓库根目录可用 `$PWD/../Avalon-Helper`。
 
 ```sh
-# Avalon-Helper 检出根目录: 先构建引擎壳
-JAVA_HOME=<jdk17> ./gradlew :Helper:jar
+# Avalon 仓库根目录: 先构建同级检出中的引擎壳
+(cd ../Avalon-Helper && JAVA_HOME=<jdk17> ./gradlew :Helper:jar)
 
 # Avalon 仓库根目录
-AVALON_HELPER_REPO=/path/to/Avalon-Helper ./dist/build-dist.sh   # 产出 dist/out/avalon-*.tar.gz
+AVALON_HELPER_REPO="$PWD/../Avalon-Helper" ./dist/build-dist.sh   # 产出 dist/out/avalon-*.tar.gz
 ```
 
 ## 验收记录
