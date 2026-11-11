@@ -35,7 +35,7 @@ Design proposal（只读核查产物；证据均给出文件路径 + 符号）�
 ## 1. 三件核查事实（钉死）
 
 以下证据全部来自对闭源引擎 `Server-Core/libs/game-lib.jar`（位于
-`/home/lnb/RW-HPS/Server-Core/libs/game-lib.jar`）的字节码反汇编，以及两仓源码。
+`/home/lnb/Desktop/HA/rw/Avalon-Helper/Server-Core/libs/game-lib.jar`）的字节码反汇编，以及两仓源码。
 混淆符号以 `game-lib.jar` 内的类/方法名给出。
 
 ### 1.1 Q1 — checksum 到底覆盖什么？mod 是否计入？
