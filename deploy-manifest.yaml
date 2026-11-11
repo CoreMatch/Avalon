@@ -1,5 +1,5 @@
 # Avalon 部署声明（deploy-manifest v1）
-# schema 依据：HA-Services-Deployer internal/manifest/（SchemaVersion=1）
+# schema 依据：HA-Cupbearer internal/manifest/（SchemaVersion=1）
 #
 # 声明形态：无 helper（作者定稿形态）。
 #   - 能启动：不配置 gameHelperPath，服务照常起来（internal/app/simulation.go：
