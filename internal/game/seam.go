@@ -328,10 +328,11 @@ func (s *GameSession) startGame(lobby bool) error {
 	return nil
 }
 
-// GameOver 对应 ServerRoom.gr 里的 cleanData 部分
+// GameOver 对应 ServerRoom.gr 里的 cleanData 部分 (状态壳)
 //
-// 原版还会 fire(ServerGameOverEvent)、清理 banUnit、关闭计时任务 —— 这些属于事件层,
-// 留到后续批次; 地图临时文件的清理在这里做, 对应 cleanData 末尾的 maps.mapData?.clean().
+// 原版还会 fire(ServerGameOverEvent)、清理 banUnit、关闭计时任务 —— 这些属于
+// 房间实体层, 已在 ServerRoom.cleanData 落地 (事件/禁封单位/计时任务都在那里收);
+// 本方法只承担状态壳与地图临时文件的清理, 对应 cleanData 末尾的 maps.mapData?.clean().
 func (s *GameSession) GameOver() error {
 	sim := s.simulation()
 	if err := sim.Stop(); err != nil {
