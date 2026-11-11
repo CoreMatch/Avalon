@@ -11,6 +11,11 @@ Design proposal（只读核查产物；证据均给出文件路径 + 符号）�
 实现未走 helper 协议查询操作，而是 Go 侧直接读 `/data/mods` 文件层；§4 的客户端
 外挂器即 RW-Mod-Injector 项目（另仓）。其余部分保留原设计文本。
 
+2026-11-11 注记：`cascadeLobby` 一个标志同时绑住"开机是否真开局"与"客户端
+能否 /start"两件事的问题已解耦——新增独立键 `clientStart`，子服形态
+（大厅开机 + 允许玩家开局）成为一等公民。决策与语义见
+`knowledge/0012-lobby-boot-and-client-start-decoupling.md`。
+
 ## 摘要
 
 目标形态：Cascade 下挂一个**零模组大厅房间**作为分流点。玩家先进大厅；带模组

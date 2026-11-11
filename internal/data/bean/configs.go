@@ -1,6 +1,7 @@
 package bean
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/CoreMatch/Avalon/internal/util/file"
@@ -88,10 +89,28 @@ type CoreConfig struct {
 	CascadeRoomCode string `json:"cascadeRoomCode"`
 
 	// CascadeLobby 大厅模式: 本后端是 Cascade 的零模组落点大厅 —— 起引擎、建房、
-	// 开放游戏端口、允许玩家连入停留, 但永不真正开局 (room.create 而不 room.start),
-	// 并拒绝客户端侧的开局请求. 作为 Cascade 的 default_backend_id 使用.
+	// 开放游戏端口、允许玩家连入停留, 开机启动命令只做建房 (room.create 而不
+	// room.start). 作为 Cascade 的 default_backend_id 使用.
 	// 关闭 (默认) 时行为与现网完全一致。
+	//
+	// 解耦 (作者拍板, 2026-11-11, DECISIONS D-26): 本字段只决定"开机开局是否
+	// 大厅式建房"与默认的客户端开局门控; "是否允许客户端 /start" 由 ClientStart
+	// 独立控制 (见下). 子服形态 = CascadeLobby=true + ClientStart="allow":
+	// 开机建房不开局, 玩家可进可待, 进房后可手动开局.
 	CascadeLobby bool `json:"cascadeLobby"`
+
+	// ClientStart 是否允许客户端侧开局 (/start 与自动开局倒计时共用同一命令入口,
+	// 门控一致). 三态:
+	//
+	//   ""      (默认) 遗留语义: 仅当 CascadeLobby=false 时允许客户端开局.
+	//           既有部署升级后行为完全由 CascadeLobby 决定, 不产生无声变化.
+	//   "allow" 允许客户端开局 —— 即使 CascadeLobby=true (子服形态).
+	//   "deny"  禁止客户端开局 —— 即使 CascadeLobby=false.
+	//
+	// 与"开机是否执行启动命令 (defStartCommand)"无关: 开机路径走
+	// GameSession.StartGameAtBoot, 是否大厅式建房仍由 CascadeLobby 决定.
+	// 合法值之外的取值使启动显式失败 (ValidateCoreConfig).
+	ClientStart string `json:"clientStart"`
 
 	// ---- 信任三档 (有意修正, 作者已批准, 2026-11-04; DECISIONS D-24) ----
 	// 作者定稿: "默认就是裸奔". 对端身份不再靠 mTLS 强校验与 JWT 验签,
@@ -156,6 +175,7 @@ func NewCoreConfig() CoreConfig {
 		CascadeEnable:             false,
 		CascadeBackendID:          "avalon-backend",
 		CascadeRoomCode:           "",
+		ClientStart:               "", // 遗留语义: 客户端开局许可跟随 CascadeLobby (见字段注释)
 		CascadeTrustMode:          "open",
 		TrustedCascadeIPs:         nil,
 		CascadePinnedFingerprints: nil,
@@ -164,6 +184,34 @@ func NewCoreConfig() CoreConfig {
 		CascadeControlAddr:        ":5125",
 		CascadePendingTimeoutSec:  0,
 	}
+}
+
+// ClientStartAllowed 客户端开局 (/start, 含经同一命令入口的自动开局倒计时)
+// 是否被允许 (解耦, 作者拍板, 2026-11-11, DECISIONS D-26).
+//
+// 三态语义 (见 ClientStart): "" 回落遗留语义 = !CascadeLobby;
+// "allow"/"deny" 显式覆盖.
+func (c CoreConfig) ClientStartAllowed() bool {
+	switch c.ClientStart {
+	case "allow":
+		return true
+	case "deny":
+		return false
+	default:
+		return !c.CascadeLobby
+	}
+}
+
+// ValidateCoreConfig 校验 CoreConfig 的取值合法性; 非法返回 error, 启动应显式失败.
+//
+// 与"配错就起不来"清单一致 (docs/OPERATIONS.md §1.3): 不静默纠正,
+// 避免带着错误语义运行.
+func ValidateCoreConfig(c CoreConfig) error {
+	switch c.ClientStart {
+	case "", "allow", "deny":
+		return nil
+	}
+	return fmt.Errorf("clientStart: 非法取值 %q (合法: \"\" / \"allow\" / \"deny\")", c.ClientStart)
 }
 
 // CoreConfigFile 对应 BeanCoreConfig.fileUtils
