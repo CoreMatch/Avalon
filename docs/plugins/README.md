@@ -4,7 +4,7 @@ Avalon 的插件是**独立进程**：你自己起一个 HTTP 服务，Avalon �
 调用你。引擎（JVM 侧）不加载任何第三方代码，插件也永远不需要、不能够
 主动连接 Avalon——方向只有单向：**Avalon → 插件**。
 
-- 契约权威：HA-Contract `docs/api/openapi/avalon-plugin-v1.yaml`
+- 契约权威：Armorial Contract `docs/api/openapi/avalon-plugin-v1.yaml`
   （v1.2.0，三档事件契约）。文档与契约不一致时以契约为准，并请提 issue。
 - 设计记录：`knowledge/0006-out-of-process-plugin-extension-points.md`
   （v1 设计）、`knowledge/0010-plugin-v2-implementation-status.md`

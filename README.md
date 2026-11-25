@@ -20,8 +20,8 @@ Avalon is a dedicated-server runtime for Rusted Warfare 1.15 / protocol 176. It 
 - [Operations](docs/OPERATIONS.md) — rooms, routing, content, and plugin operations
 - [Distribution](docs/DISTRIBUTION.md) — supported runtime and distribution forms
 - [Avalon-Helper](https://github.com/CoreMatch/Avalon-Helper) — the JVM simulation companion
-- [HA Contract](https://github.com/CoreMatch/HA-Contract) — canonical integration contracts
-- [HA Wiki](https://wiki.mcnb.dev/) — ecosystem deployment and development guides
+- [Armorial Contract](https://github.com/CoreMatch/HA-Contract) — canonical integration contracts
+- [Armorial Wiki](https://wiki.mcnb.dev/) — ecosystem deployment and development guides
 
 ## Limits
 

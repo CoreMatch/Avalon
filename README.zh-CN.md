@@ -20,8 +20,8 @@ Avalon 是面向 Rusted Warfare 1.15 / 协议 176 的专用服务端运行时。
 - [运维文档](docs/OPERATIONS.md) — 房间、路由、内容与插件运维
 - [分发文档](docs/DISTRIBUTION.md) — 受支持的运行时与分发形态
 - [Avalon-Helper](https://github.com/CoreMatch/Avalon-Helper) — JVM 模拟伴随组件
-- [HA 契约](https://github.com/CoreMatch/HA-Contract) — 权威集成契约
-- [HA Wiki](https://wiki.mcnb.dev/) — 生态部署与开发指南
+- [Armorial 契约](https://github.com/CoreMatch/HA-Contract) — 权威集成契约
+- [Armorial Wiki](https://wiki.mcnb.dev/) — 生态部署与开发指南
 
 ## 使用边界
 

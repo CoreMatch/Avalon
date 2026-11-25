@@ -14,7 +14,7 @@
 manifest_version: 1
 kind: service
 project: avalon
-display_name: Avalon
+display_name: Armorial Avalon
 group: game
 # 未知：仓库无版本 tag，代码无自报版本常量/端点。
 service_version: "unknown"
